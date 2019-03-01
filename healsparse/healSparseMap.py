@@ -3,6 +3,7 @@ from __future__ import division, absolute_import, print_function
 import numpy as np
 import healpy as hp
 import fitsio
+import os
 
 class HealSparseMap(object):
     """
@@ -42,13 +43,13 @@ class HealSparseMap(object):
                 raise RuntimeError("Must specify nsideCoverage when reading healpix map")
 
             # This is a healpix format
-            healpixMap = hp.read_map(filename, nest=True)
+            healpixMap = hp.read_map(filename, nest=True, verbose=False)
             return cls(healpixMap=healpixMap, nsideCoverage=nsideCoverage, nest=True)
         elif 'PIXTYPE' in hdr and hdr['PIXTYPE'].rstrip() == 'HEALSPARSE':
             # This is a sparse map type.  Just use fits for now.
 
             covIndexMap = fitsio.read(filename, ext='COV')
-            sparseMap, sHdr = fitsio.read(filename, ext='SPARSE')
+            sparseMap, sHdr = fitsio.read(filename, ext='SPARSE', header=True)
             return cls(covIndexMap=covIndexMap, sparseMap=sparseMap, nsideSparse=sHdr['NSIDE'])
         else:
             raise RuntimeError("Filename %s not in healpix or healsparse format." % (filename))
@@ -98,11 +99,11 @@ class HealSparseMap(object):
         cHdr = fitsio.FITSHDR()
         cHdr['PIXTYPE'] = 'HEALSPARSE'
         cHdr['NSIDE'] = self._nsideCoverage
-        fitsio.write(filename, self._covIndexMap, header=hdr, extname='COV', clobber=True)
+        fitsio.write(filename, self._covIndexMap, header=cHdr, extname='COV', clobber=True)
         sHdr = fitsio.FITSHDR()
         sHdr['PIXTYPE'] = 'HEALSPARSE'
         sHdr['NSIDE'] = self._nsideSparse
-        fitsio.write(filename, self._sparseMap, header=hdr, extname='SPARSE')
+        fitsio.write(filename, self._sparseMap, header=sHdr, extname='SPARSE')
 
     def getValueRaDec(self, ra, dec):
         """

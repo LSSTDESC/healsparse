@@ -1,0 +1,8 @@
+*~
+*.pyc
+*.o
+*.so
+build
+dist
+healsparse.egg-info
+.DS_Store
