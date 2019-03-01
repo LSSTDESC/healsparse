@@ -1,1 +1,1 @@
-from healSparseMap import HealSparseMap
+from .healSparseMap import HealSparseMap
