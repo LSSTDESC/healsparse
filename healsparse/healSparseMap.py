@@ -139,7 +139,15 @@ class HealSparseMap(object):
     def coverageMap(self):
         # Fix this to filter out the minimum value
         return self._covIndexMap
-
+    def coverageMask(self): 
+        """
+        Get the boolean mask
+        """
+        # This points to the overflow bins
+        covMask = self.covIndexMap != covPix.size * nFinePerCov - np.arange(hp.nside2npix(nsideCoverage), dtype=np.int64)
+        
+        return covMask
+ 
     def generateHealpixMap(self, nside=None, reduction='mean'):
         """
         Generate the associated healpix map
