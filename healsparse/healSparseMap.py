@@ -144,8 +144,7 @@ class HealSparseMap(object):
         Get the boolean mask
         """
         # This points to the overflow bins
-        covMask = self.covIndexMap != covPix.size * nFinePerCov - np.arange(hp.nside2npix(nsideCoverage), dtype=np.int64)
-        
+        covMask = self._covIndexMap != len(self._sparseMap)-2**(self._bitShift) - np.arange(hp.nside2npix(self._nsideCoverage), dtype=np.int64) 
         return covMask
  
     def generateHealpixMap(self, nside=None, reduction='mean'):
