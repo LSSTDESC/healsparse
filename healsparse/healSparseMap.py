@@ -80,8 +80,8 @@ class HealSparseMap(object):
 
         # The default for the covered pixels is the location in the array (below)
         covIndexMap[covPix] = np.arange(covPix.size) * nFinePerCov
-        # And then subtract off the starting fine pixel for each populated coarse pixel
-        covIndexMap[:] -= np.arange(hp.nside2npix(nsideCoverage)) * nFinePerCov
+        # And then subtract off the starting fine pixel for each coarse pixel
+        covIndexMap[:] -= np.arange(hp.nside2npix(nsideCoverage), dtype=np.int64) * nFinePerCov
 
         sparseMap = np.zeros((covPix.size + 1) * nFinePerCov, dtype=healpixMap.dtype) + hp.UNSEEN
 
