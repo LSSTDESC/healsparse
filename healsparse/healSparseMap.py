@@ -80,8 +80,8 @@ class HealSparseMap(object):
 
         # The default for the covered pixels is the location in the array (below)
         covIndexMap[covPix] = np.arange(covPix.size) * nFinePerCov
-        # And then subtract off the starting fine pixel for each coarse pixel
-        covIndexMap[:] -= np.arange(hp.nside2npix(nsideCoverage), dtype=np.int64) * nFinePerCov
+        # And then subtract off the starting fine pixel for each populated coarse pixel
+        covIndexMap[:] -= np.arange(hp.nside2npix(nsideCoverage)) * nFinePerCov
 
         sparseMap = np.zeros((covPix.size + 1) * nFinePerCov, dtype=healpixMap.dtype) + hp.UNSEEN
 
@@ -137,16 +137,35 @@ class HealSparseMap(object):
 
     @property
     def coverageMap(self):
-        # Fix this to filter out the minimum value
-        return self._covIndexMap
+        """ 
+        Get the fractional area covered by the sparse map
+        in the resolution of the coverage map
+        """
+        npix = hp.nside2npix(self._nsideCoverage) 
+        covMap = np.zeros(npix, dtype=np.double) 
+        covMask = self.coverageMask
+        npop_pix = np.count_nonzero(covMask)
+        spMap_T = self._sparseMap.reshape((npop_pix+1, -1))
+        if np.__version__ >= '1.16': 
+            counts = np.count_nonzero((spMap_T > hp.UNSEEN), axis=1).astype(np.double)
+        else:
+            counts = np.zeros(npix)
+            for i in range(npix):
+                counts[i] = 1.0*np.count_nonzero(spMap_T[i])
+        cov_px, = np.where(covMask)
+        covMap[cov_px] = counts[:-1] / 2**self._bitShift 
+        return covMap
+
+    @property
     def coverageMask(self): 
         """
         Get the boolean mask
         """
-        # This points to the overflow bins
-        covMask = self._covIndexMap != len(self._sparseMap)-2**(self._bitShift) - np.arange(hp.nside2npix(self._nsideCoverage), dtype=np.int64) 
+        covMask = np.zeros(hp.nside2npix(self._nsideCoverage), dtype=np.bool)
+        nfine = 2**self._bitShift    
+        covMask[:] = (self._covIndexMap[:] + np.arange(hp.nside2npix(self._nsideCoverage))*nfine) < (len(self._sparseMap) - nfine)
         return covMask
- 
+
     def generateHealpixMap(self, nside=None, reduction='mean'):
         """
         Generate the associated healpix map
