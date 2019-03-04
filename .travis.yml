@@ -1,11 +1,11 @@
 language: python
 # Python versions to check (only compatible with python3.x)
 python:
-    - "3.3"
-    - "3.4"
+    #- "3.3" #This has problems with healpy at testing...
+    #- "3.4" #Same as above
     - "3.5"
     - "3.6"
-    - "3.7"
+    - "3.7-dev"
 # We cache the dependencies
 cache:
     pip: true
