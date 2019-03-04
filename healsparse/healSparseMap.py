@@ -137,26 +137,26 @@ class HealSparseMap(object):
 
     @property
     def coverageMap(self):
-        """ 
+        """
         Get the fractional area covered by the sparse map
         in the resolution of the coverage map
         """
 
-        covMap = np.zeros_like(self.coverageMask, dtype=np.double) 
+        covMap = np.zeros_like(self.coverageMask, dtype=np.double)
         covMask = self.coverageMask
         npop_pix = np.count_nonzero(covMask)
         spMap_T = self._sparseMap.reshape((npop_pix+1, -1))
-        counts = np.sum((spMap_T > hp.UNSEEN), axis=1).astype(np.double) 
-        covMap[covMask] = counts[:-1] / 2**self._bitShift 
+        counts = np.sum((spMap_T > hp.UNSEEN), axis=1).astype(np.double)
+        covMap[covMask] = counts[:-1] / 2**self._bitShift
         return covMap
 
     @property
-    def coverageMask(self): 
+    def coverageMask(self):
         """
         Get the boolean mask
         """
 
-        nfine = 2**self._bitShift    
+        nfine = 2**self._bitShift
         covMask = (self._covIndexMap[:] + np.arange(hp.nside2npix(self._nsideCoverage))*nfine) < (len(self._sparseMap) - nfine)
         return covMask
 
