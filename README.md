@@ -7,7 +7,7 @@ Python implementation of a sparse HEALPix map.
 
 `healsparse` requires to have pre-installed the following packages:
 
-- [Numpy]
+- Numpy
 - [Healpy](https://github.com/healpy/healpy)
 - [fitsio](https://github.com/esheldon/fitsio)
 
