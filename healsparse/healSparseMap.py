@@ -146,14 +146,8 @@ class HealSparseMap(object):
         covMask = self.coverageMask
         npop_pix = np.count_nonzero(covMask)
         spMap_T = self._sparseMap.reshape((npop_pix+1, -1))
-        if np.__version__ >= '1.16': 
-            counts = np.count_nonzero((spMap_T > hp.UNSEEN), axis=1).astype(np.double)
-        else:
-            counts = np.zeros(npix)
-            for i in range(npix):
-                counts[i] = 1.0*np.count_nonzero(spMap_T[i])
-        cov_px, = np.where(covMask)
-        covMap[cov_px] = counts[:-1] / 2**self._bitShift 
+        counts = np.sum((spMap_T > hp.UNSEEN), axis=1).astype(np.double) 
+        covMap[covMask] = counts[:-1] / 2**self._bitShift 
         return covMap
 
     @property
