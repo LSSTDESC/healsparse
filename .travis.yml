@@ -1,0 +1,17 @@
+language: python
+# Python versions to check (only compatible with python3.x)
+python:
+    - "3.3"
+    - "3.4"
+    - "3.5"
+    - "3.6"
+    - "3.7"
+# We cache the dependencies
+cache:
+    pip: true
+# Install dependencies and package
+install:
+    - pip install -r requirements.txt
+    - pip install .
+# Test!
+script: pytest
