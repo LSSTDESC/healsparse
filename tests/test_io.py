@@ -64,11 +64,29 @@ class IoTestCase(unittest.TestCase):
         # Write it to healsparse format
         sparseMap.write(os.path.join(self.test_dir, 'healsparse_map.fits'))
 
-        # Read in healsparse format
+        # Read in healsparse format (full map)
         sparseMap = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healsparse_map.fits'))
 
         # Check that we can do a basic lookup
         testing.assert_almost_equal(sparseMap.getValuePixel(ipnest), testValues)
+
+        # Try to read in healsparse format, non-unique pixels
+        self.assertRaises(RuntimeError, healsparse.HealSparseMap.read, os.path.join(self.test_dir, 'healsparse_map.fits'), pixels=[0, 0])
+
+        # Read in healsparse format (two pixels)
+        sparseMapSmall = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healsparse_map.fits'), pixels=[0, 1])
+
+        # Test the coverage map only has two pixels
+        covMask = sparseMapSmall.coverageMask
+        self.assertEqual(covMask.sum(), 2)
+
+        # Test lookup of values in those two pixels
+        ipnestCov = np.right_shift(ipnest, sparseMapSmall._bitShift)
+        outsideSmall, = np.where(ipnestCov > 1)
+        testValues2 = testValues.copy()
+        testValues2[outsideSmall] = hp.UNSEEN
+
+        testing.assert_almost_equal(sparseMapSmall.getValuePixel(ipnest), testValues2)
 
     def setUp(self):
         self.test_dir = None
