@@ -42,7 +42,7 @@ class IoTestCase(unittest.TestCase):
         # Save it with healpy in ring
 
         fullMapRing = hp.reorder(fullMap, n2r=True)
-        hp.write_map(os.path.join(self.test_dir, 'healpix_map_ring.fits'), fullMapRing)
+        hp.write_map(os.path.join(self.test_dir, 'healpix_map_ring.fits'), fullMapRing, dtype=np.float64)
 
         # Read it with healsparse
         # TODO Test that we raise an exception when nsideCoverage isn't set
@@ -53,10 +53,10 @@ class IoTestCase(unittest.TestCase):
         testing.assert_almost_equal(sparseMap.getValuePixel(ipnest), testValues)
 
         # Save map to healpy in nest
-        hp.write_map(os.path.join(self.test_dir, 'healpix_map_nest.fits'), fullMap)
+        hp.write_map(os.path.join(self.test_dir, 'healpix_map_nest.fits'), fullMap, dtype=np.float64, nest=True)
 
         # Read it with healsparse
-        sparseMap = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healpix_map_ring.fits'), nsideCoverage=nsideCoverage)
+        sparseMap = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healpix_map_nest.fits'), nsideCoverage=nsideCoverage)
 
         # Check that we can do a basic lookup
         testing.assert_almost_equal(sparseMap.getValuePixel(ipnest), testValues)

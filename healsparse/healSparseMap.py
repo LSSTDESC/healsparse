@@ -43,7 +43,15 @@ class HealSparseMap(object):
                 raise RuntimeError("Must specify nsideCoverage when reading healpix map")
 
             # This is a healpix format
-            healpixMap = hp.read_map(filename, nest=True, verbose=False)
+            # We need to determine the datatype, preserving it.
+            if hdr['OBJECT'].rstrip() == 'PARTIAL':
+                row = fitsio.read(filename, ext=1, rows=[0])
+                dtype = row[0]['SIGNAL'].dtype.type
+            else:
+                row = fitsio.read(filename, ext=1, rows=[0])
+                dtype = row[0]['T'][0].dtype.type
+
+            healpixMap = hp.read_map(filename, nest=True, verbose=False, dtype=dtype)
             return cls(healpixMap=healpixMap, nsideCoverage=nsideCoverage, nest=True)
         elif 'PIXTYPE' in hdr and hdr['PIXTYPE'].rstrip() == 'HEALSPARSE':
             # This is a sparse map type.  Just use fits for now.
