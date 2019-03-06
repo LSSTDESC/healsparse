@@ -31,7 +31,7 @@ class IoTestCase(unittest.TestCase):
         # Generate a random map
 
         fullMap = np.zeros(hp.nside2npix(nsideMap)) + hp.UNSEEN
-        fullMap[0:20000] = np.random.random(size=20000)
+        fullMap[0: 20000] = np.random.random(size=20000)
 
         theta = np.radians(90.0 - dec)
         phi = np.radians(ra)
