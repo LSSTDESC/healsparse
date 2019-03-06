@@ -17,9 +17,9 @@ class HealSparseMap(object):
             self._covIndexMap = covIndexMap
             self._sparseMap = sparseMap
         elif healpixMap is not None and nsideCoverage is not None:
-            # this is a healpxMap input
+            # this is a healpixMap input
             self._covIndexMap, self._sparseMap = self.convertHealpixMap(healpixMap,
-                                                                   nsideCoverage=nsideCoverage, nest=nest)
+                                                                        nsideCoverage=nsideCoverage, nest=nest)
             nsideSparse = hp.npix2nside(healpixMap.size)
         else:
             raise RuntimeError("Must specify either covIndexMap/sparseMap or healpixMap/nsideCoverage")
@@ -27,11 +27,12 @@ class HealSparseMap(object):
         self._nsideCoverage = hp.npix2nside(self._covIndexMap.size)
         self._nsideSparse = nsideSparse
 
-        # FIXME: check if _sparseMap is a recarray!
         self._isRecArray = False
-        if primary is not None:
-            self._primary = primary
+        self._primary = primary
+        if self._sparseMap.dtype.fields is not None:
             self._isRecArray = True
+            if self._primary is None:
+                raise RuntimeError("Must specify `primary` field when using a recarray for the sparseMap.")
 
         self._bitShift = 2 * int(np.round(np.log(self._nsideSparse / self._nsideCoverage) / np.log(2)))
 
