@@ -108,9 +108,8 @@ class HealSparseMap(object):
                     primary = sHdr['PRIMARY']
                     sparseMapSize = hdu.get_nrows()
 
-                nCovPix = sparseMapSize / nFinePerCov - 1
-                covPix, = np.where((sparseMapSize - 2**bitShift) !=
-                                   (np.arange(hp.nside2npix(nsideCoverage), dtype=np.int64) * 2**bitShift) + covIndexMap)
+                nCovPix = sparseMapSize // nFinePerCov - 1
+                covPix, = np.where((covIndexMap + np.arange(hp.nside2npix(nsideCoverage)) * nFinePerCov) >= nFinePerCov)
 
                 # Find which pixels are in the coverage map
                 sub = np.clip(np.searchsorted(covPix, pixels), 0, covPix.size - 1)
@@ -122,7 +121,7 @@ class HealSparseMap(object):
                 if imageType:
                     sparseMap = np.zeros((sub.size + 1) * nFinePerCov, dtype=fits['SPARSE'][0:1].dtype) + hp.UNSEEN
                     for i, p in enumerate(sub):
-                        sparseMap[i*nFinePerCov: (i + 1)*nFinePerCov] = hdu[p*nFinePerCov: (p + 1)*nFinePerCov]
+                        sparseMap[(i + 1)*nFinePerCov: (i + 2)*nFinePerCov] = hdu[(p + 1)*nFinePerCov: (p + 2)*nFinePerCov]
 
                 else:
                     # This is all preliminary work, table reading is not yet implemented.
@@ -136,8 +135,8 @@ class HealSparseMap(object):
                     sparseMap[0: rows.size] = hdu.read_rows(rows)
 
                 # Set the coverage index map for the pixels that we read in
-                covIndexMap[:] = sub.size * nFinePerCov
-                covIndexMap[covPix[sub]] = np.arange(sub.size) * nFinePerCov
+                covIndexMap[:] = 0
+                covIndexMap[covPix[sub]] = np.arange(1, sub.size + 1) * nFinePerCov
                 covIndexMap[:] -= np.arange(hp.nside2npix(nsideCoverage), dtype=np.int64) * nFinePerCov
 
         return covIndexMap, sparseMap, nsideSparse, primary
@@ -163,17 +162,16 @@ class HealSparseMap(object):
 
         nFinePerCov = int(healpixMap.size / hp.nside2npix(nsideCoverage))
 
+        # This initializes as zeros, that's the location of the overflow bins
         covIndexMap = np.zeros(hp.nside2npix(nsideCoverage), dtype=np.int64)
-        # This points to the overflow bins
-        covIndexMap[:] = covPix.size * nFinePerCov
 
         # The default for the covered pixels is the location in the array (below)
-        covIndexMap[covPix] = np.arange(covPix.size) * nFinePerCov
+        # Note that we have a 1-index here to have the 0-index overflow bin
+        covIndexMap[covPix] = np.arange(1, covPix.size + 1) * nFinePerCov
         # And then subtract off the starting fine pixel for each coarse pixel
         covIndexMap[:] -= np.arange(hp.nside2npix(nsideCoverage), dtype=np.int64) * nFinePerCov
 
         sparseMap = np.zeros((covPix.size + 1) * nFinePerCov, dtype=healpixMap.dtype) + hp.UNSEEN
-
         sparseMap[ipnest + covIndexMap[ipnestCov]] = healpixMap[ipnest]
 
         return covIndexMap, sparseMap
@@ -241,7 +239,7 @@ class HealSparseMap(object):
         else:
             spMap_T = self._sparseMap.reshape((npop_pix+1, -1))
         counts = np.sum((spMap_T > hp.UNSEEN), axis=1).astype(np.double)
-        covMap[covMask] = counts[:-1] / 2**self._bitShift
+        covMap[covMask] = counts[1:] / 2**self._bitShift
         return covMap
 
     @property
@@ -251,7 +249,7 @@ class HealSparseMap(object):
         """
 
         nfine = 2**self._bitShift
-        covMask = (self._covIndexMap[:] + np.arange(hp.nside2npix(self._nsideCoverage))*nfine) < (len(self._sparseMap) - nfine)
+        covMask = (self._covIndexMap[:] + np.arange(hp.nside2npix(self._nsideCoverage))*nfine) >= nfine
         return covMask
 
     def generateHealpixMap(self, nside=None, reduction='mean'):
