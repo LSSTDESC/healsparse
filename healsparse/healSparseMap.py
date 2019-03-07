@@ -262,3 +262,17 @@ class HealSparseMap(object):
 
         pass
 
+    def degrade(self, nside_out, reduction='mean'):
+        """
+        Reduce the resolution, i.e., increase the pixel size
+        of a given sparse map
+        """
+        try:
+           assert(self._nsideSparse > nside_out)
+        except ValueError as e:
+           print('nside_out should be smaller than nside for the sparseMap')
+        npop_pix = np.count_nonzero(self.coverageMask)
+        self._sparseMap[self._sparseMap==hp.UNSEEN] = np.nan
+        self._sparseMap = np.nanmean(self._sparseMap.reshape((npop_pix+1, (nside_out//self._nsideCoverage)**2, -1)), axis=2).flatten()
+        self._nsideSparse = nside_out
+        self._bitShift = 2 * int(np.round(np.log(self._nsideSparse / self._nsideCoverage) / np.log(2)))
