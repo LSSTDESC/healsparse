@@ -69,7 +69,25 @@ class RecArrayTestCase(unittest.TestCase):
         testing.assert_almost_equal(sparseMap.getValuePixel(ipnest)['column1'], testValues1)
         testing.assert_almost_equal(sparseMap.getValuePixel(ipnest)['column2'], testValues2)
 
+        # And read a partial map
+        sparseMapSmall = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healsparse_map_recarray.fits'), pixels=[0, 1])
 
+        # Test the coverage map only has two pixels
+        covMask = sparseMapSmall.coverageMask
+        self.assertEqual(covMask.sum(), 2)
+
+        # Test lookup of values in these two pixels
+        ipnestCov = np.right_shift(ipnest, sparseMapSmall._bitShift)
+        outsideSmall, = np.where(ipnestCov > 1)
+        # column1 is the "primary" column and will return UNSEEN
+        testValues1b = testValues1.copy()
+        testValues1b[outsideSmall] = hp.UNSEEN
+        # column2 is not the primary column and will return 0s (unfilled)
+        testValues2b = testValues2.copy()
+        testValues2b[outsideSmall] = hp.UNSEEN
+
+        testing.assert_almost_equal(sparseMapSmall.getValuePixel(ipnest)['column1'], testValues1b)
+        testing.assert_almost_equal(sparseMapSmall.getValuePixel(ipnest)['column2'], testValues2b)
 
     def setUp(self):
         self.test_dir = None

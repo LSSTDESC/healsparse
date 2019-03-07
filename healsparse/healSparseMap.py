@@ -80,7 +80,7 @@ class HealSparseMap(object):
             sparseMap, sHdr = fitsio.read(filename, ext='SPARSE', header=True)
             nsideSparse = sHdr['NSIDE']
             if 'PRIMARY' in sHdr:
-                primary = sHdr['PRIMARY']
+                primary = sHdr['PRIMARY'].rstrip()
         else:
             if len(np.unique(pixels)) < len(pixels):
                 raise RuntimeError("Input list of pixels must be unique.")
@@ -100,12 +100,11 @@ class HealSparseMap(object):
                 imageType = False
                 if hdu.get_exttype() == 'IMAGE_HDU':
                     # This is an image extension
-                    # Currently, this is the only supported type.
                     sparseMapSize = hdu.get_dims()[0]
                     imageType = True
                 else:
                     # This is a table extension
-                    primary = sHdr['PRIMARY']
+                    primary = sHdr['PRIMARY'].rstrip()
                     sparseMapSize = hdu.get_nrows()
 
                 nCovPix = sparseMapSize // nFinePerCov - 1
@@ -119,20 +118,23 @@ class HealSparseMap(object):
                 sub = np.sort(sub[ok])
 
                 if imageType:
-                    sparseMap = np.zeros((sub.size + 1) * nFinePerCov, dtype=fits['SPARSE'][0:1].dtype) + hp.UNSEEN
+                    sparseMap = np.zeros((sub.size + 1) * nFinePerCov, dtype=fits['SPARSE'][0:1].dtype)
+                    # Read in the overflow bin
+                    sparseMap[0: nFinePerCov] = hdu[0: nFinePerCov]
+                    # And read in the pixels
                     for i, p in enumerate(sub):
                         sparseMap[(i + 1)*nFinePerCov: (i + 2)*nFinePerCov] = hdu[(p + 1)*nFinePerCov: (p + 2)*nFinePerCov]
 
                 else:
-                    # This is all preliminary work, table reading is not yet implemented.
-
                     # This indexing selects out just the rows that we want to grab
-                    rows = np.tile(np.arange(nFinePerCov), b.size) + np.repeat(b, nFinePerCov) * nFinePerCov
+                    rows = np.tile(np.arange(nFinePerCov), sub.size) + np.repeat(sub, nFinePerCov) * nFinePerCov
 
                     # This will have to be updated when supporting table types
-                    sparseMap = np.zeros((b.size + 1) * nFinePerCov, dtype=fits['SPARSE'][0:1].dtype)
-                    sparseMap[primary][:] = hp.UNSEEN
-                    sparseMap[0: rows.size] = hdu.read_rows(rows)
+                    sparseMap = np.zeros((sub.size + 1) * nFinePerCov, dtype=fits['SPARSE'][0:1].dtype)
+                    # Read in the overflow bin
+                    sparseMap[0: nFinePerCov] = hdu.read_rows(np.arange(nFinePerCov))
+                    # And the rest of the rows
+                    sparseMap[nFinePerCov: rows.size + nFinePerCov] = hdu.read_rows(rows)
 
                 # Set the coverage index map for the pixels that we read in
                 covIndexMap[:] = 0
@@ -140,7 +142,6 @@ class HealSparseMap(object):
                 covIndexMap[:] -= np.arange(hp.nside2npix(nsideCoverage), dtype=np.int64) * nFinePerCov
 
         return covIndexMap, sparseMap, nsideSparse, primary
-
 
     @staticmethod
     def convertHealpixMap(healpixMap, nsideCoverage, nest=True):
