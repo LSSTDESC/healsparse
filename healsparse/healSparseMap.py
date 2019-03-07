@@ -10,22 +10,29 @@ class HealSparseMap(object):
     Class to define a HealSparseMap
     """
 
-    def __init__(self, covIndexMap=None, sparseMap=None, nsideSparse=None, healpixMap=None, nsideCoverage=None, nest=True):
+    def __init__(self, covIndexMap=None, sparseMap=None, nsideSparse=None, healpixMap=None, nsideCoverage=None, primary=None, nest=True):
 
         if covIndexMap is not None and sparseMap is not None and nsideSparse is not None:
             # this is a sparse map input
             self._covIndexMap = covIndexMap
             self._sparseMap = sparseMap
         elif healpixMap is not None and nsideCoverage is not None:
-            # this is a healpxMap input
+            # this is a healpixMap input
             self._covIndexMap, self._sparseMap = self.convertHealpixMap(healpixMap,
-                                                                   nsideCoverage=nsideCoverage, nest=nest)
+                                                                        nsideCoverage=nsideCoverage, nest=nest)
             nsideSparse = hp.npix2nside(healpixMap.size)
         else:
             raise RuntimeError("Must specify either covIndexMap/sparseMap or healpixMap/nsideCoverage")
 
         self._nsideCoverage = hp.npix2nside(self._covIndexMap.size)
         self._nsideSparse = nsideSparse
+
+        self._isRecArray = False
+        self._primary = primary
+        if self._sparseMap.dtype.fields is not None:
+            self._isRecArray = True
+            if self._primary is None:
+                raise RuntimeError("Must specify `primary` field when using a recarray for the sparseMap.")
 
         self._bitShift = 2 * int(np.round(np.log(self._nsideSparse / self._nsideCoverage) / np.log(2)))
 
@@ -43,12 +50,20 @@ class HealSparseMap(object):
                 raise RuntimeError("Must specify nsideCoverage when reading healpix map")
 
             # This is a healpix format
-            healpixMap = hp.read_map(filename, nest=True, verbose=False)
+            # We need to determine the datatype, preserving it.
+            if hdr['OBJECT'].rstrip() == 'PARTIAL':
+                row = fitsio.read(filename, ext=1, rows=[0])
+                dtype = row[0]['SIGNAL'].dtype.type
+            else:
+                row = fitsio.read(filename, ext=1, rows=[0])
+                dtype = row[0][0][0].dtype.type
+
+            healpixMap = hp.read_map(filename, nest=True, verbose=False, dtype=dtype)
             return cls(healpixMap=healpixMap, nsideCoverage=nsideCoverage, nest=True)
         elif 'PIXTYPE' in hdr and hdr['PIXTYPE'].rstrip() == 'HEALSPARSE':
             # This is a sparse map type.  Just use fits for now.
-            covIndexMap, sparseMap, nsideSparse = cls._readHealSparseFile(filename, pixels=pixels)
-            return cls(covIndexMap=covIndexMap, sparseMap=sparseMap, nsideSparse=nsideSparse)
+            covIndexMap, sparseMap, nsideSparse, primary = cls._readHealSparseFile(filename, pixels=pixels)
+            return cls(covIndexMap=covIndexMap, sparseMap=sparseMap, nsideSparse=nsideSparse, primary=primary)
         else:
             raise RuntimeError("Filename %s not in healpix or healsparse format." % (filename))
 
@@ -58,17 +73,19 @@ class HealSparseMap(object):
         Read a healsparse file, optionally with a set of coverage pixels
         """
         covIndexMap = fitsio.read(filename, ext='COV')
+        primary = None
 
         if pixels is None:
             # Read the full map
             sparseMap, sHdr = fitsio.read(filename, ext='SPARSE', header=True)
             nsideSparse = sHdr['NSIDE']
+            if 'PRIMARY' in sHdr:
+                primary = sHdr['PRIMARY'].rstrip()
         else:
             if len(np.unique(pixels)) < len(pixels):
                 raise RuntimeError("Input list of pixels must be unique.")
 
-            # Read a partial map
-            #fits = fitsio.FITS(filename)
+            # Read part of a map
             with fitsio.FITS(filename) as fits:
 
                 hdu = fits['SPARSE']
@@ -83,17 +100,15 @@ class HealSparseMap(object):
                 imageType = False
                 if hdu.get_exttype() == 'IMAGE_HDU':
                     # This is an image extension
-                    # Currently, this is the only supported type.
                     sparseMapSize = hdu.get_dims()[0]
                     imageType = True
                 else:
                     # This is a table extension
-                    raise RuntimeError("Table extension not yet supported.")
+                    primary = sHdr['PRIMARY'].rstrip()
                     sparseMapSize = hdu.get_nrows()
 
-                nCovPix = sparseMapSize / nFinePerCov - 1
-                covPix, = np.where((sparseMapSize - 2**bitShift) !=
-                                   (np.arange(hp.nside2npix(nsideCoverage), dtype=np.int64) * 2**bitShift) + covIndexMap)
+                nCovPix = sparseMapSize // nFinePerCov - 1
+                covPix, = np.where((covIndexMap + np.arange(hp.nside2npix(nsideCoverage)) * nFinePerCov) >= nFinePerCov)
 
                 # Find which pixels are in the coverage map
                 sub = np.clip(np.searchsorted(covPix, pixels), 0, covPix.size - 1)
@@ -103,27 +118,30 @@ class HealSparseMap(object):
                 sub = np.sort(sub[ok])
 
                 if imageType:
-                    sparseMap = np.zeros((sub.size + 1) * nFinePerCov, dtype=fits['SPARSE'][0:1].dtype) + hp.UNSEEN
+                    sparseMap = np.zeros((sub.size + 1) * nFinePerCov, dtype=fits['SPARSE'][0:1].dtype)
+                    # Read in the overflow bin
+                    sparseMap[0: nFinePerCov] = hdu[0: nFinePerCov]
+                    # And read in the pixels
                     for i, p in enumerate(sub):
-                        sparseMap[i*nFinePerCov: (i + 1)*nFinePerCov] = hdu[p*nFinePerCov: (p + 1)*nFinePerCov]
+                        sparseMap[(i + 1)*nFinePerCov: (i + 2)*nFinePerCov] = hdu[(p + 1)*nFinePerCov: (p + 2)*nFinePerCov]
 
                 else:
-                    # This is all preliminary work, table reading is not yet implemented.
-
                     # This indexing selects out just the rows that we want to grab
-                    rows = np.tile(np.arange(nFinePerCov), b.size) + np.repeat(b, nFinePerCov) * nFinePerCov
+                    rows = np.tile(np.arange(nFinePerCov), sub.size) + np.repeat(sub, nFinePerCov) * nFinePerCov
 
                     # This will have to be updated when supporting table types
-                    sparseMap = np.zeros((b.size + 1) * nFinePerCov, dtype=fits['SPARSE'][0:1].dtype)
-                    sparseMap[0: rows.size] = hdu.read_rows(rows)
+                    sparseMap = np.zeros((sub.size + 1) * nFinePerCov, dtype=fits['SPARSE'][0:1].dtype)
+                    # Read in the overflow bin
+                    sparseMap[0: nFinePerCov] = hdu.read_rows(np.arange(nFinePerCov))
+                    # And the rest of the rows
+                    sparseMap[nFinePerCov: rows.size + nFinePerCov] = hdu.read_rows(rows)
 
                 # Set the coverage index map for the pixels that we read in
-                covIndexMap[:] = sub.size * nFinePerCov
-                covIndexMap[covPix[sub]] = np.arange(sub.size) * nFinePerCov
+                covIndexMap[:] = 0
+                covIndexMap[covPix[sub]] = np.arange(1, sub.size + 1) * nFinePerCov
                 covIndexMap[:] -= np.arange(hp.nside2npix(nsideCoverage), dtype=np.int64) * nFinePerCov
 
-        return covIndexMap, sparseMap, nsideSparse
-
+        return covIndexMap, sparseMap, nsideSparse, primary
 
     @staticmethod
     def convertHealpixMap(healpixMap, nsideCoverage, nest=True):
@@ -145,17 +163,16 @@ class HealSparseMap(object):
 
         nFinePerCov = int(healpixMap.size / hp.nside2npix(nsideCoverage))
 
+        # This initializes as zeros, that's the location of the overflow bins
         covIndexMap = np.zeros(hp.nside2npix(nsideCoverage), dtype=np.int64)
-        # This points to the overflow bins
-        covIndexMap[:] = covPix.size * nFinePerCov
 
         # The default for the covered pixels is the location in the array (below)
-        covIndexMap[covPix] = np.arange(covPix.size) * nFinePerCov
+        # Note that we have a 1-index here to have the 0-index overflow bin
+        covIndexMap[covPix] = np.arange(1, covPix.size + 1) * nFinePerCov
         # And then subtract off the starting fine pixel for each coarse pixel
         covIndexMap[:] -= np.arange(hp.nside2npix(nsideCoverage), dtype=np.int64) * nFinePerCov
 
         sparseMap = np.zeros((covPix.size + 1) * nFinePerCov, dtype=healpixMap.dtype) + hp.UNSEEN
-
         sparseMap[ipnest + covIndexMap[ipnestCov]] = healpixMap[ipnest]
 
         return covIndexMap, sparseMap
@@ -174,6 +191,8 @@ class HealSparseMap(object):
         sHdr = fitsio.FITSHDR()
         sHdr['PIXTYPE'] = 'HEALSPARSE'
         sHdr['NSIDE'] = self._nsideSparse
+        if self._isRecArray:
+            sHdr['PRIMARY'] = self._primary
         fitsio.write(filename, self._sparseMap, header=sHdr, extname='SPARSE')
 
     def getValueRaDec(self, ra, dec):
@@ -216,9 +235,12 @@ class HealSparseMap(object):
         covMap = np.zeros_like(self.coverageMask, dtype=np.double)
         covMask = self.coverageMask
         npop_pix = np.count_nonzero(covMask)
-        spMap_T = self._sparseMap.reshape((npop_pix+1, -1))
+        if self._isRecArray:
+            spMap_T = self._sparseMap[self._primary].reshape((npop_pix+1, -1))
+        else:
+            spMap_T = self._sparseMap.reshape((npop_pix+1, -1))
         counts = np.sum((spMap_T > hp.UNSEEN), axis=1).astype(np.double)
-        covMap[covMask] = counts[:-1] / 2**self._bitShift
+        covMap[covMask] = counts[1:] / 2**self._bitShift
         return covMap
 
     @property
@@ -228,7 +250,7 @@ class HealSparseMap(object):
         """
 
         nfine = 2**self._bitShift
-        covMask = (self._covIndexMap[:] + np.arange(hp.nside2npix(self._nsideCoverage))*nfine) < (len(self._sparseMap) - nfine)
+        covMask = (self._covIndexMap[:] + np.arange(hp.nside2npix(self._nsideCoverage))*nfine) >= nfine
         return covMask
 
     def generateHealpixMap(self, nside=None, reduction='mean'):
