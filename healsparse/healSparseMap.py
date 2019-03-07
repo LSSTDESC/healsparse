@@ -56,7 +56,7 @@ class HealSparseMap(object):
                 dtype = row[0]['SIGNAL'].dtype.type
             else:
                 row = fitsio.read(filename, ext=1, rows=[0])
-                dtype = row[0]['T'][0].dtype.type
+                dtype = row[0][0][0].dtype.type
 
             healpixMap = hp.read_map(filename, nest=True, verbose=False, dtype=dtype)
             return cls(healpixMap=healpixMap, nsideCoverage=nsideCoverage, nest=True)
