@@ -262,7 +262,7 @@ class HealSparseMap(object):
 
         pass
  
-    def degrade(self, nside_out, reduction='mean'):
+    def degrade(self, nside_out, reduction='mean', primary=None):
         """
         Reduce the resolution, i.e., increase the pixel size
         of a given sparse map
@@ -271,6 +271,7 @@ class HealSparseMap(object):
         ----
         nside_out: `int`, output Nside resolution parameter.
         reduction: `str`, reduction method (mean, median, std, max, min).
+        primary: `str`, in the case of using `np.recarray`, name of the field to use.
         """ 
         if self._nsideSparse < nside_out:
             raise ValueError('nside_out should be smaller than nside for the sparseMap')
@@ -279,7 +280,7 @@ class HealSparseMap(object):
         # Mask unseen pixels
         newsparseMap = self._sparseMap
         if self._isRecArray:
-            newsparseMap[newsparseMap[self._primary]==hp.UNSEEN] = np.nan
+            newsparseMap[newsparseMap[primary]==hp.UNSEEN] = np.nan
         else:
             newsparseMap[newsparseMap==hp.UNSEEN] = np.nan
         newsparseMap = newsparseMap.reshape((npop_pix+1, (nside_out//self._nsideCoverage)**2, -1))
@@ -296,5 +297,7 @@ class HealSparseMap(object):
             newsparseMap = np.nanmin(newsparseMap, axis=2).flatten()
         else:
             raise ValueError('Only mean, median, std, max, and min reductions implemented')
-        return HealSparseMap(self._covIndexMap, sparseMap=newsparseMap, nsideSparse=nside_out, nsideCoverage=self._nsideCoverage, primary=self._primary)
+        # NaN are converted to UNSEEN
+        newsparseMap[np.isnan(newsparseMap)]=hp.UNSEEN
+        return HealSparseMap(self._covIndexMap, sparseMap=newsparseMap, nsideSparse=nside_out, nsideCoverage=self._nsideCoverage, primary=primary)
 
