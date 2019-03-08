@@ -20,19 +20,20 @@ class DegradeMapTestCase(unittest.TestCase):
 
         # Generate sparse map
 
-        sparseMap = healsparse.HealSparseMap(healpixMap=fullMap, nsideCoverage=nsideCoverage)
-        
+        sparseMap = healsparse.HealSparseMap(healpixMap=fullMap, nsideCoverage=nsideCoverage,
+                        nsideSparse=nsideMap)
+         
         # Degrade original HEALPix map
 
         deg_map = hp.ud_grade(fullMap, nside_out=nsideNew, order_in='NESTED', order_out='NESTED')
 
         # Degrade sparse map and compare to original
 
-        sparseMap = sparseMap.degrade(sparseMap, nside_out=nsideNew)
+        newMap = sparseMap.degrade(nside_out=nsideNew)
 
         # Test the coverage map generation and lookup
 
-        testing.assert_equal(deg_map, sparseMap._sparseMap[2**sparseMap._bitShift:])
+        testing.assert_equal(deg_map, newMap._sparseMap[2**newMap._bitShift:])
 
 if __name__=='__main__':
     unittest.main()

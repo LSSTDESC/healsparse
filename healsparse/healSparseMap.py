@@ -261,30 +261,28 @@ class HealSparseMap(object):
         """
 
         pass
-
-    @classmethod
-    def degrade(cls, sparseMap, nside_out, reduction='mean'):
+ 
+    def degrade(self, nside_out, reduction='mean'):
         """
         Reduce the resolution, i.e., increase the pixel size
         of a given sparse map
         
         Args:
         ----
-        sparseMap: `HealSparseMap`, sparse map to degrade
-        nside_out: `int`, output Nside resolution parameter
-        """
-
-        if sparseMap._nsideSparse < nside_out:
+        nside_out: `int`, output Nside resolution parameter.
+        reduction: `str`, reduction method (mean, median, std, max, min).
+        """ 
+        if self._nsideSparse < nside_out:
             raise ValueError('nside_out should be smaller than nside for the sparseMap')
         # Count the number of filled pixels in the coverage mask
-        npop_pix = np.count_nonzero(sparseMap.coverageMask)
+        npop_pix = np.count_nonzero(self.coverageMask)
         # Mask unseen pixels
-        newsparseMap = sparseMap._sparseMap
-        if sparseMap._isRecArray:
-            newsparseMap[newsparseMap[sparseMap._primary]==hp.UNSEEN] = np.nan
+        newsparseMap = self._sparseMap
+        if self._isRecArray:
+            newsparseMap[newsparseMap[self._primary]==hp.UNSEEN] = np.nan
         else:
             newsparseMap[newsparseMap==hp.UNSEEN] = np.nan
-        newsparseMap = newsparseMap.reshape((npop_pix+1, (nside_out//sparseMap._nsideCoverage)**2, -1))
+        newsparseMap = newsparseMap.reshape((npop_pix+1, (nside_out//self._nsideCoverage)**2, -1))
         # Reduce array
         if reduction=='mean':
             newsparseMap = np.nanmean(newsparseMap, axis=2).flatten()
@@ -292,7 +290,11 @@ class HealSparseMap(object):
             newsparseMap = np.nanmedian(newsparseMap, axis=2).flatten()
         elif reduction=='std':
             newsparseMap = np.nanstd(newsparseMap, axis=2).flatten()
+        elif reduction=='max':
+            newsparseMap = np.nanmax(newsparseMap, axis=2).flatten()
+        elif reduction=='min':
+            newsparseMap = np.nanmin(newsparseMap, axis=2).flatten()
         else:
-            raise ValueError('Only mean, median and std reductions implemented')
-        return cls(sparseMap._covIndexMap, sparseMap=newsparseMap, nsideSparse=nside_out, nsideCoverage=sparseMap._nsideCoverage, primary=sparseMap._primary)
+            raise ValueError('Only mean, median, std, max, and min reductions implemented')
+        return HealSparseMap(self._covIndexMap, sparseMap=newsparseMap, nsideSparse=nside_out, nsideCoverage=self._nsideCoverage, primary=self._primary)
 
