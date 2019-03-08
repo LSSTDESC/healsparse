@@ -262,17 +262,37 @@ class HealSparseMap(object):
 
         pass
 
-    def degrade(self, nside_out, reduction='mean'):
+    @classmethod
+    def degrade(cls, sparseMap, nside_out, reduction='mean'):
         """
         Reduce the resolution, i.e., increase the pixel size
         of a given sparse map
+        
+        Args:
+        ----
+        sparseMap: `HealSparseMap`, sparse map to degrade
+        nside_out: `int`, output Nside resolution parameter
         """
-        try:
-           assert(self._nsideSparse > nside_out)
-        except ValueError as e:
-           print('nside_out should be smaller than nside for the sparseMap')
-        npop_pix = np.count_nonzero(self.coverageMask)
-        self._sparseMap[self._sparseMap==hp.UNSEEN] = np.nan
-        self._sparseMap = np.nanmean(self._sparseMap.reshape((npop_pix+1, (nside_out//self._nsideCoverage)**2, -1)), axis=2).flatten()
-        self._nsideSparse = nside_out
-        self._bitShift = 2 * int(np.round(np.log(self._nsideSparse / self._nsideCoverage) / np.log(2)))
+
+        if sparseMap._nsideSparse < nside_out:
+            raise ValueError('nside_out should be smaller than nside for the sparseMap')
+        # Count the number of filled pixels in the coverage mask
+        npop_pix = np.count_nonzero(sparseMap.coverageMask)
+        # Mask unseen pixels
+        newsparseMap = sparseMap._sparseMap
+        if sparseMap._isRecArray:
+            newsparseMap[newsparseMap[sparseMap._primary]==hp.UNSEEN] = np.nan
+        else:
+            newsparseMap[newsparseMap==hp.UNSEEN] = np.nan
+        newsparseMap = newsparseMap.reshape((npop_pix+1, (nside_out//sparseMap._nsideCoverage)**2, -1))
+        # Reduce array
+        if reduction=='mean':
+            newsparseMap = np.nanmean(newsparseMap, axis=2).flatten()
+        elif reduction=='median':
+            newsparseMap = np.nanmedian(newsparseMap, axis=2).flatten()
+        elif reduction=='std':
+            newsparseMap = np.nanstd(newsparseMap, axis=2).flatten()
+        else:
+            raise ValueError('Only mean, median and std reductions implemented')
+        return cls(sparseMap._covIndexMap, sparseMap=newsparseMap, nsideSparse=nside_out, nsideCoverage=sparseMap._nsideCoverage, primary=sparseMap._primary)
+

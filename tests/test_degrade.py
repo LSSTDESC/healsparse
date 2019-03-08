@@ -28,7 +28,7 @@ class DegradeMapTestCase(unittest.TestCase):
 
         # Degrade sparse map and compare to original
 
-        sparseMap.degrade(nside_out=nsideNew)
+        sparseMap = sparseMap.degrade(sparseMap, nside_out=nsideNew)
 
         # Test the coverage map generation and lookup
 
