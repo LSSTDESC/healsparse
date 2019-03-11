@@ -77,10 +77,6 @@ class BuildMapsTestCase(unittest.TestCase):
         ra = np.random.random(nRand) * 360.0
         dec = np.random.random(nRand) * 180.0 - 90.0
 
-        nRand = 1000
-        ra = np.random.random(nRand) * 360.0
-        dec = np.random.random(nRand) * 180.0 - 90.0
-
         # Create an empty map
         dtype = [('col1', 'f4'), ('col2', 'f8')]
         self.assertRaises(RuntimeError, healsparse.HealSparseMap.makeEmpty, nsideCoverage, nsideMap, dtype)

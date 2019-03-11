@@ -88,6 +88,14 @@ class IoTestCase(unittest.TestCase):
 
         testing.assert_almost_equal(sparseMapSmall.getValuePixel(ipnest), testValues2)
 
+    def test_readOutOfOrder(self):
+        """
+        Test reading maps that have been written with out-of-order pixels
+        """
+
+        pass
+
+
     def setUp(self):
         self.test_dir = None
 
