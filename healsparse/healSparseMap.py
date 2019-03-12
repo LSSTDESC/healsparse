@@ -67,6 +67,42 @@ class HealSparseMap(object):
         else:
             raise RuntimeError("Filename %s not in healpix or healsparse format." % (filename))
 
+    @classmethod
+    def makeEmpty(cls, nsideCoverage, nsideSparse, dtype, primary=None):
+        """
+        Make an empty map with nothing in it.
+
+        Parameters
+        ----------
+        nsideCoverage: `int`
+           Nside for the coverage map
+        nsideSparse: `int`
+           Nside for the sparse map
+        dtype: `str` or `list` or `np.dtype`
+           Datatype, any format accepted by numpy.
+        primary: `str`, optional
+           Primary key for recarray, required if dtype has fields.
+        """
+
+        bitShift = 2 * int(np.round(np.log(nsideSparse / nsideCoverage) / np.log(2)))
+        nFinePerCov = 2**bitShift
+
+        covIndexMap = np.zeros(hp.nside2npix(nsideCoverage), dtype=np.int64)
+        covIndexMap[:] -= np.arange(hp.nside2npix(nsideCoverage), dtype=np.int64) * nFinePerCov
+
+        sparseMap = np.zeros(nFinePerCov, dtype=dtype)
+        if sparseMap.dtype.fields is not None:
+            if primary is None:
+                raise RuntimeError("Must specify 'primary' field when using a recarray for the sparseMap.")
+            # I am not sure what to do here for integer types...TBD
+            for name in sparseMap.dtype.names:
+                sparseMap[name][:] = hp.UNSEEN
+        else:
+            # fill with UNSEEN
+            sparseMap[:] = hp.UNSEEN
+
+        return cls(covIndexMap=covIndexMap, sparseMap=sparseMap, nsideSparse=nsideSparse, primary=primary)
+
     @staticmethod
     def _readHealSparseFile(filename, pixels=None):
         """
@@ -108,7 +144,11 @@ class HealSparseMap(object):
                     sparseMapSize = hdu.get_nrows()
 
                 nCovPix = sparseMapSize // nFinePerCov - 1
-                covPix, = np.where((covIndexMap + np.arange(hp.nside2npix(nsideCoverage)) * nFinePerCov) >= nFinePerCov)
+                #covPix, = np.where((covIndexMap + np.arange(hp.nside2npix(nsideCoverage)) * nFinePerCov) >= nFinePerCov)
+
+                # This is the map without the offset
+                covIndexMapTemp = covIndexMap + np.arange(hp.nside2npix(nsideCoverage), dtype=np.int64) * nFinePerCov
+                covPix, = np.where(covIndexMapTemp >= nFinePerCov)
 
                 # Find which pixels are in the coverage map
                 sub = np.clip(np.searchsorted(covPix, pixels), 0, covPix.size - 1)
@@ -117,24 +157,14 @@ class HealSparseMap(object):
                     raise RuntimeError("None of the specified pixels are in the coverage map")
                 sub = np.sort(sub[ok])
 
-                if imageType:
-                    sparseMap = np.zeros((sub.size + 1) * nFinePerCov, dtype=fits['SPARSE'][0:1].dtype)
-                    # Read in the overflow bin
-                    sparseMap[0: nFinePerCov] = hdu[0: nFinePerCov]
-                    # And read in the pixels
-                    for i, p in enumerate(sub):
-                        sparseMap[(i + 1)*nFinePerCov: (i + 2)*nFinePerCov] = hdu[(p + 1)*nFinePerCov: (p + 2)*nFinePerCov]
-
-                else:
-                    # This indexing selects out just the rows that we want to grab
-                    rows = np.tile(np.arange(nFinePerCov), sub.size) + np.repeat(sub, nFinePerCov) * nFinePerCov
-
-                    # This will have to be updated when supporting table types
-                    sparseMap = np.zeros((sub.size + 1) * nFinePerCov, dtype=fits['SPARSE'][0:1].dtype)
-                    # Read in the overflow bin
-                    sparseMap[0: nFinePerCov] = hdu.read_rows(np.arange(nFinePerCov))
-                    # And the rest of the rows
-                    sparseMap[nFinePerCov: rows.size + nFinePerCov] = hdu.read_rows(rows)
+                # It is not 100% sure this is the most efficient way to read in using
+                # fitsio, but it does work.
+                sparseMap = np.zeros((sub.size + 1) * nFinePerCov, dtype=fits['SPARSE'][0:1].dtype)
+                # Read in the overflow bin
+                sparseMap[0: nFinePerCov] = hdu[0: nFinePerCov]
+                # And read in the pixels
+                for i, pix in enumerate(covPix[sub]):
+                    sparseMap[(i + 1)*nFinePerCov: (i + 2)*nFinePerCov] = hdu[covIndexMapTemp[pix]: covIndexMapTemp[pix] + nFinePerCov]
 
                 # Set the coverage index map for the pixels that we read in
                 covIndexMap[:] = 0
@@ -194,6 +224,73 @@ class HealSparseMap(object):
         if self._isRecArray:
             sHdr['PRIMARY'] = self._primary
         fitsio.write(filename, self._sparseMap, header=sHdr, extname='SPARSE')
+
+    def updateValues(self, pixel, values, nest=True):
+        """
+        Update the values in the sparsemap.
+
+        Parameters
+        ----------
+        pixel: `np.array`
+           Integer array of sparseMap pixel values
+        values: `np.array`
+           Array of values.  Must be same type as sparseMap
+        """
+
+        # First, check if these are the same type
+        if not isinstance(values, np.ndarray):
+            raise RuntimeError("Values are not a numpy ndarray")
+
+        if not nest:
+            _pix = hp.ring2nest(pixel)
+        else:
+            _pix = pixel
+
+        if self._sparseMap.dtype != values.dtype:
+            raise RuntimeError("Data-type mismatch between sparseMap and values")
+
+        # Compute the coverage pixels
+        ipnestCov = np.right_shift(_pix, self._bitShift)
+
+        # Check which pixels are in the coverage map
+        covMask = self.coverageMask
+        inCov, = np.where(covMask[ipnestCov])
+        outCov, = np.where(~covMask[ipnestCov])
+
+        # Replace values for those pixels in the coverage map
+        self._sparseMap[_pix[inCov] + self._covIndexMap[ipnestCov[inCov]]] = values[inCov]
+
+        # Update the coverage map for the rest of the pixels (if necessary)
+        if outCov.size > 0:
+            # This requires data copying. (Even numpy appending does)
+            # I don't want to overthink this and prematurely optimize, but
+            # I want it to be able to work when the map isn't being held
+            # in memory.  So that will require an append and non-contiguous
+            # pixels, which I *think* should be fine.
+
+            nFinePerCov = 2**self._bitShift
+
+            newCovPix = np.unique(ipnestCov[outCov])
+            sparseAppend = np.zeros(newCovPix.size * nFinePerCov, dtype=self._sparseMap.dtype)
+            # Fill with the empty defaults (generally UNSEEN)
+            sparseAppend[:] = self._sparseMap[0]
+
+            # Update covIndexMap
+            # These are pixels that are at the end of the previous sparsemap
+
+            # First reset the map to the base pixel indices
+            covIndexMapTemp = self._covIndexMap + np.arange(hp.nside2npix(self._nsideCoverage), dtype=np.int64) * nFinePerCov
+            # Put in the appended pixels
+            covIndexMapTemp[newCovPix] = np.arange(newCovPix.size) * nFinePerCov + self._sparseMap.size
+            # And put the offset back in
+            covIndexMapTemp[:] -= np.arange(hp.nside2npix(self._nsideCoverage), dtype=np.int64) * nFinePerCov
+
+            # Fill in the pixels to append
+            sparseAppend[_pix[outCov] + covIndexMapTemp[ipnestCov[outCov]] - self._sparseMap.size] = values[outCov]
+
+            # And set the values in the map
+            self._covIndexMap = covIndexMapTemp
+            self._sparseMap = np.append(self._sparseMap, sparseAppend)
 
     def getValueRaDec(self, ra, dec):
         """
