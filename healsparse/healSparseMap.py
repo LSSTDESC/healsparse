@@ -144,7 +144,11 @@ class HealSparseMap(object):
                     sparseMapSize = hdu.get_nrows()
 
                 nCovPix = sparseMapSize // nFinePerCov - 1
-                covPix, = np.where((covIndexMap + np.arange(hp.nside2npix(nsideCoverage)) * nFinePerCov) >= nFinePerCov)
+                #covPix, = np.where((covIndexMap + np.arange(hp.nside2npix(nsideCoverage)) * nFinePerCov) >= nFinePerCov)
+
+                # This is the map without the offset
+                covIndexMapTemp = covIndexMap + np.arange(hp.nside2npix(nsideCoverage), dtype=np.int64) * nFinePerCov
+                covPix, = np.where(covIndexMapTemp >= nFinePerCov)
 
                 # Find which pixels are in the coverage map
                 sub = np.clip(np.searchsorted(covPix, pixels), 0, covPix.size - 1)
@@ -153,24 +157,14 @@ class HealSparseMap(object):
                     raise RuntimeError("None of the specified pixels are in the coverage map")
                 sub = np.sort(sub[ok])
 
-                if imageType:
-                    sparseMap = np.zeros((sub.size + 1) * nFinePerCov, dtype=fits['SPARSE'][0:1].dtype)
-                    # Read in the overflow bin
-                    sparseMap[0: nFinePerCov] = hdu[0: nFinePerCov]
-                    # And read in the pixels
-                    for i, p in enumerate(sub):
-                        sparseMap[(i + 1)*nFinePerCov: (i + 2)*nFinePerCov] = hdu[(p + 1)*nFinePerCov: (p + 2)*nFinePerCov]
-
-                else:
-                    # This indexing selects out just the rows that we want to grab
-                    rows = np.tile(np.arange(nFinePerCov), sub.size) + np.repeat(sub, nFinePerCov) * nFinePerCov
-
-                    # This will have to be updated when supporting table types
-                    sparseMap = np.zeros((sub.size + 1) * nFinePerCov, dtype=fits['SPARSE'][0:1].dtype)
-                    # Read in the overflow bin
-                    sparseMap[0: nFinePerCov] = hdu.read_rows(np.arange(nFinePerCov))
-                    # And the rest of the rows
-                    sparseMap[nFinePerCov: rows.size + nFinePerCov] = hdu.read_rows(rows)
+                # It is not 100% sure this is the most efficient way to read in using
+                # fitsio, but it does work.
+                sparseMap = np.zeros((sub.size + 1) * nFinePerCov, dtype=fits['SPARSE'][0:1].dtype)
+                # Read in the overflow bin
+                sparseMap[0: nFinePerCov] = hdu[0: nFinePerCov]
+                # And read in the pixels
+                for i, pix in enumerate(covPix[sub]):
+                    sparseMap[(i + 1)*nFinePerCov: (i + 2)*nFinePerCov] = hdu[covIndexMapTemp[pix]: covIndexMapTemp[pix] + nFinePerCov]
 
                 # Set the coverage index map for the pixels that we read in
                 covIndexMap[:] = 0

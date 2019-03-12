@@ -16,7 +16,6 @@ class IoTestCase(unittest.TestCase):
         """
         Test i/o functionality
         """
-
         random.seed(seed=12345)
 
         nsideCoverage = 32
@@ -93,8 +92,57 @@ class IoTestCase(unittest.TestCase):
         Test reading maps that have been written with out-of-order pixels
         """
 
-        pass
+        random.seed(seed=12345)
 
+        nsideCoverage = 32
+        nsideMap = 64
+
+        nRand = 1000
+        ra = np.random.random(nRand) * 360.0
+        dec = np.random.random(nRand) * 180.0 - 90.0
+
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        # Create an empty map
+        sparseMap = healsparse.HealSparseMap.makeEmpty(nsideCoverage, nsideMap, np.float64)
+
+        # Fill it out of order
+        pixel = np.arange(4000, 20000)
+        #values = np.zeros_like(pixel, dtype=np.float64)
+        values = np.random.random(pixel.size)
+        sparseMap.updateValues(pixel, values)
+        pixel2 = np.arange(1000)
+        #values2 = np.zeros_like(pixel2, dtype=np.float64) + 2.0
+        values2 = np.random.random(pixel2.size)
+        sparseMap.updateValues(pixel2, values2)
+
+        sparseMap.write(os.path.join(self.test_dir, 'healsparse_map_outoforder.fits'))
+
+        # And read it in...
+        sparseMap = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healsparse_map_outoforder.fits'))
+
+        # Test some values
+        theta = np.radians(90.0 - dec)
+        phi = np.radians(ra)
+        ipnest = hp.ang2pix(nsideMap, theta, phi)
+        testMap = np.zeros(hp.nside2npix(nsideMap)) + hp.UNSEEN
+        testMap[pixel] = values
+        testMap[pixel2] = values2
+
+        testing.assert_almost_equal(sparseMap.getValuePixel(ipnest), testMap[ipnest])
+
+        # Read in the first two and the Nth pixel
+
+        # These pixels are chosen because they are covered by the random test points
+        sparseMapSmall = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healsparse_map_outoforder.fits'), pixels=[0, 1, 3179])
+
+        # Test some values
+        ipnestCov = np.right_shift(ipnest, sparseMapSmall._bitShift)
+        testValuesSmall = testMap[ipnest]
+        outsideSmall, = np.where((ipnestCov != 0) & (ipnestCov != 1) & (ipnestCov != 3179))
+        testValuesSmall[outsideSmall] = hp.UNSEEN
+
+        testing.assert_almost_equal(sparseMapSmall.getValuePixel(ipnest), testValuesSmall)
 
     def setUp(self):
         self.test_dir = None
