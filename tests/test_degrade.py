@@ -71,7 +71,7 @@ class DegradeMapTestCase(unittest.TestCase):
         ipnestTest = hp.ang2pix(nsideNew, theta, phi, nest=True) 
 
         # Degrade the old map
-        newSparseMap = sparseMap.degrade(nside_out=nsideNew, primary='col1')
+        newSparseMap = sparseMap.degrade(nside_out=nsideNew)
         testing.assert_almost_equal(newSparseMap.getValueRaDec(ra, dec)['col1'], hpmapCol1[ipnestTest])
         testing.assert_almost_equal(newSparseMap.getValueRaDec(ra, dec)['col2'], hpmapCol2[ipnestTest])
 

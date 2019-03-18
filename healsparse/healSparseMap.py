@@ -358,7 +358,7 @@ class HealSparseMap(object):
 
         pass
  
-    def degrade(self, nside_out, reduction='mean', primary=None):
+    def degrade(self, nside_out, reduction='mean'):
         """
         Reduce the resolution, i.e., increase the pixel size
         of a given sparse map
@@ -367,7 +367,6 @@ class HealSparseMap(object):
         ----
         nside_out: `int`, output Nside resolution parameter.
         reduction: `str`, reduction method (mean, median, std, max, min).
-        primary: `str`, in the case of using `np.recarray`, name of the field to use.
         """ 
         
         if self._nsideSparse < nside_out:
@@ -430,5 +429,5 @@ class HealSparseMap(object):
         newIndexMap[self.coverageMask] = np.arange(1, npop_pix + 1) * nFinePerCov
         newIndexMap[:] -= np.arange(hp.nside2npix(self._nsideCoverage), dtype=np.int64) * nFinePerCov
         return HealSparseMap(covIndexMap=newIndexMap, sparseMap=newsparseMap, nsideCoverage=self._nsideCoverage,
-                   nsideSparse=nside_out, primary=primary) 
+                   nsideSparse=nside_out, primary=self._primary) 
 
