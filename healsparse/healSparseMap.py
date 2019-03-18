@@ -378,6 +378,13 @@ class HealSparseMap(object):
         nFinePerCov = 2**bitShift 
         # Work with RecArray (we have to change the resolution to all maps...)
         if self._isRecArray:
+            dtype = []
+            # We should avoid integers
+            for key, value in self._sparseMap.dtype.fields.items():
+                if isinstance(self._sparseMap[key],int):
+                    dtype.append((key,np.float))
+                else:
+                    dtype.append((key,value[0]))
             dtype = self._sparseMap.dtype
             # Allocate new map
             newsparseMap = np.zeros((npop_pix+1)*nFinePerCov, dtype=dtype)
