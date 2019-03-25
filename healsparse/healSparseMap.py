@@ -1,9 +1,9 @@
 from __future__ import division, absolute_import, print_function
-
 import numpy as np
 import healpy as hp
 import fitsio
 import os
+from .utils import reduce_array
 
 class HealSparseMap(object):
     """
@@ -358,4 +358,60 @@ class HealSparseMap(object):
         """
 
         pass
+ 
+    def degrade(self, nside_out, reduction='mean'):
+        """
+        Reduce the resolution, i.e., increase the pixel size
+        of a given sparse map
+        
+        Args:
+        ----
+        nside_out: `int`, output Nside resolution parameter.
+        reduction: `str`, reduction method (mean, median, std, max, min).
+        """ 
+        
+        if self._nsideSparse < nside_out:
+            raise ValueError('nside_out should be smaller than nside for the sparseMap')
+        # Count the number of filled pixels in the coverage mask
+        npop_pix = np.count_nonzero(self.coverageMask)
+        # We need the new bitShifts and we have to build a new CovIndexMap
+        bitShift = 2 * int(np.round(np.log(nside_out / self._nsideCoverage) / np.log(2)))
+        nFinePerCov = 2**bitShift 
+        # Work with RecArray (we have to change the resolution to all maps...)
+        if self._isRecArray:
+            dtype = []
+            # We should avoid integers
+            for key, value in self._sparseMap.dtype.fields.items():
+                if isinstance(self._sparseMap[key],int):
+                    dtype.append((key,np.float))
+                else:
+                    dtype.append((key,value[0]))
+            dtype = self._sparseMap.dtype
+            # Allocate new map
+            newsparseMap = np.zeros((npop_pix+1)*nFinePerCov, dtype=dtype)
+            for key, value in newsparseMap.dtype.fields.items():  
+                aux = self._sparseMap[key].astype(float)
+                aux = aux.reshape((npop_pix+1, (nside_out//self._nsideCoverage)**2, -1))
+                aux[aux==hp.UNSEEN] = np.nan
+                # Perform the reduction operation (check utils.reduce_array)
+                aux = reduce_array(aux, reduction=reduction)
+                # Transform back to UNSEEN
+                aux[np.isnan(aux)] = hp.UNSEEN
+                newsparseMap[key] = aux
+               
+        # Work with ndarray
+        else:
+            aux = self._sparseMap
+            aux = aux.reshape((npop_pix+1, (nside_out//self._nsideCoverage)**2, -1))
+            aux[aux==hp.UNSEEN] = np.nan
+            aux = reduce_array(aux, reduction=reduction)
+            # NaN are converted to UNSEEN
+            aux[np.isnan(aux)] = hp.UNSEEN
+            newsparseMap = aux
+        # The coverage index map is now offset, we have to build a new one
+        newIndexMap = np.zeros(hp.nside2npix(self._nsideCoverage), dtype=np.int64)
+        newIndexMap[self.coverageMask] = np.arange(1, npop_pix + 1) * nFinePerCov
+        newIndexMap[:] -= np.arange(hp.nside2npix(self._nsideCoverage), dtype=np.int64) * nFinePerCov
+        return HealSparseMap(covIndexMap=newIndexMap, sparseMap=newsparseMap, nsideCoverage=self._nsideCoverage,
+                             nsideSparse=nside_out, primary=self._primary) 
 
