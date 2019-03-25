@@ -3,6 +3,7 @@ import numpy as np
 import healpy as hp
 import fitsio
 import os
+from .utils import reduce_array
 
 class HealSparseMap(object):
     """
@@ -389,52 +390,28 @@ class HealSparseMap(object):
             # Allocate new map
             newsparseMap = np.zeros((npop_pix+1)*nFinePerCov, dtype=dtype)
             for key, value in newsparseMap.dtype.fields.items():  
-                aux = self._sparseMap[key]
+                aux = self._sparseMap[key].astype(float)
                 aux = aux.reshape((npop_pix+1, (nside_out//self._nsideCoverage)**2, -1))
-                wgt = np.ones_like(aux, dtype=np.float)
-                # We avoid setting the overflow bins to zero weight
-                wgt[1,:,:][aux[1,:,:]==hp.UNSEEN] = 0. 
-                if reduction=='mean':
-                    aux = np.average(aux, weights=wgt, axis=2).flatten()
-                elif reduction=='max':
-                    aux = np.max(aux, axis=2).flatten()
-                elif reduction=='min':
-                    aux[aux==hp.UNSEEN]=-hp.UNSEEN
-                    aux = np.min(aux, axis=2).flatten()
-                elif reduction=='std':
-                    avg = np.average(aux, weights=wgt, axis=2).flatten()
-                    avg2 = np.average(aux**2, weights=wgt, axis=2).flatten()
-                    aux = np.sqrt(avg2 - avg**2)
-                elif reduction=='median':
-                    raise ValueError('Median not yet implemented for recarray')
-                else:
-                    raise ValueError('Only mean, max, std, and min implemented for recarray') 
+                aux[aux==hp.UNSEEN] = np.nan
+                # Perform the reduction operation (check utils.reduce_array)
+                aux = reduce_array(aux, reduction=reduction)
+                # Transform back to UNSEEN
+                aux[np.isnan(aux)] = hp.UNSEEN
                 newsparseMap[key] = aux
+               
         # Work with ndarray
         else:
             aux = self._sparseMap
             aux = aux.reshape((npop_pix+1, (nside_out//self._nsideCoverage)**2, -1))
             aux[aux==hp.UNSEEN] = np.nan
-            # Reduce array
-            if reduction=='mean':
-                aux = np.nanmean(aux, axis=2).flatten()
-            elif reduction=='median':
-                aux = np.nanmedian(aux, axis=2).flatten()
-            elif reduction=='std':
-                aux = np.nanstd(aux, axis=2).flatten()
-            elif reduction=='max':
-                aux = np.nanmax(aux, axis=2).flatten()
-            elif reduction=='min':
-                aux = np.nanmin(aux, axis=2).flatten()
-            else:
-                raise ValueError('Only mean, median, std, max, and min reductions implemented')
+            aux = reduce_array(aux, reduction=reduction)
             # NaN are converted to UNSEEN
-            aux[np.isnan(aux)]=hp.UNSEEN
+            aux[np.isnan(aux)] = hp.UNSEEN
             newsparseMap = aux
         # The coverage index map is now offset, we have to build a new one
         newIndexMap = np.zeros(hp.nside2npix(self._nsideCoverage), dtype=np.int64)
         newIndexMap[self.coverageMask] = np.arange(1, npop_pix + 1) * nFinePerCov
         newIndexMap[:] -= np.arange(hp.nside2npix(self._nsideCoverage), dtype=np.int64) * nFinePerCov
         return HealSparseMap(covIndexMap=newIndexMap, sparseMap=newsparseMap, nsideCoverage=self._nsideCoverage,
-                   nsideSparse=nside_out, primary=self._primary) 
+                             nsideSparse=nside_out, primary=self._primary) 
 
