@@ -322,26 +322,6 @@ class HealSparseMap(object):
 
         return self._sparseMap[_pix + self._covIndexMap[ipnestCov]]
 
-    def HSPixel2RaDec(self, pixel):
-        """
-        Get the position ra, dec (in degrees) of the center of a certain HealSparse pixel
-        according to its covIndexMap
-        """
-
-        _cov_idx = np.right_shift(pixel, self._bitShift)
-        theta, phi = hp.pix2ang(self._nsideSparse, pixel-self._covIndexMap[self.coverageMask][_cov_idx-1], nest=True)
-        return np.degrees(phi), np.degrees(np.pi/2-theta)
-
-    def RaDec2HSPixel(self, ra, dec):
-        """
-        Get the HealSparse pixel number from ra, dec in degrees according to its covIndexMap
-        """
-
-        _pix = hp.ang2pix(self._nsideSparse, np.pi/2-np.radians(dec), np.radians(ra), nest=True)
-        ipnestCov = np.right_shift(_pix, self._bitShift)
-        return _pix + self._covIndexMap[ipnestCov]
-
-
     @property
     def coverageMap(self):
         """
@@ -378,10 +358,27 @@ class HealSparseMap(object):
 
         Args:
         -----
+        nside: `int`
+            Output nside resolution parameter (should be a multiple of 2). If not specified
+            the output resolution will be equal to the parent's sparsemap nsideSparse
+        reduction: `str`
+            If a change in resolution is requested, this controls the method to reduce the
+            map computing the mean, median, std, max or min of the neighboring pixels to compute
+            the `degraded` map.
+        key: `str`
+            If the parent HealSparseMap contains `recarrays`, key selects the field that will be
+            transformed into a HEALPix map.
 
+        Returns:
+        --------
+        hp_map: `ndarray`
+            Output HEALPix map with the requested resolution.
         """
+
+        # If no nside is passed, we generate a map with the same resolution as the original
         if nside is None:
             nside = self._nsideSparse
+
         # Check if we are dealing with recArrays and try to preserve the data types
         if self._isRecArray:
             if key is None:
@@ -392,18 +389,23 @@ class HealSparseMap(object):
                 else:
                     aux_dtype = self._sparseMap[key].dtype
                 aux = self._sparseMap[key].astype(aux_dtype)
+                # We create one HealSparseMap in order to avoid keys other than the specified (in the case of having more than one)
+                aux_spmap = HealSparseMap(covIndexMap=self._covIndexMap, sparseMap=aux, nsideSparse=self._nsideSparse,
+                                          nsideCoverage=self._nsideCoverage)
         # If it is not a recArray then, try to preserve the type anyway
         else:
             if isinstance(self._sparseMap,int):
                 aux_dtype = np.float #Force to float
+                aux = self._sparseMap.astype(aux_dtype)
+                # `self.degrade` would have taken care of this but, in case that we preserve the resolution...
+                aux_spmap = HealSparseMap(covIndexMap=self._covIndexMap, sparseMap=aux, nsideSparse=self._nsideSparse,
+                                          nsideCoverage=self._nsideCoverage)
             else:
+                aux_spmap = self
                 aux_dtype = self._sparseMap.dtype
-            aux = self._sparseMap.astype(aux_dtype)
         # Create empty HEALPix map
         hp_map = np.zeros(hp.nside2npix(nside), dtype=aux_dtype) + hp.UNSEEN # remember that empty means UNSEEN!
         # We generate a HealSparseMap with the requested size before converting to healpix
-        aux_spmap = HealSparseMap(covIndexMap=self._covIndexMap, sparseMap=aux, nsideSparse=self._nsideSparse,
-                                  nsideCoverage=self._nsideCoverage)
         if nside < self._nsideSparse:
             aux_spmap = aux_spmap.degrade(nside, reduction=reduction) # We change the resolution of the map
         if nside > self._nsideSparse:
