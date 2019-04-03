@@ -8,6 +8,7 @@ from numpy import random
 import tempfile
 import shutil
 import os
+import fitsio
 
 import healsparse
 
@@ -108,11 +109,9 @@ class IoTestCase(unittest.TestCase):
 
         # Fill it out of order
         pixel = np.arange(4000, 20000)
-        #values = np.zeros_like(pixel, dtype=np.float64)
         values = np.random.random(pixel.size)
         sparseMap.updateValues(pixel, values)
         pixel2 = np.arange(1000)
-        #values2 = np.zeros_like(pixel2, dtype=np.float64) + 2.0
         values2 = np.random.random(pixel2.size)
         sparseMap.updateValues(pixel2, values2)
 
@@ -144,11 +143,41 @@ class IoTestCase(unittest.TestCase):
 
         testing.assert_almost_equal(sparseMapSmall.getValuePixel(ipnest), testValuesSmall)
 
+    def test_writeread_withheader(self):
+        """
+        Test i/o functionality with a header
+        """
+
+        random.seed(seed=12345)
+
+        nsideCoverage = 32
+        nsideMap = 64
+
+        nRand = 1000
+        ra = np.random.random(nRand) * 360.0
+        dec = np.random.random(nRand) * 180.0 - 90.0
+
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        fullMap = np.zeros(hp.nside2npix(nsideMap)) + hp.UNSEEN
+        fullMap[0: 20000] = np.random.random(size=20000)
+
+        sparseMap = healsparse.HealSparseMap(healpixMap=fullMap, nsideCoverage=nsideCoverage, nest=True)
+        hdr = fitsio.FITSHDR()
+        hdr['TESTING'] = 1.0
+
+        sparseMap.write(os.path.join(self.test_dir, 'sparsemap_with_header.fits'), header=hdr)
+
+        retMap, retHdr = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'sparsemap_with_header.fits'), header=True)
+
+        self.assertEqual(hdr['TESTING'], retHdr['TESTING'])
+
     def setUp(self):
         self.test_dir = None
 
     def tearDown(self):
         if self.test_dir is not None:
+            pass
             if os.path.exists(self.test_dir):
                 shutil.rmtree(self.test_dir, True)
 
