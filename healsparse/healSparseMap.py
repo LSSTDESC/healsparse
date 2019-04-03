@@ -314,7 +314,7 @@ class HealSparseMap(object):
         """
 
         if not nest:
-            _pix = hp.ring2nest(pixel)
+            _pix = hp.ring2nest(self._nsideSparse, pixel)
         else:
             _pix = pixel
 
