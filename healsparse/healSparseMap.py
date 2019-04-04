@@ -471,6 +471,30 @@ class HealSparseMap(object):
         covMask = (self._covIndexMap[:] + np.arange(hp.nside2npix(self._nsideCoverage))*nfine) >= nfine
         return covMask
 
+    @property
+    def nsideCoverage(self):
+        """
+        Get the nside of the coverage map
+
+        Returns
+        -------
+        nsideCoverage: `int`
+        """
+
+        return self._nsideCoverage
+
+    @property
+    def nsideSparse(self):
+        """
+        Get the nside of the sparse map
+
+        Returns
+        -------
+        nsideSparse: `int`
+        """
+
+        return self._nsideSparse
+
     def generateHealpixMap(self, nside=None, reduction='mean', key=None):
         """
         Generate the associated healpix map
@@ -537,6 +561,27 @@ class HealSparseMap(object):
         cov_idx = np.right_shift(pop_idx, aux_spmap._bitShift)
         hp_map[pop_idx - aux_spmap._covIndexMap[aux_spmap.coverageMask][cov_idx-1]]=aux[pop_idx]
         return hp_map
+
+    @property
+    def validPixels(self):
+        """
+        Get an array of valid pixels in the sparse map.
+
+        Returns
+        -------
+        validPixels: `np.array`
+        """
+
+        if self._isRecArray:
+            validSparsePixels, = np.where(self._sparseMap[self._primary] > hp.UNSEEN)
+        else:
+            validSparsePixels, = np.where(self._sparseMap > hp.UNSEEN)
+
+        coverageIndex = np.right_shift(validSparsePixels, self._bitShift)
+
+        validPixels = validSparsePixels - self._covIndexMap[self.coverageMask][coverageIndex - 1]
+
+        return validPixels
 
     def degrade(self, nside_out, reduction='mean'):
         """

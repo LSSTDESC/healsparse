@@ -51,5 +51,9 @@ class LookupTestCase(unittest.TestCase):
         compValues = sparseMap.getValueRaDec(ra, dec)
         testing.assert_almost_equal(compValues, testValues)
 
+        # Test the list of valid pixels
+        validPixels = sparseMap.validPixels
+        testing.assert_equal(validPixels, np.where(fullMap > hp.UNSEEN)[0])
+
 if __name__=='__main__':
     unittest.main()
