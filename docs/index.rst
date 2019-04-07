@@ -14,17 +14,26 @@ let us know about any problems or questions with the code.
 .. _healpy: https://github.com/healpy/healpy/
 .. _GitHub: https://github.com/LSSTDESC/healsparse
 
-Contents:
+
+Contents
+========
 
 .. toctree::
    :maxdepth: 2
+   
+   quickstart
+   install
+   
+Modules API Reference
+=====================
 
+.. toctree::
+   :maxdepth: 3
 
+   src/healsparse
 
-Indices and tables
-==================
+Search
+======
 
-* :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`
 
