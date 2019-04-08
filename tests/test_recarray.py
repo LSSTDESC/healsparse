@@ -54,6 +54,10 @@ class RecArrayTestCase(unittest.TestCase):
         testing.assert_almost_equal(sparseMap.getValueRaDec(ra, dec)['col1'], hpmapCol1[ipnestTest])
         testing.assert_almost_equal(sparseMap.getValueRaDec(ra, dec)['col2'], hpmapCol2[ipnestTest])
 
+        # Test the list of valid pixels
+        validPixels = sparseMap.validPixels
+        testing.assert_equal(validPixels, pixel)
+
         # Read in a partial map...
         sparseMapSmall = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healsparse_map_recarray.fits'), pixels=[0, 1])
 
@@ -73,6 +77,7 @@ class RecArrayTestCase(unittest.TestCase):
 
         testing.assert_almost_equal(sparseMapSmall.getValuePixel(ipnestTest)['col1'], testValues1b)
         testing.assert_almost_equal(sparseMapSmall.getValuePixel(ipnestTest)['col2'], testValues2b)
+
 
     def test_readOutOfOrderRecarray(self):
         """

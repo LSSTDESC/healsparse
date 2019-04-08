@@ -37,9 +37,29 @@ class HealSparseMap(object):
         self._bitShift = 2 * int(np.round(np.log(self._nsideSparse / self._nsideCoverage) / np.log(2)))
 
     @classmethod
-    def read(cls, filename, nsideCoverage=None, pixels=None):
+    def read(cls, filename, nsideCoverage=None, pixels=None, header=False):
         """
-        Read in a HealSparseMap
+        Read in a HealSparseMap.
+
+        Parameters
+        ----------
+        filename: `str`
+           Name of the file to read.  May be either a regular HEALPIX
+           map or a HealSparseMap
+        nsideCoverage: `int`, optional
+           Nside of coverage map to generate if input file is healpix map.
+        pixels: `list`, optional
+           List of coverage map pixels to read.  Only used if input file
+           is a HealSparseMap
+        header: `bool`, optional
+           Return the fits header as well as map?  Default is False.
+
+        Returns
+        -------
+        healSparseMap: `HealSparseMap`
+           HealSparseMap from file, covered by pixels
+        header: `fitsio.FITSHDR` (if header=True)
+           Fits header for the map file.
         """
 
         # Check to see if the filename is a healpix map or a sparsehealpix map
@@ -59,11 +79,17 @@ class HealSparseMap(object):
                 dtype = row[0][0][0].dtype.type
 
             healpixMap = hp.read_map(filename, nest=True, verbose=False, dtype=dtype)
-            return cls(healpixMap=healpixMap, nsideCoverage=nsideCoverage, nest=True)
+            if header:
+                return (cls(healpixMap=healpixMap, nsideCoverage=nsideCoverage, nest=True), hdr)
+            else:
+                return cls(healpixMap=healpixMap, nsideCoverage=nsideCoverage, nest=True)
         elif 'PIXTYPE' in hdr and hdr['PIXTYPE'].rstrip() == 'HEALSPARSE':
             # This is a sparse map type.  Just use fits for now.
             covIndexMap, sparseMap, nsideSparse, primary = cls._readHealSparseFile(filename, pixels=pixels)
-            return cls(covIndexMap=covIndexMap, sparseMap=sparseMap, nsideSparse=nsideSparse, primary=primary)
+            if header:
+                return (cls(covIndexMap=covIndexMap, sparseMap=sparseMap, nsideSparse=nsideSparse, primary=primary), hdr)
+            else:
+                return cls(covIndexMap=covIndexMap, sparseMap=sparseMap, nsideSparse=nsideSparse, primary=primary)
         else:
             raise RuntimeError("Filename %s not in healpix or healsparse format." % (filename))
 
@@ -82,6 +108,11 @@ class HealSparseMap(object):
            Datatype, any format accepted by numpy.
         primary: `str`, optional
            Primary key for recarray, required if dtype has fields.
+
+        Returns
+        -------
+        healSparseMap: `HealSparseMap`
+           HealSparseMap filled with UNSEEN values.
         """
 
         bitShift = 2 * int(np.round(np.log(nsideSparse / nsideCoverage) / np.log(2)))
@@ -106,7 +137,25 @@ class HealSparseMap(object):
     @staticmethod
     def _readHealSparseFile(filename, pixels=None):
         """
-        Read a healsparse file, optionally with a set of coverage pixels
+        Read a healsparse file, optionally with a set of coverage pixels.
+
+        Parameters
+        ----------
+        filename: `str`
+           Name of the file to read.
+        pixels: `list`, optional
+           List of integer pixels from the coverage map
+
+        Returns
+        -------
+        covIndexMap: `np.array`
+           Integer array for coverage index values
+        sparseMap: `np.array`
+           Sparse map with map dtype
+        nsideSparse: `int`
+           Nside of the coverage map
+        primary: `str`
+           Primary key field for recarray map.  Default is None.
         """
         covIndexMap = fitsio.read(filename, ext='COV')
         primary = None
@@ -118,7 +167,8 @@ class HealSparseMap(object):
             if 'PRIMARY' in sHdr:
                 primary = sHdr['PRIMARY'].rstrip()
         else:
-            if len(np.unique(pixels)) < len(pixels):
+            _pixels = np.atleast_1d(pixels)
+            if len(np.unique(_pixels)) < len(_pixels):
                 raise RuntimeError("Input list of pixels must be unique.")
 
             # Read part of a map
@@ -144,15 +194,14 @@ class HealSparseMap(object):
                     sparseMapSize = hdu.get_nrows()
 
                 nCovPix = sparseMapSize // nFinePerCov - 1
-                #covPix, = np.where((covIndexMap + np.arange(hp.nside2npix(nsideCoverage)) * nFinePerCov) >= nFinePerCov)
 
                 # This is the map without the offset
                 covIndexMapTemp = covIndexMap + np.arange(hp.nside2npix(nsideCoverage), dtype=np.int64) * nFinePerCov
                 covPix, = np.where(covIndexMapTemp >= nFinePerCov)
 
                 # Find which pixels are in the coverage map
-                sub = np.clip(np.searchsorted(covPix, pixels), 0, covPix.size - 1)
-                ok, = np.where(covPix[sub] == pixels)
+                sub = np.clip(np.searchsorted(covPix, _pixels), 0, covPix.size - 1)
+                ok, = np.where(covPix[sub] == _pixels)
                 if ok.size == 0:
                     raise RuntimeError("None of the specified pixels are in the coverage map")
                 sub = np.sort(sub[ok])
@@ -176,8 +225,23 @@ class HealSparseMap(object):
     @staticmethod
     def convertHealpixMap(healpixMap, nsideCoverage, nest=True):
         """
-        Convert a healpix map
+        Convert a healpix map to a healsparsemap.
 
+        Parameters
+        ----------
+        healpixMap: `np.array`
+           Numpy array that describes a healpix map.
+        nsideCoverage: `int`
+           Nside for the coverage map to construct
+        nest: `bool`, optional
+           Is the input map in nest format?  Default is True.
+
+        Returns
+        -------
+        covIndexMap: `np.array`
+           Coverage map with pixel indices
+        sparseMap: `np.array`
+           Sparse map of input values.
         """
         if not nest:
             # must convert map to ring format
@@ -207,18 +271,29 @@ class HealSparseMap(object):
 
         return covIndexMap, sparseMap
 
-    def write(self, filename, clobber=False):
+    def write(self, filename, clobber=False, header=None):
         """
         Write heal HealSparseMap to filename
+
+        Parameters
+        ----------
+        filename: `str`
+           Name of file to save
+        clobber: `bool`, optional
+           Clobber existing file?  Default is False.
+        header: `fitsio.FITSHDR` or `dict`, optional
+           Header to put in first extension with additional metadata.
+           Default is None.
         """
         if os.path.isfile(filename) and not clobber:
             raise RuntimeError("Filename %s exists and clobber is False." % (filename))
 
-        cHdr = fitsio.FITSHDR()
+        # Note that we put the requested header information in each of the extensions.
+        cHdr = fitsio.FITSHDR(header)
         cHdr['PIXTYPE'] = 'HEALSPARSE'
         cHdr['NSIDE'] = self._nsideCoverage
         fitsio.write(filename, self._covIndexMap, header=cHdr, extname='COV', clobber=True)
-        sHdr = fitsio.FITSHDR()
+        sHdr = fitsio.FITSHDR(header)
         sHdr['PIXTYPE'] = 'HEALSPARSE'
         sHdr['NSIDE'] = self._nsideSparse
         if self._isRecArray:
@@ -242,7 +317,7 @@ class HealSparseMap(object):
             raise RuntimeError("Values are not a numpy ndarray")
 
         if not nest:
-            _pix = hp.ring2nest(pixel)
+            _pix = hp.ring2nest(self._nsideSparse, pixel)
         else:
             _pix = pixel
 
@@ -295,13 +370,37 @@ class HealSparseMap(object):
     def getValueRaDec(self, ra, dec):
         """
         Get the map value for a ra/dec in degrees (for now)
+
+        Parameters
+        ----------
+        ra: `np.array`
+           Float array of RA (degrees)
+        dec: `np.array`
+           Float array of dec (degrees)
+
+        Returns
+        -------
+        values: `np.array`
+           Array of values from the map.
         """
 
         return self.getValueThetaPhi(np.radians(90.0 - dec), np.radians(ra))
 
     def getValueThetaPhi(self, theta, phi):
         """
-        Get the map value for a theta/phi
+        Get the map value for a theta/phi.
+
+        Parameters
+        ----------
+        theta: `np.array`
+           Float array of healpix theta (np.radians(90.0 - dec))
+        phi: `np.array`
+           Float array of healpix phi (np.radians(ra))
+
+        Returns
+        -------
+        values: `np.array`
+           Array of values from the map.
         """
 
         ipnest = hp.ang2pix(self._nsideSparse, theta, phi, nest=True)
@@ -310,11 +409,24 @@ class HealSparseMap(object):
 
     def getValuePixel(self, pixel, nest=True):
         """
-        Get the map value for a pixel
+        Get the map value for a pixel.
+
+        Parameters
+        ----------
+        pixel: `np.array`
+           Integer array of healpix pixels.
+        nest: `bool`, optional
+           Are the pixels in nest scheme?  Default is True.
+
+        Returns
+        -------
+        values: `np.array`
+           Array of values from the map.
+
         """
 
         if not nest:
-            _pix = hp.ring2nest(pixel)
+            _pix = hp.ring2nest(self._nsideSparse, pixel)
         else:
             _pix = pixel
 
@@ -327,6 +439,11 @@ class HealSparseMap(object):
         """
         Get the fractional area covered by the sparse map
         in the resolution of the coverage map
+
+        Returns
+        -------
+        covMap: `np.array`
+           Float array of fractional coverage of each pixel
         """
 
         covMap = np.zeros_like(self.coverageMask, dtype=np.double)
@@ -343,12 +460,41 @@ class HealSparseMap(object):
     @property
     def coverageMask(self):
         """
-        Get the boolean mask
+        Get the boolean mask of the coverage map.
+
+        Returns
+        -------
+        covMask: `np.array`
+           Boolean array of coverage mask.
         """
 
         nfine = 2**self._bitShift
         covMask = (self._covIndexMap[:] + np.arange(hp.nside2npix(self._nsideCoverage))*nfine) >= nfine
         return covMask
+
+    @property
+    def nsideCoverage(self):
+        """
+        Get the nside of the coverage map
+
+        Returns
+        -------
+        nsideCoverage: `int`
+        """
+
+        return self._nsideCoverage
+
+    @property
+    def nsideSparse(self):
+        """
+        Get the nside of the sparse map
+
+        Returns
+        -------
+        nsideSparse: `int`
+        """
+
+        return self._nsideSparse
 
     def generateHealpixMap(self, nside=None, reduction='mean', key=None):
         """
@@ -416,6 +562,27 @@ class HealSparseMap(object):
         cov_idx = np.right_shift(pop_idx, aux_spmap._bitShift)
         hp_map[pop_idx - aux_spmap._covIndexMap[aux_spmap.coverageMask][cov_idx-1]]=aux[pop_idx]
         return hp_map
+
+    @property
+    def validPixels(self):
+        """
+        Get an array of valid pixels in the sparse map.
+
+        Returns
+        -------
+        validPixels: `np.array`
+        """
+
+        if self._isRecArray:
+            validSparsePixels, = np.where(self._sparseMap[self._primary] > hp.UNSEEN)
+        else:
+            validSparsePixels, = np.where(self._sparseMap > hp.UNSEEN)
+
+        coverageIndex = np.right_shift(validSparsePixels, self._bitShift)
+
+        validPixels = validSparsePixels - self._covIndexMap[self.coverageMask][coverageIndex - 1]
+
+        return validPixels
 
     def degrade(self, nside_out, reduction='mean'):
         """

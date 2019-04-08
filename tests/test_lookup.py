@@ -38,6 +38,11 @@ class LookupTestCase(unittest.TestCase):
         compValues = sparseMap.getValuePixel(ipnest)
         testing.assert_almost_equal(compValues, testValues)
 
+        # Test pixel lookup (ring)
+        ipring = hp.nest2ring(nsideMap, ipnest)
+        compValues = sparseMap.getValuePixel(ipring, nest=False)
+        testing.assert_almost_equal(compValues, testValues)
+
         # Test the theta/phi lookup
         compValues = sparseMap.getValueThetaPhi(theta, phi)
         testing.assert_almost_equal(compValues, testValues)
@@ -45,6 +50,10 @@ class LookupTestCase(unittest.TestCase):
         # Test the ra/dec lookup
         compValues = sparseMap.getValueRaDec(ra, dec)
         testing.assert_almost_equal(compValues, testValues)
+
+        # Test the list of valid pixels
+        validPixels = sparseMap.validPixels
+        testing.assert_equal(validPixels, np.where(fullMap > hp.UNSEEN)[0])
 
 if __name__=='__main__':
     unittest.main()
