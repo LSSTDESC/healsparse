@@ -167,7 +167,8 @@ class HealSparseMap(object):
             if 'PRIMARY' in sHdr:
                 primary = sHdr['PRIMARY'].rstrip()
         else:
-            if len(np.unique(pixels)) < len(pixels):
+            _pixels = np.atleast_1d(pixels)
+            if len(np.unique(_pixels)) < len(_pixels):
                 raise RuntimeError("Input list of pixels must be unique.")
 
             # Read part of a map
@@ -199,8 +200,8 @@ class HealSparseMap(object):
                 covPix, = np.where(covIndexMapTemp >= nFinePerCov)
 
                 # Find which pixels are in the coverage map
-                sub = np.clip(np.searchsorted(covPix, pixels), 0, covPix.size - 1)
-                ok, = np.where(covPix[sub] == pixels)
+                sub = np.clip(np.searchsorted(covPix, _pixels), 0, covPix.size - 1)
+                ok, = np.where(covPix[sub] == _pixels)
                 if ok.size == 0:
                     raise RuntimeError("None of the specified pixels are in the coverage map")
                 sub = np.sort(sub[ok])
@@ -316,7 +317,7 @@ class HealSparseMap(object):
             raise RuntimeError("Values are not a numpy ndarray")
 
         if not nest:
-            _pix = hp.ring2nest(pixel)
+            _pix = hp.ring2nest(self._nsideSparse, pixel)
         else:
             _pix = pixel
 
