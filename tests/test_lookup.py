@@ -38,6 +38,11 @@ class LookupTestCase(unittest.TestCase):
         compValues = sparseMap.getValuePixel(ipnest)
         testing.assert_almost_equal(compValues, testValues)
 
+        # Test pixel lookup (valid pixels)
+        # Note that this tests all the downstream functions
+        validMask = sparseMap.getValuePixel(ipnest, validMask=True)
+        testing.assert_equal(validMask, compValues > hp.UNSEEN)
+
         # Test pixel lookup (ring)
         ipring = hp.nest2ring(nsideMap, ipnest)
         compValues = sparseMap.getValuePixel(ipring, nest=False)
