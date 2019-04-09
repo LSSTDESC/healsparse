@@ -367,7 +367,7 @@ class HealSparseMap(object):
             self._covIndexMap = covIndexMapTemp
             self._sparseMap = np.append(self._sparseMap, sparseAppend)
 
-    def getValueRaDec(self, ra, dec):
+    def getValueRaDec(self, ra, dec, validMask=False):
         """
         Get the map value for a ra/dec in degrees (for now)
 
@@ -377,16 +377,19 @@ class HealSparseMap(object):
            Float array of RA (degrees)
         dec: `np.array`
            Float array of dec (degrees)
+        validMask: `bool`, optional
+           Return mask of True/False instead of values
 
         Returns
         -------
         values: `np.array`
-           Array of values from the map.
+           Array of values/validity from the map.
         """
 
-        return self.getValueThetaPhi(np.radians(90.0 - dec), np.radians(ra))
+        return self.getValueThetaPhi(np.radians(90.0 - dec), np.radians(ra),
+                                     validMask=validMask)
 
-    def getValueThetaPhi(self, theta, phi):
+    def getValueThetaPhi(self, theta, phi, validMask=False):
         """
         Get the map value for a theta/phi.
 
@@ -396,18 +399,20 @@ class HealSparseMap(object):
            Float array of healpix theta (np.radians(90.0 - dec))
         phi: `np.array`
            Float array of healpix phi (np.radians(ra))
+        validMask: `bool`, optional
+           Return mask of True/False instead of values
 
         Returns
         -------
         values: `np.array`
-           Array of values from the map.
+           Array of values/validity from the map.
         """
 
         ipnest = hp.ang2pix(self._nsideSparse, theta, phi, nest=True)
 
-        return self.getValuePixel(ipnest, nest=True)
+        return self.getValuePixel(ipnest, nest=True, validMask=validMask)
 
-    def getValuePixel(self, pixel, nest=True):
+    def getValuePixel(self, pixel, nest=True, validMask=False):
         """
         Get the map value for a pixel.
 
@@ -417,12 +422,13 @@ class HealSparseMap(object):
            Integer array of healpix pixels.
         nest: `bool`, optional
            Are the pixels in nest scheme?  Default is True.
+        validMask: `bool`, optional
+           Return mask of True/False instead of values
 
         Returns
         -------
         values: `np.array`
-           Array of values from the map.
-
+           Array of values/validity from the map.
         """
 
         if not nest:
@@ -432,7 +438,16 @@ class HealSparseMap(object):
 
         ipnestCov = np.right_shift(_pix, self._bitShift)
 
-        return self._sparseMap[_pix + self._covIndexMap[ipnestCov]]
+        values = self._sparseMap[_pix + self._covIndexMap[ipnestCov]]
+
+        if validMask:
+            if self._isRecArray:
+                return (values[self._primary] > hp.UNSEEN)
+            else:
+                return (values > hp.UNSEEN)
+        else:
+            # Just return the values
+            return values
 
     @property
     def coverageMap(self):
@@ -495,6 +510,18 @@ class HealSparseMap(object):
         """
 
         return self._nsideSparse
+
+    @property
+    def primary(self):
+        """
+        Get the primary field
+
+        Returns
+        -------
+        primary: `str`
+        """
+
+        return self._primary
 
     def generateHealpixMap(self, nside=None, reduction='mean', key=None):
         """
