@@ -46,7 +46,6 @@ MOCK_MODULES = [
     'astropy.io.fits',
     'fitsio',
     'healpy',
-    'healsparse',
 ]
 
 if on_rtd:
