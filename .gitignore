@@ -6,3 +6,5 @@ build
 dist
 healsparse.egg-info
 .DS_Store
+*.fits
+.ipynb_checkpoints
