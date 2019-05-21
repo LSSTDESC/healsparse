@@ -706,26 +706,135 @@ class HealSparseMap(object):
         return HealSparseMap(covIndexMap=newIndexMap, sparseMap=newsparseMap, nsideCoverage=self._nsideCoverage,
                              nsideSparse=nside_out, primary=self._primary)
 
-    def bitwise_and(self, *args, **kwargs):
+    def __getitem__(self, key):
         """
-        Perform a bitwise and on two or more maps.
+        Get a single healpix map out of a recarray map, using the default sentinel
+        values.
+        """
 
-        Calling is of the form:
+        if not self._isRecArray:
+            raise TypeError("HealSparseMap is not a recarray map")
 
-        newMap = map1.bitwise_and(map2, field1='bitField', field2='otherBitField')
+        return self.getSingle(key, sentinel=None)
+
+    def getSingle(self, key, sentinel=None):
+        """
+        Get a single healpix map out of a recarray map, with the ability to
+        override a sentinel value.
 
         Parameters
         ----------
-        map2: `HealSparseMap`
-           Second healsparse map
-        map3 ...: `HealSparseMap`, optional
-           Third or later maps
-        field1: `str`
-           Name of field for map1 (self)
-        field2: `str`
-           Name of field for map2
-        field3 ...: `str`, optional
-           Name of field for map3
+        key: `str`
+           Field for the recarray
+        sentinel: `int` or `float` or None, optional
+           Override the default sentinel value.  Default is None (use default)
         """
 
-        pass
+        if not self._isRecArray:
+            raise TypeError("HealSparseMap is not a recarray map")
+
+        if key == self._primary and sentinel is None:
+            # This is easy, and no replacements need to happen
+            return HealSparseMap(covIndexMap=self._covIndexMap, sparseMap=self._sparseMap[key], nsideSparse=self._nsideSparse, sentinel=self._sentinel)
+
+        _sentinel = checkSentinel(self._sparseMap[key].dtype.type, sentinel)
+
+        newSparseMap = np.zeros_like(self._sparseMap[key]) + _sentinel
+
+        validIndices = (self._sparseMap[self._primary] > self._sentinel)
+        newSparseMap[validIndices] = self._sparseMap[key][validIndices]
+
+        return HealSparseMap(covIndexMap=self._covIndexMap, sparseMap=newSparseMap, nsideSparse=self._nsideSparse, sentinel=_sentinel)
+
+    def __add__(self, other):
+        """
+        Add two healsparse maps together.
+
+        Cannot be used with recarray maps.
+        """
+
+        return self._applyOperation(other, np.add, 'add')
+
+    def _applyOperation(self, other, func, name):
+        """
+        Apply a generic arithemtic function.
+
+        Cannot be used with recarray maps.
+        """
+
+        if self._isRecArray:
+            raise NotImplemented("Cannot %s recarray maps" % (name))
+
+        # Check class of other ... can be int, float, or HealSparseMap
+        # and need to make sure we do this the right way!
+        if issubclass(other.__class__, HealSparseMap):
+            return self._applySparseMapOperation(other, func, name)
+        elif (issubclass(other.__class__, int) or
+              issubclass(other.__class__, np.integer) or
+              issubclass(other.__class__, float) or
+              issubclass(other.__class__, np.floating)):
+            return self._applyScalarOperation(other, func, name)
+        else:
+            raise NotImplemented("Can only %s HealSparseMap or scalar to a HealSparseMap" % (name))
+
+    def _applySparseMapOperation(self, other, func, name):
+        """
+        Apply a generic arithmetic function combining maps.
+
+        Cannot be used with recarray maps.
+        """
+
+        # Check conformability
+        if other._isRecArray:
+            raise NotImplemented("Cannot %s recarray maps" % (name))
+
+        if (self._nsideCoverage != other._nsideCoverage or
+            self._nsideSparse != other._nsideSparse):
+            raise RuntimeError("Cannot %s maps with different coverage or map nsides" % (name))
+
+        covMask = self.coverageMask
+        otherCovMask = other.coverageMask
+
+        covPix, = np.where(covMask & otherCovMask)
+
+        if covPix.size == 0:
+            # Return an empty map
+            return HealSparseMap.makeEmpty(self._nsideCoverage, self._nsideMap, self._sparseMap.dtype)
+
+        # Initialize the combined map, we know the size
+        nFinePerCov = 2**self._bitShift
+        covIndexMap = np.zeros(hp.nside2npix(self._nsideCoverage), dtype=np.int64)
+        covIndexMap[covPix] = np.arange(1, covPix.size + 1) * nFinePerCov
+        covIndexMap[:] -= np.arange(hp.nside2npix(self._nsideCoverage), dtype=np.int64) * nFinePerCov
+        combinedSparseMap = np.zeros((covPix.size + 1) * nFinePerCov, dtype=self._sparseMap.dtype) + self._sentinel
+
+        pixels = np.arange(self._sparseMap.size)
+        covIndex = np.right_shift(pixels, self._bitShift)
+        pixels -= self._covIndexMap[covMask][covIndex - 1]
+
+        otherPixels = np.arange(other._sparseMap.size)
+        otherCovIndex = np.right_shift(otherPixels, self._bitShift)
+        otherPixels -= other._covIndexMap[otherCovMask][otherCovIndex - 1]
+
+        allPixels = np.unique(np.concatenate((pixels, otherPixels)))
+        covIndex = np.right_shift(allPixels, self._bitShift)
+
+        gd, = np.where((self._sparseMap[allPixels + self._covIndexMap[covIndex]] > self._sentinel) &
+                       (other._sparseMap[allPixels + other._covIndexMap[covIndex]] > other._sentinel))
+
+        combinedSparseMap[allPixels[gd] + covIndexMap[covIndex[gd]]] = func(self._sparseMap[allPixels[gd] + self._covIndexMap[covIndex[gd]]],
+                                                                            other._sparseMap[allPixels[gd] + other._covIndexMap[covIndex[gd]]])
+
+        return HealSparseMap(covIndexMap=covIndexMap, sparseMap=combinedSparseMap, nsideSparse=self._nsideSparse, sentinel=self._sentinel)
+
+    def _applyScalarOperation(self, other, func, name):
+        """
+        Apply a generic arithmetic function with a scalar and a map
+        """
+
+        validSparsePixels, = np.where(self._sparseMap > self._sentinel)
+
+        combinedSparseMap = self._sparseMap.copy()
+        combinedSparseMap[validSparsePixels] = func(self._sparseMap[validSparsePixels], other)
+        return HealSparseMap(covIndexMap=self._covIndexMap, sparseMap=combinedSparseMap, nsideSparse=self._nsideSparse, sentinel=self._sentinel)
+
