@@ -748,41 +748,204 @@ class HealSparseMap(object):
 
     def __add__(self, other):
         """
-        Add two healsparse maps together.
+        Add a constant.
 
         Cannot be used with recarray maps.
         """
 
-        return self._applyOperation(other, np.add, 'add')
+        return self._applyOperation(other, np.add)
 
-    def _applyOperation(self, other, func, name):
+    def __iadd__(self, other):
         """
-        Apply a generic arithemtic function.
+        Add a constant, in place.
 
         Cannot be used with recarray maps.
         """
+
+        return self._applyOperation(other, np.add, inPlace=True)
+
+    def __sub__(self, other):
+        """
+        Subtract a constant.
+
+        Cannot be used with recarray maps.
+        """
+
+        return self._applyOperation(other, np.subtract)
+
+    def __sub__(self, other):
+        """
+        Subtract a constant, in place.
+
+        Cannot be used with recarray maps.
+        """
+
+        return self._applyOperation(other, np.subtract, inPlace=True)
+
+    def __mul__(self, other):
+        """
+        Multiply a constant.
+
+        Cannot be used with recarray maps.
+        """
+
+        return self._applyOperation(other, np.multiply)
+
+    def __imul__(self, other):
+        """
+        Multiply a constant, in place.
+
+        Cannot be used with recarray maps.
+        """
+
+        return self._applyOperation(other, np.multiply, inPlace=True)
+
+    def __truediv__(self, other):
+        """
+        Divide a constant.
+
+        Cannot be used with recarray maps.
+        """
+
+        return self._applyOperation(other, np.divide)
+
+    def __itruediv__(self, other):
+        """
+        Divide a constant, in place.
+
+        Cannot be used with recarray maps.
+        """
+
+        return self._applyOperation(other, np.divide, inPlace=True)
+
+    def __pow__(self, other):
+        """
+        Raise the map to a power.
+
+        Cannot be used with recarray maps.
+        """
+
+        return self._applyOperation(other, np.power)
+
+    def __ipow__(self, other):
+        """
+        Divide a constant, in place.
+
+        Cannot be used with recarray maps.
+        """
+
+        return self._applyOperation(other, np.power, inPlace=True)
+
+
+    def __and__(self, other):
+        """
+        Perform a bitwise and with a constant.
+
+        Cannot be used with recarray maps.
+        """
+
+        return self._applyOperation(other, np.bitwise_and, intOnly=True)
+
+    def __iand__(self, other):
+        """
+        Perform a bitwise and with a constant, in place.
+
+        Cannot be used with recarray maps.
+        """
+
+        return self._applyOperation(other, np.bitwise_and, intOnly=True, inPlace=True)
+
+    def __xor__(self, other):
+        """
+        Perform a bitwise xor with a constant.
+
+        Cannot be used with recarray maps.
+        """
+
+        return self._applyOperation(other, np.bitwise_xor, intOnly=True)
+
+    def __ixor__(self, other):
+        """
+        Perform a bitwise xor with a constant, in place.
+
+        Cannot be used with recarray maps.
+        """
+
+        return self._applyOperation(other, np.bitwise_xor, intOnly=True, inPlace=True)
+
+    def __or__(self, other):
+        """
+        Perform a bitwise or with a constant.
+
+        Cannot be used with recarray maps.
+        """
+
+        return self._applyOperation(other, np.bitwise_or, intOnly=True)
+
+    def __ior__(self, other):
+        """
+        Perform a bitwise or with a constant, in place.
+
+        Cannot be used with recarray maps.
+        """
+
+        return self._applyOperation(other, np.bitwise_or, intOnly=True, inPlace=True)
+
+    def _applyOperation(self, other, func, intOnly=False, inPlace=False):
+        """
+        Apply a generic arithmetic function.
+
+        Cannot be used with recarray maps.
+
+        Parameters
+        ----------
+        other: `int` or `float` (or numpy equivalents)
+           The other item to perform the operator on.
+        func: `np.ufunc`
+           The numpy universal function to apply.
+        intOnly: `bool`, optional
+           Only accept integer types.  Default is False.
+        inPlace: `bool`, optional
+           Perform operation in-place.  Default is False.
+
+        Returns
+        -------
+        result: `HealSparseMap`
+           Resulting map
+        """
+
+        name = func.__str__()
 
         if self._isRecArray:
-            raise NotImplemented("Cannot %s recarray maps" % (name))
+            raise NotImplemented("Cannot use %s with recarray maps" % (name))
 
-        # Check class of other ... can be int, float, or HealSparseMap
-        # and need to make sure we do this the right way!
-        if issubclass(other.__class__, HealSparseMap):
-            return self._applySparseMapOperation(other, func, name)
-        elif (issubclass(other.__class__, int) or
-              issubclass(other.__class__, np.integer) or
-              issubclass(other.__class__, float) or
+        otherInt = False
+        otherFloat = False
+        if (issubclass(other.__class__, int) or
+            issubclass(other.__class__, np.integer)):
+            otherInt = True
+        elif (issubclass(other.__class__, float) or
               issubclass(other.__class__, np.floating)):
-            return self._applyScalarOperation(other, func, name)
+            otherFloat = True
+
+        if not otherInt and not otherFloat:
+            raise NotImplemented("Can only use a constant with the %s operation" % (name))
+
+        if not otherInt and intOnly:
+            raise NotImplemented("Can only use an integer constant with the %s operation" % (name))
+
+        validSparsePixels = (self._sparseMap > self._sentinel)
+        if inPlace:
+            func(self._sparseMap, other, out=self._sparseMap, where=validSparsePixels)
+            return self
         else:
-            raise NotImplemented("Can only %s HealSparseMap or scalar to a HealSparseMap" % (name))
+            combinedSparseMap = self._sparseMap.copy()
+            func(combinedSparseMap, other, out=combinedSparseMap, where=validSparsePixels)
+            return HealSparseMap(covIndexMap=self._covIndexMap, sparseMap=combinedSparseMap, nsideSparse=self._nsideSparse, sentinel=self._sentinel)
 
+
+    """
     def _applySparseMapOperation(self, other, func, name):
-        """
-        Apply a generic arithmetic function combining maps.
-
-        Cannot be used with recarray maps.
-        """
 
         # Check conformability
         if other._isRecArray:
@@ -799,7 +962,7 @@ class HealSparseMap(object):
 
         if covPix.size == 0:
             # Return an empty map
-            return HealSparseMap.makeEmpty(self._nsideCoverage, self._nsideMap, self._sparseMap.dtype)
+            return HealSparseMap.makeEmpty(self._nsideCoverage, self._nsideSparse, self._sparseMap.dtype)
 
         # Initialize the combined map, we know the size
         nFinePerCov = 2**self._bitShift
@@ -826,15 +989,4 @@ class HealSparseMap(object):
                                                                             other._sparseMap[allPixels[gd] + other._covIndexMap[covIndex[gd]]])
 
         return HealSparseMap(covIndexMap=covIndexMap, sparseMap=combinedSparseMap, nsideSparse=self._nsideSparse, sentinel=self._sentinel)
-
-    def _applyScalarOperation(self, other, func, name):
         """
-        Apply a generic arithmetic function with a scalar and a map
-        """
-
-        validSparsePixels, = np.where(self._sparseMap > self._sentinel)
-
-        combinedSparseMap = self._sparseMap.copy()
-        combinedSparseMap[validSparsePixels] = func(self._sparseMap[validSparsePixels], other)
-        return HealSparseMap(covIndexMap=self._covIndexMap, sparseMap=combinedSparseMap, nsideSparse=self._nsideSparse, sentinel=self._sentinel)
-
