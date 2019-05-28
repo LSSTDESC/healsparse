@@ -1,5 +1,6 @@
 import numpy as np
 import healpy as hp
+import warnings
 
 def reduce_array(x, reduction='mean', axis=2):
     """
@@ -17,18 +18,22 @@ def reduce_array(x, reduction='mean', axis=2):
     --------
     out: `ndarray`.
     """
-    if reduction=='mean':
-        return np.nanmean(x, axis=2).flatten()
-    elif reduction=='median':
-        return np.nanmedian(x, axis=2).flatten()
-    elif reduction=='std':
-        return np.nanstd(x, axis=2).flatten()
-    elif reduction=='max':
-        return np.nanmax(x, axis=2).flatten()
-    elif reduction=='min':
-        return np.nanmin(x, axis=2).flatten()
-    else:
-        raise ValueError('Reduction method %s not recognized.' % reduction)
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=RuntimeWarning)
+        if reduction=='mean':
+            ret = np.nanmean(x, axis=2).flatten()
+        elif reduction=='median':
+            ret = np.nanmedian(x, axis=2).flatten()
+        elif reduction=='std':
+            ret = np.nanstd(x, axis=2).flatten()
+        elif reduction=='max':
+            ret = np.nanmax(x, axis=2).flatten()
+        elif reduction=='min':
+            ret =  np.nanmin(x, axis=2).flatten()
+        else:
+            raise ValueError('Reduction method %s not recognized.' % reduction)
+
+    return ret
 
 def checkSentinel(type, sentinel):
     """
