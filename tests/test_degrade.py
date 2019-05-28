@@ -72,9 +72,9 @@ class DegradeMapTestCase(unittest.TestCase):
         nsideMap = 1024
         nsideNew = 256
 
-        nRand = 1000
-        ra = np.random.random(nRand) * 360.0
-        dec = np.random.random(nRand) * 180.0 - 90.0
+        #nRand = 1000
+        #ra = np.random.random(nRand) * 360.0
+        #dec = np.random.random(nRand) * 180.0 - 90.0
 
         dtype = [('col1', 'f8'), ('col2', 'f8'), ('col3', 'i4')]
         sparseMap = healsparse.HealSparseMap.makeEmpty(nsideCoverage, nsideMap, dtype, primary='col1')
@@ -85,6 +85,10 @@ class DegradeMapTestCase(unittest.TestCase):
         values['col3'] = np.random.poisson(size=pixel.size, lam=2)
         sparseMap.updateValues(pixel, values)
 
+        theta, phi = hp.pix2ang(nsideMap, pixel, nest=True)
+        ra = np.degrees(phi)
+        dec = 90.0 - np.degrees(theta)
+
         # Make the test values
         hpmapCol1 = np.zeros(hp.nside2npix(nsideMap)) + hp.UNSEEN
         hpmapCol2 = np.zeros(hp.nside2npix(nsideMap)) + hp.UNSEEN
@@ -92,8 +96,7 @@ class DegradeMapTestCase(unittest.TestCase):
         hpmapCol1[pixel] = values['col1']
         hpmapCol2[pixel] = values['col2']
         hpmapCol3[pixel] = values['col3']
-        theta = np.radians(90.0 - dec)
-        phi = np.radians(ra)
+
         # Degrade healpix maps
         hpmapCol1 = hp.ud_grade(hpmapCol1, nside_out=nsideNew, order_in='NESTED', order_out='NESTED')
         hpmapCol2 = hp.ud_grade(hpmapCol2, nside_out=nsideNew, order_in='NESTED', order_out='NESTED')

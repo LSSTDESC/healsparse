@@ -622,52 +622,6 @@ class HealSparseMap(object):
 
         return hpMap
 
-        """
-        ## old/temp code
-
-        # Check if we are dealing with recArrays and try to preserve the data types
-        if self._isRecArray:
-            if key is None:
-                raise ValueError('key should be specified for HealSparseMaps including `recarray`')
-            else:
-                aux_spmap = self.getSingle(key)
-
-                if issubclass(self._sparseMap.dtype.type, np.integer):
-                    aux_dtype = np.float # Force to float
-                else:
-                    aux_dtype = self._sparseMap[key].dtype
-                aux = self._sparseMap[key].astype(aux_dtype)
-                # We create one HealSparseMap in order to avoid keys other than the specified (in the case of having more than one)
-                aux_spmap = HealSparseMap(covIndexMap=self._covIndexMap, sparseMap=aux, nsideSparse=self._nsideSparse,
-                                          nsideCoverage=self._nsideCoverage)
-
-        # If it is not a recArray then, try to preserve the type anyway
-        else:
-            if issubclass(self._sparseMap.dtype.type, np.integer):
-                aux_dtype = np.float # Force to float
-                aux = self._sparseMap.astype(aux_dtype)
-                # `self.degrade` would have taken care of this but, in case that we preserve the resolution...
-                aux_spmap = HealSparseMap(covIndexMap=self._covIndexMap, sparseMap=aux, nsideSparse=self._nsideSparse,
-                                          nsideCoverage=self._nsideCoverage)
-            else:
-                aux_spmap = self
-                aux_dtype = self._sparseMap.dtype
-            aux_spmap = self
-
-        # Create empty HEALPix map
-        hp_map = np.zeros(hp.nside2npix(nside), dtype=aux_dtype) + hp.UNSEEN # remember that empty means UNSEEN!
-        # We generate a HealSparseMap with the requested size before converting to healpix
-        if nside < self._nsideSparse:
-            aux_spmap = aux_spmap.degrade(nside, reduction=reduction) # We change the resolution of the map
-        if nside > self._nsideSparse:
-            raise ValueError('The generation of HEALPix maps with higher resolution than the original \
-                             sparse map is not yet implemented')
-        aux = aux_spmap._sparseMap
-        pop_idx, = np.where(aux > hp.UNSEEN)
-        cov_idx = np.right_shift(pop_idx, aux_spmap._bitShift)
-        hp_map[pop_idx - aux_spmap._covIndexMap[aux_spmap.coverageMask][cov_idx-1]]=aux[pop_idx]
-        return hp_map
-        """
     @property
     def validPixels(self):
         """
@@ -716,7 +670,6 @@ class HealSparseMap(object):
                     dtype.append((key, np.float64))
                 else:
                     dtype.append((key, value[0]))
-            dtype = self._sparseMap.dtype
             # Allocate new map
             newsparseMap = np.zeros((npop_pix+1)*nFinePerCov, dtype=dtype)
             for key, value in newsparseMap.dtype.fields.items():
@@ -737,7 +690,7 @@ class HealSparseMap(object):
                 aux_dtype = self._sparseMap.dtype
 
             aux = self._sparseMap.astype(aux_dtype)
-            aux[self._sparseMap <= self._sentinel] = np.nan
+            aux[self._sparseMap == self._sentinel] = np.nan
             aux = aux.reshape((npop_pix+1, (nside_out//self._nsideCoverage)**2, -1))
             aux = reduce_array(aux, reduction=reduction)
             # NaN are converted to UNSEEN
