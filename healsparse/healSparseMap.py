@@ -591,23 +591,60 @@ class HealSparseMap(object):
         if nside is None:
             nside = self._nsideSparse
 
+        if self._isRecArray:
+            if key is None:
+                raise ValueError('key should be specified for HealSparseMaps including `recarray`')
+            else:
+                # Note that this makes the code simpler but is memory inefficient
+                # We may need to revisit this later depending on use cases
+                singleMap = self.getSingle(key)
+        else:
+            singleMap = self
+
+        # If we're degrading, let that code do the datatyping
+        if nside < self._nsideSparse:
+            # degrade to new resolution
+            singleMap = singleMap.degrade(nside, reduction=reduction)
+        elif nside > self._nsideSparse:
+            raise ValueError("Cannot generate HEALPix map with higher resolution than the original.")
+
+        # Check to see if we have an integer map.
+        if issubclass(singleMap._sparseMap.dtype.type, np.integer):
+            dtypeOut = np.float64
+        else:
+            dtypeOut = singleMap._sparseMap.dtype
+
+        # Create an empty HEALPix map, filled with UNSEEN values
+        hpMap = np.zeros(hp.nside2npix(nside), dtype=dtypeOut) + hp.UNSEEN
+
+        validPixels = singleMap.validPixels
+        hpMap[validPixels] = singleMap.getValuePixel(validPixels)
+
+        return hpMap
+
+        """
+        ## old/temp code
+
         # Check if we are dealing with recArrays and try to preserve the data types
         if self._isRecArray:
             if key is None:
                 raise ValueError('key should be specified for HealSparseMaps including `recarray`')
             else:
-                if isinstance(self._sparseMap[key],int):
-                    aux_dtype = np.float #Force to float
+                aux_spmap = self.getSingle(key)
+
+                if issubclass(self._sparseMap.dtype.type, np.integer):
+                    aux_dtype = np.float # Force to float
                 else:
                     aux_dtype = self._sparseMap[key].dtype
                 aux = self._sparseMap[key].astype(aux_dtype)
                 # We create one HealSparseMap in order to avoid keys other than the specified (in the case of having more than one)
                 aux_spmap = HealSparseMap(covIndexMap=self._covIndexMap, sparseMap=aux, nsideSparse=self._nsideSparse,
                                           nsideCoverage=self._nsideCoverage)
+
         # If it is not a recArray then, try to preserve the type anyway
         else:
-            if isinstance(self._sparseMap,int):
-                aux_dtype = np.float #Force to float
+            if issubclass(self._sparseMap.dtype.type, np.integer):
+                aux_dtype = np.float # Force to float
                 aux = self._sparseMap.astype(aux_dtype)
                 # `self.degrade` would have taken care of this but, in case that we preserve the resolution...
                 aux_spmap = HealSparseMap(covIndexMap=self._covIndexMap, sparseMap=aux, nsideSparse=self._nsideSparse,
@@ -615,6 +652,8 @@ class HealSparseMap(object):
             else:
                 aux_spmap = self
                 aux_dtype = self._sparseMap.dtype
+            aux_spmap = self
+
         # Create empty HEALPix map
         hp_map = np.zeros(hp.nside2npix(nside), dtype=aux_dtype) + hp.UNSEEN # remember that empty means UNSEEN!
         # We generate a HealSparseMap with the requested size before converting to healpix
@@ -628,7 +667,7 @@ class HealSparseMap(object):
         cov_idx = np.right_shift(pop_idx, aux_spmap._bitShift)
         hp_map[pop_idx - aux_spmap._covIndexMap[aux_spmap.coverageMask][cov_idx-1]]=aux[pop_idx]
         return hp_map
-
+        """
     @property
     def validPixels(self):
         """
@@ -653,7 +692,7 @@ class HealSparseMap(object):
     def degrade(self, nside_out, reduction='mean'):
         """
         Reduce the resolution, i.e., increase the pixel size
-        of a given sparse map
+        of a given sparse map.
 
         Args:
         ----
@@ -673,38 +712,44 @@ class HealSparseMap(object):
             dtype = []
             # We should avoid integers
             for key, value in self._sparseMap.dtype.fields.items():
-                if isinstance(self._sparseMap[key],int):
-                    dtype.append((key,np.float))
+                if issubclass(self._sparseMap[key].dtype.type, np.integer):
+                    dtype.append((key, np.float64))
                 else:
-                    dtype.append((key,value[0]))
+                    dtype.append((key, value[0]))
             dtype = self._sparseMap.dtype
             # Allocate new map
             newsparseMap = np.zeros((npop_pix+1)*nFinePerCov, dtype=dtype)
             for key, value in newsparseMap.dtype.fields.items():
-                aux = self._sparseMap[key].astype(float)
+                aux = self._sparseMap[key].astype(np.float64)
+                aux[self._sparseMap[self._primary] == self._sentinel] = np.nan
                 aux = aux.reshape((npop_pix+1, (nside_out//self._nsideCoverage)**2, -1))
-                aux[aux==self._sentinel] = np.nan
                 # Perform the reduction operation (check utils.reduce_array)
                 aux = reduce_array(aux, reduction=reduction)
                 # Transform back to UNSEEN
                 aux[np.isnan(aux)] = hp.UNSEEN
                 newsparseMap[key] = aux
 
-        # Work with ndarray
+        # Work with regular ndarray
         else:
-            aux = self._sparseMap
+            if issubclass(self._sparseMap.dtype.type, np.integer):
+                aux_dtype = np.float64
+            else:
+                aux_dtype = self._sparseMap.dtype
+
+            aux = self._sparseMap.astype(aux_dtype)
+            aux[self._sparseMap <= self._sentinel] = np.nan
             aux = aux.reshape((npop_pix+1, (nside_out//self._nsideCoverage)**2, -1))
-            aux[aux==self._sentinel] = np.nan
             aux = reduce_array(aux, reduction=reduction)
             # NaN are converted to UNSEEN
             aux[np.isnan(aux)] = hp.UNSEEN
             newsparseMap = aux
+
         # The coverage index map is now offset, we have to build a new one
         newIndexMap = np.zeros(hp.nside2npix(self._nsideCoverage), dtype=np.int64)
         newIndexMap[self.coverageMask] = np.arange(1, npop_pix + 1) * nFinePerCov
         newIndexMap[:] -= np.arange(hp.nside2npix(self._nsideCoverage), dtype=np.int64) * nFinePerCov
         return HealSparseMap(covIndexMap=newIndexMap, sparseMap=newsparseMap, nsideCoverage=self._nsideCoverage,
-                             nsideSparse=nside_out, primary=self._primary)
+                             nsideSparse=nside_out, primary=self._primary, sentinel=hp.UNSEEN)
 
     def __getitem__(self, key):
         """
@@ -773,7 +818,7 @@ class HealSparseMap(object):
 
         return self._applyOperation(other, np.subtract)
 
-    def __sub__(self, other):
+    def __isub__(self, other):
         """
         Subtract a constant, in place.
 
@@ -918,6 +963,9 @@ class HealSparseMap(object):
 
         if self._isRecArray:
             raise NotImplemented("Cannot use %s with recarray maps" % (name))
+        if intOnly:
+            if not issubclass(self._sparseMap.dtype.type, np.integer):
+                raise NotImplemented("Can only apply %s to integer maps" % (name))
 
         otherInt = False
         otherFloat = False
@@ -943,50 +991,20 @@ class HealSparseMap(object):
             func(combinedSparseMap, other, out=combinedSparseMap, where=validSparsePixels)
             return HealSparseMap(covIndexMap=self._covIndexMap, sparseMap=combinedSparseMap, nsideSparse=self._nsideSparse, sentinel=self._sentinel)
 
+    def __copy__(self):
+        return HealSparseMap(covIndexMap=self._covIndexMap.copy(), sparseMap=self._sparseMap.copy(), nsideSparse=self._nsideSparse, sentinel=self._sentinel, primary=self._primary)
 
-    """
-    def _applySparseMapOperation(self, other, func, name):
+    def copy(self):
+        return self.__copy__()
 
-        # Check conformability
-        if other._isRecArray:
-            raise NotImplemented("Cannot %s recarray maps" % (name))
+    def __repr__(self):
+        return self.__str__()
 
-        if (self._nsideCoverage != other._nsideCoverage or
-            self._nsideSparse != other._nsideSparse):
-            raise RuntimeError("Cannot %s maps with different coverage or map nsides" % (name))
-
-        covMask = self.coverageMask
-        otherCovMask = other.coverageMask
-
-        covPix, = np.where(covMask & otherCovMask)
-
-        if covPix.size == 0:
-            # Return an empty map
-            return HealSparseMap.makeEmpty(self._nsideCoverage, self._nsideSparse, self._sparseMap.dtype)
-
-        # Initialize the combined map, we know the size
-        nFinePerCov = 2**self._bitShift
-        covIndexMap = np.zeros(hp.nside2npix(self._nsideCoverage), dtype=np.int64)
-        covIndexMap[covPix] = np.arange(1, covPix.size + 1) * nFinePerCov
-        covIndexMap[:] -= np.arange(hp.nside2npix(self._nsideCoverage), dtype=np.int64) * nFinePerCov
-        combinedSparseMap = np.zeros((covPix.size + 1) * nFinePerCov, dtype=self._sparseMap.dtype) + self._sentinel
-
-        pixels = np.arange(self._sparseMap.size)
-        covIndex = np.right_shift(pixels, self._bitShift)
-        pixels -= self._covIndexMap[covMask][covIndex - 1]
-
-        otherPixels = np.arange(other._sparseMap.size)
-        otherCovIndex = np.right_shift(otherPixels, self._bitShift)
-        otherPixels -= other._covIndexMap[otherCovMask][otherCovIndex - 1]
-
-        allPixels = np.unique(np.concatenate((pixels, otherPixels)))
-        covIndex = np.right_shift(allPixels, self._bitShift)
-
-        gd, = np.where((self._sparseMap[allPixels + self._covIndexMap[covIndex]] > self._sentinel) &
-                       (other._sparseMap[allPixels + other._covIndexMap[covIndex]] > other._sentinel))
-
-        combinedSparseMap[allPixels[gd] + covIndexMap[covIndex[gd]]] = func(self._sparseMap[allPixels[gd] + self._covIndexMap[covIndex[gd]]],
-                                                                            other._sparseMap[allPixels[gd] + other._covIndexMap[covIndex[gd]]])
-
-        return HealSparseMap(covIndexMap=covIndexMap, sparseMap=combinedSparseMap, nsideSparse=self._nsideSparse, sentinel=self._sentinel)
-        """
+    def __str__(self):
+        descr = 'HealSparseMap: nsideCoverage = %d, nsideSparse = %d' % (self._nsideCoverage, self._nsideSparse)
+        if self._isRecArray:
+            descr += ', record array type.\n'
+            descr += self._sparseMap.dtype.descr
+        else:
+            descr += ', ' + self._sparseMap.dtype.name
+        return descr

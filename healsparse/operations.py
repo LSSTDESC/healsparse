@@ -43,7 +43,159 @@ def sumIntersection(mapList):
 
     return _applyOperation(mapList, np.add, 0, union=False)
 
-def _applyOperation(mapList, func, fillerValue, union=False):
+def productUnion(mapList):
+    """
+    Compute the product of a list of HealSparseMaps as a union.  Empty values
+    will be treated as 1s in the product, and the output map will have a
+    union of all the input map pixels.
+
+    Parameters
+    ----------
+    mapList: `list` of `HealSparseMap`
+       Input list of maps to take the product
+
+    Returns
+    -------
+    result: `HealSparseMap`
+       Product of maps
+    """
+
+    return _applyOperation(mapList, np.multiply, 1.0, union=True)
+
+def productIntersection(mapList):
+    """
+    Compute the product of a list of HealSparseMaps as an intersection.  Only
+    pixels that are valid in all the input maps will have valid values in the
+    output.
+
+    Parameters
+    ----------
+    mapList: `list` of `HealSparseMap`
+       Input list of maps to take the product
+
+    Returns
+    -------
+    result: `HealSparseMap`
+       Product of maps
+    """
+
+    return _applyOperation(mapList, np.multiply, 1.0, union=False)
+
+def orUnion(mapList):
+    """
+    Bitwise or a list of HealSparseMaps as a union.  Empty values will be
+    treated as 0s in the bitwise or, and the output map will have a union of all
+    the input map pixels.  Only works in integer maps.
+
+    Parameters
+    ----------
+    mapList: `list` of `HealSparseMap`
+       Input list of maps to bitwise or
+
+    Returns
+    -------
+    result: `HealSparseMap`
+       Bitwise or of maps
+    """
+
+    return _applyOperation(mapList, np.bitwise_or, 0, union=True, intOnly=True)
+
+def orIntersection(mapList):
+    """
+    Bitwise or a list of HealSparseMaps as an intersection.  Only pixels that
+    are valid in all the input maps will have valid values in the output.
+    Only works on integer maps.
+
+    Parameters
+    ----------
+    mapList: `list` of `HealSparseMap`
+       Input list of maps to bitwise or
+
+    Returns
+    -------
+    result: `HealSparseMap`
+       Bitwise or of maps
+    """
+
+    return _applyOperation(mapList, np.bitwise_or, 0, union=False, intOnly=True)
+
+def andUnion(mapList):
+    """
+    Bitwise and a list of HealSparseMaps as a union.  Empty values will be
+    treated as 0s in the bitwise and, and the output map will have a union of all
+    the input map pixels.  Only works in integer maps.
+
+    Parameters
+    ----------
+    mapList: `list` of `HealSparseMap`
+       Input list of maps to bitwise and
+
+    Returns
+    -------
+    result: `HealSparseMap`
+       Bitwise and of maps
+    """
+
+    return _applyOperation(mapList, np.bitwise_and, -1, union=True, intOnly=True)
+
+def andIntersection(mapList):
+    """
+    Bitwise or a list of HealSparseMaps as an intersection.  Only pixels that
+    are valid in all the input maps will have valid values in the output.
+    Only works on integer maps.
+
+    Parameters
+    ----------
+    mapList: `list` of `HealSparseMap`
+       Input list of maps to bitwise and
+
+    Returns
+    -------
+    result: `HealSparseMap`
+       Bitwise and of maps
+    """
+
+    return _applyOperation(mapList, np.bitwise_and, -1, union=False, intOnly=True)
+
+def xorUnion(mapList):
+    """
+    Bitwise xor a list of HealSparseMaps as a union.  Empty values will be
+    treated as 0s in the bitwise or, and the output map will have a union of all
+    the input map pixels.  Only works in integer maps.
+
+    Parameters
+    ----------
+    mapList: `list` of `HealSparseMap`
+       Input list of maps to bitwise xor
+
+    Returns
+    -------
+    result: `HealSparseMap`
+       Bitwise xor of maps
+    """
+
+    return _applyOperation(mapList, np.bitwise_xor, 0, union=True, intOnly=True)
+
+def xorIntersection(mapList):
+    """
+    Bitwise xor a list of HealSparseMaps as an intersection.  Only pixels that
+    are valid in all the input maps will have valid values in the output.
+    Only works on integer maps.
+
+    Parameters
+    ----------
+    mapList: `list` of `HealSparseMap`
+       Input list of maps to bitwise xor
+
+    Returns
+    -------
+    result: `HealSparseMap`
+       Bitwise xor of maps
+    """
+
+    return _applyOperation(mapList, np.bitwise_xor, 0, union=False, intOnly=True)
+
+def _applyOperation(mapList, func, fillerValue, union=False, intOnly=False):
     """
     Apply a generic arithmetic function.
 
@@ -59,6 +211,8 @@ def _applyOperation(mapList, func, fillerValue, union=False):
        Starting value and filler when union is True
     union: `bool`, optional
        Use union mode instead of intersection.  Default is False.
+    intOnly: `bool`, optional
+       Check that input maps are integer types.  Default is False.
 
     Returns
     -------
@@ -77,6 +231,9 @@ def _applyOperation(mapList, func, fillerValue, union=False):
             raise NotImplemented("Can only apply %s to HealSparseMaps" % (name))
         if m._isRecArray:
             raise NotImplemented("Cannot apply %s to recarray maps" % (name))
+        if intOnly:
+            if not issubclass(m._sparseMap.dtype.type, np.integer):
+                raise ValueError("Can only apply %s to integer maps" % (name))
 
         if nsideCoverage is None:
             nsideCoverage = m._nsideCoverage
