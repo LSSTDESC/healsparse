@@ -915,10 +915,10 @@ class HealSparseMap(object):
         name = func.__str__()
 
         if self._isRecArray:
-            raise NotImplemented("Cannot use %s with recarray maps" % (name))
+            raise NotImplementedError("Cannot use %s with recarray maps" % (name))
         if intOnly:
             if not issubclass(self._sparseMap.dtype.type, np.integer):
-                raise NotImplemented("Can only apply %s to integer maps" % (name))
+                raise NotImplementedError("Can only apply %s to integer maps" % (name))
 
         otherInt = False
         otherFloat = False
@@ -930,10 +930,10 @@ class HealSparseMap(object):
             otherFloat = True
 
         if not otherInt and not otherFloat:
-            raise NotImplemented("Can only use a constant with the %s operation" % (name))
+            raise NotImplementedError("Can only use a constant with the %s operation" % (name))
 
         if not otherInt and intOnly:
-            raise NotImplemented("Can only use an integer constant with the %s operation" % (name))
+            raise NotImplementedError("Can only use an integer constant with the %s operation" % (name))
 
         validSparsePixels = (self._sparseMap > self._sentinel)
         if inPlace:

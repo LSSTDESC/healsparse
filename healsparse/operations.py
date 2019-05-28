@@ -228,9 +228,9 @@ def _applyOperation(mapList, func, fillerValue, union=False, intOnly=False):
     nsideCoverage = None
     for m in mapList:
         if not isinstance(m, HealSparseMap):
-            raise NotImplemented("Can only apply %s to HealSparseMaps" % (name))
+            raise NotImplementedError("Can only apply %s to HealSparseMaps" % (name))
         if m._isRecArray:
-            raise NotImplemented("Cannot apply %s to recarray maps" % (name))
+            raise NotImplementedError("Cannot apply %s to recarray maps" % (name))
         if intOnly:
             if not issubclass(m._sparseMap.dtype.type, np.integer):
                 raise ValueError("Can only apply %s to integer maps" % (name))
