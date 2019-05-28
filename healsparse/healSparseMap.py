@@ -957,7 +957,7 @@ class HealSparseMap(object):
         descr = 'HealSparseMap: nsideCoverage = %d, nsideSparse = %d' % (self._nsideCoverage, self._nsideSparse)
         if self._isRecArray:
             descr += ', record array type.\n'
-            descr += self._sparseMap.dtype.descr
+            descr += self._sparseMap.dtype.descr.__str__()
         else:
             descr += ', ' + self._sparseMap.dtype.name
         return descr
