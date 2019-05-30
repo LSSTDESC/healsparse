@@ -76,5 +76,30 @@ class GenerateHealpixMapTestCase(unittest.TestCase):
         testing.assert_almost_equal(healpixMap, hp_out1)
         testing.assert_almost_equal(healpixMap2, hp_out2)
 
+    def test_generateHealpixMap_int(self):
+        """
+        Testing the generation of a healpix map from an integer map
+        """
+        random.seed(seed=12345)
+
+        nsideCoverage = 32
+        nsideMap = 64
+
+        sparseMap = healsparse.HealSparseMap.makeEmpty(nsideCoverage, nsideMap, np.int64)
+        pixel = np.arange(4000, 20000)
+        pixel = np.delete(pixel, 15000)
+        # Get a random list of integers
+        values = np.random.poisson(size=pixel.size, lam=10)
+        sparseMap.updateValues(pixel, values)
+
+        hpmap = sparseMap.generateHealpixMap()
+
+        ok, = np.where(hpmap > hp.UNSEEN)
+
+        testing.assert_almost_equal(hpmap[ok], sparseMap.getValuePixel(ok).astype(np.float64))
+
+
+
+
 if __name__=='__main__':
     unittest.main()
