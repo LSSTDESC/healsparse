@@ -5,4 +5,4 @@ from .operations import productUnion, productIntersection
 from .operations import orUnion, orIntersection
 from .operations import andUnion, andIntersection
 from .operations import xorUnion, xorIntersection
-from .visu_func import *
+from .visu_func import hsp_view_map
