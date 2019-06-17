@@ -8,6 +8,7 @@ from numpy import random
 import os
 import healsparse
 import tempfile
+import shutil
 # Set non-interactive backend for Travis
 from healsparse.visu_func import *
 try:
