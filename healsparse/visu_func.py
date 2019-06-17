@@ -11,7 +11,7 @@ try:
     import cartopy.crs
     from cartopy.mpl.gridliner import LATITUDE_FORMATTER, LONGITUDE_FORMATTER
 except ImportError:
-    print('Cartopy is not available, cannot use cartopy projections')i
+    print('Cartopy is not available, cannot use cartopy projections')
     have_cartopy = False
 # Importing shapely
 try:
