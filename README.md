@@ -10,6 +10,7 @@ Python implementation of a sparse HEALPix map.
 - Numpy
 - [Healpy](https://github.com/healpy/healpy)
 - [fitsio](https://github.com/esheldon/fitsio)
+- [pyproj](https://pypi.org/project/pyproj/)
 - [Cartopy](https://scitools.org.uk/cartopy/docs/latest/)
 
 ## Optional requirements (for plotting):
