@@ -10,17 +10,19 @@ Python implementation of a sparse HEALPix map.
 - Numpy
 - [Healpy](https://github.com/healpy/healpy)
 - [fitsio](https://github.com/esheldon/fitsio)
-- [pyproj](https://pypi.org/project/pyproj/)
-- [Cartopy](https://scitools.org.uk/cartopy/docs/latest/)
 
 ## Optional requirements (for plotting):
 
+- [Cartopy](https://scitools.org.uk/cartopy/docs/latest/)
 - [Shapely](https://shapely.readthedocs.io/en/stable/manual.html)
 
 ## Install:
 
 To install the package go to the parent directory of the package and do `python
-setup.py install [options]` or use `pip install . [options]`
+setup.py install [options]` or use `pip install . [options]`. The basic requirements
+can be installed by using `pip install -r requirements.txt`.
+
+In order to install optional requirements, please refer to the links provided above.
 
 ## Quickstart:
 

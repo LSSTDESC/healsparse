@@ -5,14 +5,19 @@ from healsparse.healSparseMap import HealSparseMap
 import healpy as hp
 import matplotlib.pyplot as plt
 from matplotlib.collections import PolyCollection
-import cartopy.crs
 from copy import copy
-from cartopy.mpl.gridliner import LATITUDE_FORMATTER, LONGITUDE_FORMATTER
+# Importing cartopy
+try:
+    import cartopy.crs
+    from cartopy.mpl.gridliner import LATITUDE_FORMATTER, LONGITUDE_FORMATTER
+except ImportError:
+    print('Cartopy is not available, cannot use cartopy projections')i
+    have_cartopy = False
+# Importing shapely
 try:
     import shapely.geometry as sgeom
 except ImportError:
     print('Shapely not found, tick-labels on non-cylindrical projections are not available.')
-
 
 def get_projection(projection_name, central_lon=0):
     """
@@ -26,16 +31,18 @@ def get_projection(projection_name, central_lon=0):
         Central longitude of the projection (in degrees).
     """
     # Get the name of all cartopy's projections:
-    valid_projections = {}
-    for obj_name, o in vars(cartopy.crs).copy().items():
-        if isinstance(o, type) and issubclass(o, cartopy.crs.Projection) and \
-           not obj_name.startswith('_') and obj_name not in ['Projection']:
+    if have_cartopy:
+        valid_projections = {}
+        for obj_name, o in vars(cartopy.crs).copy().items():
+            if isinstance(o, type) and issubclass(o, cartopy.crs.Projection) and \
+               not obj_name.startswith('_') and obj_name not in ['Projection']:
                 valid_projections[obj_name]=o
-    if projection_name in valid_projections:
-        return getattr(cartopy.crs, projection_name)(central_lon)
+        if projection_name in valid_projections:
+            return getattr(cartopy.crs, projection_name)(central_lon)
+        else:
+            raise ValueError('The projection selected is not available. Try using one of these', valid_projections.keys())
     else:
-        raise ValueError('The projection selected is not available. Try using one of these', valid_projections.keys())
-
+        return None
 
 # Routines to add labels on non-cylindrical projections
 # These only work if shapely is installed and when the "extent" of the maps are not full sky
@@ -178,8 +185,12 @@ def hsp_view_map(HealSparseMap, projection='Robinson', show_coverage=True, centr
         vmax = np.max(data[data!=HealSparseMap._sentinel])
     norm = plt.Normalize(vmin, vmax)
     # Create the polygons and transform them with the Geodetic CRS to get them projected in the map without wrapping
-    polycoll = PolyCollection(uv_verts,edgecolor='none',array=data,
-                              norm=norm, transform=cartopy.crs.Geodetic())
+    if have_cartopy:
+        polycoll = PolyCollection(uv_verts, edgecolor='none', array=data,
+                                  norm=norm, transform=cartopy.crs.Geodetic())
+    else:
+        polycoll = PolyCollection(uv_verts, edgecolor='none', array=data,
+                                  norm=norm)
     polycoll.set_cmap(cmap)
     fig.colorbar(polycoll, ax=ax, orientation='vertical', label=colorlabel)
     # Add the PolyCollection to the axes
