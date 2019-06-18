@@ -1,7 +1,7 @@
 import numpy as np
 import healpy as hp
 from .healSparseMap import HealSparseMap
-from .utils import eq2vec
+from . import utils
 
 
 class GeomBase(object):
@@ -9,6 +9,10 @@ class GeomBase(object):
     base class for goemetric objects that can convert
     themselves to maps
     """
+
+    @property
+    def nside(self):
+        return self._nside
 
     @property
     def pixels(self):
@@ -38,7 +42,7 @@ class Circle(GeomBase):
         self._dec = dec
         self._radius = radius
         self._radius_rad = np.deg2rad(radius)
-        self._vec = eq2vec(self._ra, self._dec)
+        self._vec = hp.ang2vec(ra, dec, lonlat=True)
         self._value = value
         self._dtype = dtype
 
@@ -78,7 +82,7 @@ class Circle(GeomBase):
                 dtype=self._dtype,
                 sentinel=0,
             )
-            smap.updateValues(self.pixels, self._value)
+            smap.updateValues(self.pixels, self.values)
             self._smap = smap
 
         return self._smap
@@ -99,14 +103,60 @@ class Circle(GeomBase):
 
         return self._pixels
 
+    @property
+    def values(self):
+        """
+        get the values associated with this circle
+        """
+        if not hasattr(self, '_values'):
+            self._values = np.zeros(self.pixels.size, dtype=self._dtype)
+            self._values[:] = self._value
 
-def test_circle():
+        return self._values
+
+
+
+def test_circle(show=False):
+    ra, dec = 200.0, 0.0
+    radius = 30.0/3600.0
+    nside = 2**17
     circle = Circle(
-        ra=200,
-        dec=0,
-        radius=30.0/3600.0,
-        nside=65536,
+        ra=ra,
+        dec=dec,
+        radius=radius,
+        nside=nside,
         value=2**4,
     )
     pixels = circle.pixels
     print('pixels:', pixels)
+
+    smap = circle.sparsemap
+    if show:
+        import biggles
+        pra, pdec = hp.pix2ang(nside, pixels, nest=True, lonlat=True)
+        plt=biggles.plot(
+            pra,
+            pdec,
+            type='filled circle',
+            xlabel='RA',
+            ylabel='DEC',
+            aspect_ratio=1,
+            visible=False,
+        )
+        plt.add(
+            biggles.Circle(ra, dec, radius, color='red'),
+        )
+        plt.show()
+
+        """
+        from .visu_func import hsp_view_map
+
+        extent = [
+            ra-radius*2,
+            ra+radius*2,
+            dec-radius*2,
+            dec+radius*2,
+        ]
+        hsp_view_map(smap, savename='test.png', show_coverage=False,
+                     extent=extent)
+        """
