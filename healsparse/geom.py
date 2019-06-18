@@ -64,6 +64,7 @@ class Circle(GeomBase):
                 self.vec,
                 self.radius_rad,
                 nest=True,
+                inclusive=True,
             )
 
         return self._pixels
