@@ -15,7 +15,7 @@ class GeomBase(object):
 
 
 class Circle(GeomBase):
-    def __init__(self, *, ra, dec, radius, nside):
+    def __init__(self, *, ra, dec, radius, nside, value):
         """
         Parameters
         ----------
@@ -25,6 +25,7 @@ class Circle(GeomBase):
             dec in degrees
         radius: float
             radius in degrees
+        value:
         """
 
         self.ra = ra
@@ -32,6 +33,7 @@ class Circle(GeomBase):
         self.radius = radius
         self.radius_rad = np.deg2rad(radius)
         self.vec = eq2vec(self.ra, self.dec)
+        self.value = value
 
         self.nside = nside
 
@@ -48,7 +50,7 @@ class Circle(GeomBase):
                 dtype=np.int16,
                 sentinel=0,
             )
-            smap.updateValues(self.pixels, 1)
+            smap.updateValues(self.pixels, self.value)
             self._smap = smap
 
         return self._smap
@@ -76,6 +78,7 @@ def test_circle():
         dec=0,
         radius=30.0/3600.0,
         nside=65536,
+        value=2**4,
     )
     pixels = circle.pixels
     print('pixels:', pixels)
