@@ -10,8 +10,13 @@ class GeomBase(object):
     themselves to maps
     """
 
-    def get_pixels(self):
-        raise NotImplementedError('implment get_pixels')
+    @property
+    def pixels(self):
+        raise NotImplementedError('implment pixels property')
+
+    @property
+    def sparsemap(self):
+        raise NotImplementedError('implment sparsemap property')
 
 
 class Circle(GeomBase):
