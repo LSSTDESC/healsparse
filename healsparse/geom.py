@@ -3,6 +3,73 @@ import healpy as hp
 from .healSparseMap import HealSparseMap
 from . import utils
 
+def make_circles(ra, dec, radius):
+    """
+    make multiple Circles
+
+    Parameters
+    ----------
+    ra: array
+        RA in degrees
+    dec: array
+        DEC in degrees
+    radius: array
+        Radius in degrees
+
+    Returns
+    -------
+    List of Circle objects
+    """
+    ra = np.array(ra, ndmin=1)
+    dec = np.array(dec, ndmin=1)
+    radius = np.array(radius, ndmin=1)
+
+    if ra.size != dec.size:
+        raise ValueError()
+
+def realize_geom(geom, smap):
+    """
+    Realize geometry objects in a map
+
+    Parameters
+    ----------
+    geom: geommetric primitive or list thereof
+        List of Geom objects, e.g. Circle, Polygon
+    smap: HealSparseMaps
+        Map in which to realize the objects
+    """
+
+    if not isinstance(geom, (list, tuple)):
+        geom = [geom]
+
+    # split the geom objects up by value
+    gdict = {}
+    for g in geom:
+        value = geom.value
+        if value not in gdict:
+            gdict[value] = [g]
+        else:
+            gdict[value].append(g)
+
+    # deal with each value separately and add to
+    # the map
+    for value, glist in gdict.items():
+        for i, g in enumerate(glist):
+            tpixels = g.get_pixels(nside=smap.nsideSparse)
+            if i==0:
+                pixels = tpixels
+            else:
+                oldsize = pixels.size
+                newsize = oldsize + tpixels.size
+                pixels.resize(newsize)
+                pixels[oldsize:] = tpixels
+
+        pixels = np.unique(pixels)
+
+        values = sparseMap.getValuePixel(pixels)
+        values |= value
+        smap.updateValues(pixels, values)
+
 
 class GeomBase(object):
     """
@@ -11,20 +78,21 @@ class GeomBase(object):
     """
 
     @property
-    def nside(self):
-        return self._nside
+    def value(self):
+        return self._value
 
-    @property
-    def pixels(self):
-        raise NotImplementedError('implment pixels property')
+    def get_pixels(self, *args, **kw):
+        raise NotImplementedError('implment get_pixels')
 
-    @property
-    def sparsemap(self):
-        raise NotImplementedError('implment sparsemap property')
+    def get_values(self, *args, **kw):
+        raise NotImplementedError('implment get_values')
+
+    def get_map(self, *args, **kw):
+        raise NotImplementedError('implment get_map')
 
 
 class Circle(GeomBase):
-    def __init__(self, *, ra, dec, radius, nside, value, dtype=np.int16):
+    def __init__(self, *, ra, dec, radius, value, dtype=np.int16):
         """
         Parameters
         ----------
@@ -45,8 +113,6 @@ class Circle(GeomBase):
         self._vec = hp.ang2vec(ra, dec, lonlat=True)
         self._value = value
         self._dtype = dtype
-
-        self._nside = nside
 
     @property
     def ra(self):
@@ -69,51 +135,45 @@ class Circle(GeomBase):
         """
         return self._radius
 
-    @property
-    def sparsemap(self):
+    def get_map(self, *, nside):
         """
-        get a healsparse mask
+        get a healsparse map corresponding to this Circle
         """
 
-        if not hasattr(self, '_sparsemap'):
-            smap = HealSparseMap.makeEmpty(
-                nsideCoverage=32,
-                nsideSparse=self._nside,
-                dtype=self._dtype,
-                sentinel=0,
-            )
-            smap.updateValues(self.pixels, self.values)
-            self._smap = smap
+        smap = HealSparseMap.makeEmpty(
+            nsideCoverage=32,
+            nsideSparse=nside,
+            dtype=self._dtype,
+            sentinel=0,
+        )
+        pixels = self.get_pixels(nside=nside)
+        values = self.get_values(size=pixels.size)
+        smap.updateValues(pixels, values)
 
-        return self._smap
+        return smap
 
-    @property
-    def pixels(self):
+    def get_pixels(self, *, nside):
         """
         get the pixels associated with this circle
         """
-        if not hasattr(self, '_pixels'):
-            self._pixels = hp.query_disc(
-                self._nside,
-                self._vec,
-                self._radius_rad,
-                nest=True,
-                inclusive=True,
-            )
+        pixels = hp.query_disc(
+            nside,
+            self._vec,
+            self._radius_rad,
+            nest=True,
+            inclusive=False,
+        )
 
-        return self._pixels
+        return pixels
 
-    @property
-    def values(self):
+    def get_values(self, *, size):
         """
         get the values associated with this circle
         """
-        if not hasattr(self, '_values'):
-            self._values = np.zeros(self.pixels.size, dtype=self._dtype)
-            self._values[:] = self._value
+        values = np.zeros(size, dtype=self._dtype)
+        values[:] = self._value
 
-        return self._values
-
+        return values
 
 
 def test_circle(show=False):
@@ -124,13 +184,13 @@ def test_circle(show=False):
         ra=ra,
         dec=dec,
         radius=radius,
-        nside=nside,
         value=2**4,
     )
-    pixels = circle.pixels
+    pixels = circle.get_pixels(nside=nside)
+    values = circle.get_values(size=pixels.size)
     print('pixels:', pixels)
 
-    smap = circle.sparsemap
+    smap = circle.get_map(nside=nside)
     if show:
         import biggles
         pra, pdec = hp.pix2ang(nside, pixels, nest=True, lonlat=True)
