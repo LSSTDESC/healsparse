@@ -6,3 +6,5 @@ from .operations import orUnion, orIntersection
 from .operations import andUnion, andIntersection
 from .operations import xorUnion, xorIntersection
 
+from . import geom
+from .geom import Circle
