@@ -562,6 +562,21 @@ class HealSparseMap(object):
 
         return self._primary
 
+    @property
+    def isIntegerMap(self):
+        """
+        Check that the map is an integer map
+
+        Returns
+        -------
+        isIntegerMap: `bool`
+        """
+
+        if self._isRecArray:
+            return False
+
+        return issubclass(self._sparseMap.dtype.type, np.integer)
+
     def generateHealpixMap(self, nside=None, reduction='mean', key=None):
         """
         Generate the associated healpix map
