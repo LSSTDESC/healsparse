@@ -15,7 +15,7 @@ class GeomBase(object):
 
 
 class Circle(GeomBase):
-    def __init__(self, *, ra, dec, radius, nside, value):
+    def __init__(self, *, ra, dec, radius, nside, value, dtype=np.int16):
         """
         Parameters
         ----------
@@ -25,17 +25,40 @@ class Circle(GeomBase):
             dec in degrees
         radius: float
             radius in degrees
-        value:
+        value: numpy dtype
+            Default int16
         """
 
-        self.ra = ra
-        self.dec = dec
-        self.radius = radius
-        self.radius_rad = np.deg2rad(radius)
-        self.vec = eq2vec(self.ra, self.dec)
-        self.value = value
+        self._ra = ra
+        self._dec = dec
+        self._radius = radius
+        self._radius_rad = np.deg2rad(radius)
+        self._vec = eq2vec(self._ra, self._dec)
+        self._value = value
+        self._dtype = dtype
 
-        self.nside = nside
+        self._nside = nside
+
+    @property
+    def ra(self):
+        """
+        get the ra value
+        """
+        return self._ra
+
+    @property
+    def dec(self):
+        """
+        get the dec value
+        """
+        return self._dec
+
+    @property
+    def radius(self):
+        """
+        get the radius value
+        """
+        return self._radius
 
     @property
     def sparsemap(self):
@@ -46,11 +69,11 @@ class Circle(GeomBase):
         if not hasattr(self, '_sparsemap'):
             smap = HealSparseMap.makeEmpty(
                 nsideCoverage=32,
-                nsideSparse=self.nside,
-                dtype=np.int16,
+                nsideSparse=self._nside,
+                dtype=self._dtype,
                 sentinel=0,
             )
-            smap.updateValues(self.pixels, self.value)
+            smap.updateValues(self.pixels, self._value)
             self._smap = smap
 
         return self._smap
@@ -62,9 +85,9 @@ class Circle(GeomBase):
         """
         if not hasattr(self, '_pixels'):
             self._pixels = hp.query_disc(
-                self.nside,
-                self.vec,
-                self.radius_rad,
+                self._nside,
+                self._vec,
+                self._radius_rad,
                 nest=True,
                 inclusive=True,
             )
