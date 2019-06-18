@@ -91,7 +91,7 @@ def eq2ang(ra, dec):
     ra: scalar or array
         ra in degrees
     dec: scalar or array
-        decin radians
+        dec in radians
 
     Returns
     -------
@@ -106,6 +106,29 @@ def eq2ang(ra, dec):
 
     return theta, phi
 
+def ang2eq(theta, phi):
+    """
+    convert theta, phi in radians to ra, dec in degrees
+
+    Parameters
+    ----------
+    theta: scalar or array
+        theta in radians
+    phi: scalar or array
+        phi in radians
+
+    Returns
+    -------
+    ra, dec in degrees
+    """
+
+    ra = np.rad2deg(phi)
+    dec = np.rad2deg(np.pi/2.0 - theta)
+
+    # make sure ra in [0,360] and dec within [-90,90]
+    dec, ra = _reset_bounds2(dec, ra);
+
+    return ra, dec
 
 def ang2xyz(theta, phi):
     """
@@ -141,7 +164,7 @@ def eq2xyz(ra, dec):
     ra: scalar or array
         ra in degrees
     dec: scalar or array
-        decin radians
+        dec in radians
 
     Returns
     -------
@@ -163,7 +186,7 @@ def eq2vec(ra, dec):
     ra: scalar or array
         ra in degrees
     dec: scalar or array
-        decin radians
+        dec in radians
 
     Returns
     -------
@@ -193,25 +216,55 @@ def eq2vec(ra, dec):
 
 
 def _reset_bounds(angle, min, max):
-    while angle < min:
-        angle += 360.0
+    if np.ndim(angle) == 0:
+        while angle < min:
+            angle += 360.0
 
-    while angle >= max:
-        angle -= 360.0
+        while angle >= max:
+            angle -= 360.0
+    else:
+        while True:
+            w, = np.where(angle < min)
+            if w.size > 0:
+                angle[w] += 360.0
+            else:
+                break
+
+        while True:
+            w, = np.where(angle >= max)
+            if w.size > 0:
+                angle[w] -= 360.0
+            else:
+                break
 
     return angle
 
 
 def _reset_bounds2(theta, phi):
-    theta = _reset_bounds(theta, -180.0, 180.0)
+    if np.ndim(theta) == 0:
+        theta = _reset_bounds(theta, -180.0, 180.0)
 
-    if abs(theta) > 90.0:
-        theta = 180.0 - theta
-        phi += 180
+        if abs(theta) > 90.0:
+            theta = 180.0 - theta
+            phi += 180
 
-    theta = _reset_bounds(theta, -180.0, 180.0)
-    phi = _reset_bounds(phi, 0.0, 360.0)
-    if abs(theta) == 90.0:
-        phi = 0.0
+        theta = _reset_bounds(theta, -180.0, 180.0)
+        phi = _reset_bounds(phi, 0.0, 360.0)
+        if abs(theta) == 90.0:
+            phi = 0.0
+    else:
+        theta = _reset_bounds(theta, -180.0, 180.0)
+
+        w, = np.where(theta > 90.0)
+        if w.size > 0:
+            theta[w] = 180.0 - theta[w]
+            phi[w] += 180
+
+        theta = _reset_bounds(theta, -180.0, 180.0)
+        phi = _reset_bounds(phi, 0.0, 360.0)
+
+        w, = np.where(theta == 90.0)
+        if w.size > 0:
+            phi[w] = 0.0
 
     return theta, phi
