@@ -152,10 +152,10 @@ def test_circle(show=False):
         from .visu_func import hsp_view_map
 
         extent = [
-            ra-radius*2,
-            ra+radius*2,
-            dec-radius*2,
-            dec+radius*2,
+            ra-radius*1.1,
+            ra+radius*1.1,
+            dec-radius*1.1,
+            dec+radius*1.1,
         ]
         hsp_view_map(smap, savename='test.png', show_coverage=False,
                      extent=extent)
