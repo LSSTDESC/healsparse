@@ -489,6 +489,13 @@ class HealSparseMap(object):
             return values
 
     @property
+    def dtype(self):
+        """
+        get the dtype of the map
+        """
+        return self._sparseMap.dtype
+
+    @property
     def coverageMap(self):
         """
         Get the fractional area covered by the sparse map

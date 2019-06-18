@@ -1,9 +1,9 @@
 import numpy as np
 import healpy as hp
 from .healSparseMap import HealSparseMap
-from . import utils
 
-def make_circles(ra, dec, radius):
+
+def make_circles(*, ra, dec, radius, value):
     """
     make multiple Circles
 
@@ -15,6 +15,8 @@ def make_circles(ra, dec, radius):
         DEC in degrees
     radius: array
         Radius in degrees
+    value: scalar or array
+        A scalar of array of values
 
     Returns
     -------
@@ -23,11 +25,30 @@ def make_circles(ra, dec, radius):
     ra = np.array(ra, ndmin=1)
     dec = np.array(dec, ndmin=1)
     radius = np.array(radius, ndmin=1)
+    value = np.array(value, ndmin=1)
 
     if ra.size != dec.size:
-        raise ValueError()
+        raise ValueError('ra/dec different sizes')
+    if radius.size != dec.size:
+        raise ValueError('ra/radius different sizes')
+    if value.size != dec.size and value.size != 1:
+        raise ValueError('value should be scalar or '
+                         'same size as ra')
 
-def realize_geom(geom, smap):
+    circles = []
+    for i in range(ra.size):
+        if value.size == 1:
+            v = value[0]
+        else:
+            v = value[i]
+
+        circle = Circle(ra=ra[i], dec=dec[i], radius=radius[i], value=v)
+        circles.append(circle)
+
+    return circles
+
+
+def or_geom(geom, smap):
     """
     Realize geometry objects in a map
 
@@ -36,8 +57,11 @@ def realize_geom(geom, smap):
     geom: geommetric primitive or list thereof
         List of Geom objects, e.g. Circle, Polygon
     smap: HealSparseMaps
-        Map in which to realize the objects
+        The map in which to realize the objects
     """
+
+    if not smap.isIntegerMap:
+        raise ValueError('can only or geometry objects into an integer map')
 
     if not isinstance(geom, (list, tuple)):
         geom = [geom]
@@ -45,7 +69,10 @@ def realize_geom(geom, smap):
     # split the geom objects up by value
     gdict = {}
     for g in geom:
-        value = geom.value
+        value = g.value
+        _check_int(value)
+        _check_int_size(value, smap.dtype)
+
         if value not in gdict:
             gdict[value] = [g]
         else:
@@ -56,7 +83,7 @@ def realize_geom(geom, smap):
     for value, glist in gdict.items():
         for i, g in enumerate(glist):
             tpixels = g.get_pixels(nside=smap.nsideSparse)
-            if i==0:
+            if i == 0:
                 pixels = tpixels
             else:
                 oldsize = pixels.size
@@ -66,9 +93,27 @@ def realize_geom(geom, smap):
 
         pixels = np.unique(pixels)
 
-        values = sparseMap.getValuePixel(pixels)
+        values = smap.getValuePixel(pixels)
         values |= value
+        print(pixels, values)
         smap.updateValues(pixels, values)
+
+
+def _check_int(x):
+    check = (
+        issubclass(x.__class__, np.integer) or
+        issubclass(x.__class__, int)
+    )
+    if not check:
+        raise ValueError('value must be integer type, '
+                         'got %s' % x)
+
+
+def _check_int_size(value, dtype):
+    ii = np.iinfo(dtype)
+    if value < ii.min or value > ii.max:
+        raise ValueError('value %d outside range [%d, %d]' %
+                         value, ii.min, ii.max)
 
 
 class GeomBase(object):
@@ -92,7 +137,7 @@ class GeomBase(object):
 
 
 class Circle(GeomBase):
-    def __init__(self, *, ra, dec, radius, value, dtype=np.int16):
+    def __init__(self, *, ra, dec, radius, value):
         """
         Parameters
         ----------
@@ -102,8 +147,6 @@ class Circle(GeomBase):
             dec in degrees
         radius: float
             radius in degrees
-        value: numpy dtype
-            Default int16
         """
 
         self._ra = ra
@@ -112,7 +155,6 @@ class Circle(GeomBase):
         self._radius_rad = np.deg2rad(radius)
         self._vec = hp.ang2vec(ra, dec, lonlat=True)
         self._value = value
-        self._dtype = dtype
 
     @property
     def ra(self):
@@ -135,7 +177,7 @@ class Circle(GeomBase):
         """
         return self._radius
 
-    def get_map(self, *, nside):
+    def get_map(self, *, nside, dtype):
         """
         get a healsparse map corresponding to this Circle
         """
@@ -143,11 +185,11 @@ class Circle(GeomBase):
         smap = HealSparseMap.makeEmpty(
             nsideCoverage=32,
             nsideSparse=nside,
-            dtype=self._dtype,
+            dtype=dtype,
             sentinel=0,
         )
         pixels = self.get_pixels(nside=nside)
-        values = self.get_values(size=pixels.size)
+        values = self.get_values(size=pixels.size, dtype=dtype)
         smap.updateValues(pixels, values)
 
         return smap
@@ -166,11 +208,11 @@ class Circle(GeomBase):
 
         return pixels
 
-    def get_values(self, *, size):
+    def get_values(self, *, size, dtype):
         """
         get the values associated with this circle
         """
-        values = np.zeros(size, dtype=self._dtype)
+        values = np.zeros(size, dtype=dtype)
         values[:] = self._value
 
         return values
@@ -187,14 +229,14 @@ def test_circle(show=False):
         value=2**4,
     )
     pixels = circle.get_pixels(nside=nside)
-    values = circle.get_values(size=pixels.size)
     print('pixels:', pixels)
 
-    smap = circle.get_map(nside=nside)
+    smap = circle.get_map(nside=nside, dtype=np.int16)
+
     if show:
         import biggles
         pra, pdec = hp.pix2ang(nside, pixels, nest=True, lonlat=True)
-        plt=biggles.plot(
+        plt = biggles.plot(
             pra,
             pdec,
             type='filled circle',
@@ -208,7 +250,6 @@ def test_circle(show=False):
         )
         plt.show()
 
-        """
         from .visu_func import hsp_view_map
 
         extent = [
@@ -217,6 +258,68 @@ def test_circle(show=False):
             dec-radius*1.1,
             dec+radius*1.1,
         ]
-        hsp_view_map(smap, savename='test.png', show_coverage=False,
-                     extent=extent)
-        """
+        hsp_view_map(
+            smap,
+            savename='/tmp/test.png',
+            show_coverage=False,
+            extent=extent,
+        )
+
+def test_circles(show=False):
+    nside = 2**17
+    dtype = np.int16
+
+    rng = np.random.RandomState(31415)
+    ncircle = 5
+    ra_range = 199.0, 200.1
+    dec_range = -0.1, 0.1
+    ra = rng.uniform(low=ra_range[0], high=ra_range[1], size=ncircle)
+    dec = rng.uniform(low=dec_range[0], high=dec_range[1], size=ncircle)
+
+    radius = rng.uniform(low=30.0/3600.0, high=120.0/3600.0, size=ncircle)
+
+    values = np.array([2, 4, 8, 16, 32], dtype=dtype)
+
+    circles = make_circles(
+        ra=ra,
+        dec=dec,
+        radius=radius,
+        value=values,
+    )
+
+    smap = HealSparseMap.makeEmpty(
+        nsideCoverage=32,
+        nsideSparse=nside,
+        dtype=dtype,
+        sentinel=0,
+    )
+    or_geom(circles, smap)
+
+    test, = np.where(smap._sparseMap > 0)
+    print(test.size)
+
+
+    w, = np.where( smap._sparseMap != smap._sentinel )
+    print(w.size)
+
+    data = smap.getValuePixel(smap.validPixels)
+    print('_sparseMap:',smap._sparseMap)
+    print('data:',data)
+    w, = np.where( data != smap._sentinel )
+    print(w.size)
+
+    if show:
+        from .visu_func import hsp_view_map
+
+        extent = [
+            ra_range[0]*0.9,
+            ra_range[1]*1.1,
+            dec_range[0]*1.1,
+            dec_range[1]*1.1,
+        ]
+        hsp_view_map(
+            smap,
+            savename='/tmp/test.png',
+            show_coverage=False,
+            #extent=extent,
+        )
