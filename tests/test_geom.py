@@ -19,16 +19,17 @@ def test_circle_smoke():
 
     smap = circle.get_map(nside=nside, dtype=np.int16)  # noqa
 
+
 def atbound(longitude, minval, maxval):
     w, = np.where(longitude < minval)
     while w.size > 0:
         longitude[w] += 360.0
-        w, = np.where( longitude < minval )
+        w, = np.where(longitude < minval)
 
     w, = np.where(longitude > maxval)
     while w.size > 0:
         longitude[w] -= 360.0
-        w, = np.where( longitude > maxval )
+        w, = np.where(longitude > maxval)
 
     return
 
