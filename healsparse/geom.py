@@ -306,6 +306,7 @@ def test_circle(show=False):
         )
         plt.show()
 
+        """
         from .visu_func import hsp_view_map
 
         extent = [
@@ -320,6 +321,10 @@ def test_circle(show=False):
             show_coverage=False,
             extent=extent,
         )
+        """
+        return plt
+    else:
+        return None
 
 
 def test_circles(show=False):
@@ -438,7 +443,15 @@ def test_polygon(show=False):
             aspect_ratio=0.5,
             visible=False,
         )
-        #plt.add(
-        #    biggles.Box((ra[0], dec[0]), (ra[2], dec[2]), color='red'),
-        #)
+
+        rac = np.array(list(ra) + [ra[0]])
+        decc = np.array(list(dec) + [dec[0]])
+        plt.add(
+            biggles.Curve(rac, decc, color='red'),
+        )
         plt.show()
+
+        return plt
+
+    else:
+        return None
