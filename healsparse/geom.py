@@ -129,12 +129,31 @@ class GeomBase(object):
         """
         return self._value
 
-    def get_pixels(self, *args, **kw):
+    def get_pixels(self, *, nside):
+        """
+        get pixels for this map
+
+        Parameters
+        ----------
+        nside: int
+            Nside for the pixels
+        """
         raise NotImplementedError('implment get_pixels')
 
     def get_map(self, *, nside, dtype):
         """
-        get a healsparse map corresponding to this Circle
+        get a healsparse map corresponding to this geometric primitive
+
+        Parameters
+        ----------
+        size: integer
+            Size of the values array
+        dtype: np dtype
+            For the output array
+
+        Returns
+        -------
+        HealSparseMap
         """
 
         smap = HealSparseMap.makeEmpty(
@@ -151,7 +170,18 @@ class GeomBase(object):
 
     def get_values(self, *, size, dtype):
         """
-        get the values associated with this circle
+        get an array filled with the value
+
+        Parameters
+        ----------
+        size: integer
+            Size of the values array
+        dtype: np dtype
+            For the output array
+
+        Returns
+        -------
+        array with all elements set to the value for this geometric object
         """
         values = np.zeros(size, dtype=dtype)
         values[:] = self._value
@@ -205,6 +235,11 @@ class Circle(GeomBase):
     def get_pixels(self, *, nside):
         """
         get the pixels associated with this circle
+
+        Parameters
+        ----------
+        nside: int
+            Nside for the pixels
         """
         return hp.query_disc(
             nside,
@@ -264,7 +299,12 @@ class Polygon(GeomBase):
 
     def get_pixels(self, *, nside):
         """
-        get the pixels associated with this circle
+        get the pixels associated with this polygon
+
+        Parameters
+        ----------
+        nside: int
+            Nside for the pixels
         """
         return hp.query_polygon(
             nside,
@@ -288,6 +328,7 @@ def test_circle(show=False):
     print('pixels:', pixels)
 
     smap = circle.get_map(nside=nside, dtype=np.int16)
+    print(smap)
 
     if show:
         import biggles
@@ -397,6 +438,7 @@ def test_box(show=False):
     )
 
     smap = poly.get_map(nside=nside, dtype=np.int16)
+    print(smap)
 
     if show:
         import biggles
@@ -419,7 +461,7 @@ def test_box(show=False):
 
 def test_polygon(show=False):
     # counter clockwise
-    ra  = [200.0, 200.2, 200.3, 200.2, 200.1]
+    ra = [200.0, 200.2, 200.3, 200.2, 200.1]
     dec = [0.0,     0.1,   0.2,   0.25, 0.13]
     nside = 2**15
     poly = Polygon(
@@ -429,6 +471,7 @@ def test_polygon(show=False):
     )
 
     smap = poly.get_map(nside=nside, dtype=np.int16)
+    print(smap)
 
     if show:
         import biggles
