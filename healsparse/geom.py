@@ -88,7 +88,10 @@ def or_geom(geom, smap):
             else:
                 oldsize = pixels.size
                 newsize = oldsize + tpixels.size
-                pixels.resize(newsize)
+                # need refcheck=False because it will fail when running
+                # the python profiler; I infer that the profiler holds
+                # a reference to the objects
+                pixels.resize(newsize, refcheck=False)
                 pixels[oldsize:] = tpixels
 
         pixels = np.unique(pixels)
@@ -368,7 +371,11 @@ def test_circle(show=False):
         return None
 
 
-def test_circles(show=False):
+def test_circles(show=False, show_mat=False):
+    """
+    show_mat uses the matplotlib based stuff which is
+    super slow
+    """
     nside = 2**17
     dtype = np.int16
 
@@ -411,6 +418,7 @@ def test_circles(show=False):
     w, = np.where(data != smap._sentinel)
     print(w.size)
 
+    plt = None
     if show:
         import biggles
         import pcolors
@@ -444,9 +452,8 @@ def test_circles(show=False):
             plt.add(pts)
 
         plt.show()
-        return plt
 
-        """
+    if show_mat:
         from .visu_func import hsp_view_map
 
         extent = [
@@ -461,8 +468,8 @@ def test_circles(show=False):
             show_coverage=False,
             extent=extent,
         )
-        """
 
+    return plt
 
 def test_box(show=False):
     ra = [200.0, 200.2, 200.2, 200.0]
