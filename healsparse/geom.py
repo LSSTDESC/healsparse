@@ -513,17 +513,17 @@ def _make_poly():
     # counter clockwise
     ra = [200.0, 200.2, 200.3, 200.2, 200.1]
     dec = [0.0,     0.1,   0.2,   0.25, 0.13]
-    nside = 2**15
     poly = Polygon(
         ra=ra,
         dec=dec,
         value=64,
     )
-    return poly
+    return poly, ra, dec
 
 def test_polygon(show=False):
 
-    poly = _make_poly()
+    nside = 2**15
+    poly, ra, dec = _make_poly()
     smap = poly.get_map(nside=nside, dtype=np.int16)
     print(smap)
 
@@ -561,7 +561,7 @@ def test_mix(show=False):
     ncircle = 20
 
     circles, ra_range, dec_range = _make_circles(rng, ncircle)
-    poly = _make_poly()
+    poly, ra, dec = _make_poly()
 
     geoms = circles + [poly]
     smap = HealSparseMap.makeEmpty(
@@ -659,139 +659,3 @@ def test_circles_speed():
     print('total time:',tm_tot)
     print('time make:',tm_make)
     print('time or_geom:',tm_or)
-
-def test_box(show=False):
-    ra = [200.0, 200.2, 200.2, 200.0]
-    dec = [0.0, 0.0, 0.1, 0.1]
-    nside = 2**15
-    poly = Polygon(
-        ra=ra,
-        dec=dec,
-        value=2**4,
-    )
-
-    smap = poly.get_map(nside=nside, dtype=np.int16)
-    print(smap)
-
-    if show:
-        import biggles
-        pixels = poly.get_pixels(nside=nside)
-        pra, pdec = hp.pix2ang(nside, pixels, nest=True, lonlat=True)
-        plt = biggles.plot(
-            pra,
-            pdec,
-            type='filled circle',
-            xlabel='RA',
-            ylabel='DEC',
-            aspect_ratio=0.5,
-            visible=False,
-        )
-        plt.add(
-            biggles.Box((ra[0], dec[0]), (ra[2], dec[2]), color='red'),
-        )
-        plt.show()
-
-def _make_poly():
-    # counter clockwise
-    ra = [200.0, 200.2, 200.3, 200.2, 200.1]
-    dec = [0.0,     0.1,   0.2,   0.25, 0.13]
-    nside = 2**15
-    poly = Polygon(
-        ra=ra,
-        dec=dec,
-        value=64,
-    )
-    return poly
-
-def test_polygon(show=False):
-
-    poly = _make_poly()
-    smap = poly.get_map(nside=nside, dtype=np.int16)
-    print(smap)
-
-    if show:
-        import biggles
-        pixels = poly.get_pixels(nside=nside)
-        pra, pdec = hp.pix2ang(nside, pixels, nest=True, lonlat=True)
-        plt = biggles.plot(
-            pra,
-            pdec,
-            type='filled circle',
-            xlabel='RA',
-            ylabel='DEC',
-            aspect_ratio=0.5,
-            visible=False,
-        )
-
-        rac = np.array(list(ra) + [ra[0]])
-        decc = np.array(list(dec) + [dec[0]])
-        plt.add(
-            biggles.Curve(rac, decc, color='red'),
-        )
-        plt.show()
-
-        return plt
-
-    else:
-        return None
-
-
-def test_mix(show=False):
-    nside = 2**17
-    dtype = np.int16
-    rng = np.random.RandomState(31415)
-    ncircle = 20
-
-    circles, ra_range, dec_range = _make_circles(rng, ncircle)
-    poly = _make_poly()
-
-    geoms = circles + [poly]
-    smap = HealSparseMap.makeEmpty(
-        nsideCoverage=32,
-        nsideSparse=nside,
-        dtype=dtype,
-        sentinel=0,
-    )
-
-    or_geom(geoms, smap)
-
-    if show:
-        import biggles
-        import pcolors
-
-        # new ranges
-        ra_range = 199.7, 200.35
-        dec_range = -0.2, 0.25
-
-        nrand = 100000
-        rra = rng.uniform(low=ra_range[0], high=ra_range[1], size=nrand)
-        rdec = rng.uniform(low=dec_range[0], high=dec_range[1], size=nrand)
-
-        vals = smap.getValueRaDec(rra, rdec)
-        uvals = np.unique(vals)
-        colors = list(reversed(pcolors.rainbow(uvals.size)))
-        print('unique vals:', uvals)
-
-        xrng = ra_range
-        yrng = dec_range
-
-        aspect = (yrng[1]-yrng[0])/(xrng[1]-xrng[0])
-        plt = biggles.FramedPlot(
-            xrange=xrng,
-            yrnage=yrng,
-            aspect_ratio=aspect,
-            xlabel='RA',
-            ylabel='DEC',
-        )
-
-        for i, val in enumerate(uvals):
-            if val == 0:
-                continue
-            w, = np.where(vals == val)
-            color = colors[i]
-            pts = biggles.Points(rra[w], rdec[w], type='dot', color=color)
-            plt.add(pts)
-
-        plt.show()
-
-        return plt
