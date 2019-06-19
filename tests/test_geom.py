@@ -133,7 +133,7 @@ def test_circle_values():
         nrand,
         ra,
         dec,
-        smallrad,
+        bigrad,
         get_radius=True,
     )
     w, = np.where(rrand > 1.1*radius)
@@ -208,3 +208,54 @@ def test_polygon_values():
     vals = smap.getValueRaDec(rra, rdec)  # noqa
 
     assert np.all(vals == poly.value)
+
+
+def test_or_geom_values():
+    """
+    test "or"ing two geom objects
+    """
+    nside = 2**17
+    dtype = np.int16
+
+    radius1 = 0.075
+    radius2 = 0.075
+    ra1, dec1 = 200.0, 0.0
+    ra2, dec2 = 200.1, 0.0
+    value1 = 2**2
+    value2 = 2**4
+
+    circle1 = healsparse.Circle(
+        ra=ra1,
+        dec=dec1,
+        radius=radius1,
+        value=value1,
+    )
+    circle2 = healsparse.Circle(
+        ra=ra2,
+        dec=dec2,
+        radius=radius2,
+        value=value2,
+    )
+
+    smap = healsparse.HealSparseMap.makeEmpty(
+        nsideCoverage=32,
+        nsideSparse=nside,
+        dtype=dtype,
+        sentinel=0,
+    )
+    healsparse.or_geom([circle1, circle2], smap)
+
+    out_ra, out_dec = 190.0, 25.0
+    in1_ra, in1_dec = 200.02, 0.0
+    in2_ra, in2_dec = 200.095, 0.0
+    both_ra, both_dec = 200.05, 0.0
+
+    out_vals = smap.getValueRaDec(out_ra, out_dec)
+    in1_vals = smap.getValueRaDec(in1_ra, in1_dec)
+    in2_vals = smap.getValueRaDec(in2_ra, in2_dec)
+    both_vals = smap.getValueRaDec(both_ra, both_dec)
+
+    assert np.all(out_vals == 0)
+    assert np.all(in1_vals == value1)
+    assert np.all(in2_vals == value2)
+    assert np.all(both_vals == (value1 | value2))
