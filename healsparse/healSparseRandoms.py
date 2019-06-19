@@ -3,7 +3,7 @@ import numpy as np
 import healpy as hp
 import copy
 
-def makeUniformRandoms(sparseMap, nRandom):
+def makeUniformRandomsFast(sparseMap, nRandom, nsideRandoms=2**23, rng=None):
     """
     Make an array of uniform randoms.
 
@@ -13,6 +13,10 @@ def makeUniformRandoms(sparseMap, nRandom):
        Sparse map object
     nRandom: `int`
        Number of randoms to generate
+    nsideRandoms: `int`, optional
+       Nside for pixel centers to select random points
+    rng: `np.random.RandomState`, optional
+       Pre-set Random number generator.  Default is None.
 
     Returns
     -------
@@ -21,6 +25,51 @@ def makeUniformRandoms(sparseMap, nRandom):
     decArray: `np.array`
        Float array of declinations (degrees)
     """
+
+    if rng is None:
+        rng = np.random.RandomState()
+
+    # get the valid pixels
+    validPixels = sparseMap.validPixels
+
+    # Select which "coarse" valid pixels are selected
+    ipnestCoarse = rng.choice(validPixels, size=nRandom, replace=True)
+
+    # What is the bitshift from the sparseMap nside to nsideRandoms?
+    bitShift = 2 * int(np.round(np.log(nsideRandoms / sparseMap.nsideSparse) / np.log(2)))
+
+    # The sub-pixels are random from bitShift
+    subPixels = rng.randint(0, high=2**bitShift - 1, size=nRandom)
+
+    raRand, decRand = hp.pix2ang(nsideRandoms,
+                                 np.left_shift(ipnestCoarse, bitShift) + subPixels,
+                                 lonlat=True, nest=True)
+
+    return raRand, decRand
+
+def makeUniformRandoms(sparseMap, nRandom, rng=None):
+    """
+    Make an array of uniform randoms.
+
+    Parameters
+    ----------
+    sparseMap: `healsparse.HealSparseMap`
+       Sparse map object
+    nRandom: `int`
+       Number of randoms to generate
+    rng: `np.random.RandomState`, optional
+       Pre-set Random number generator.  Default is None.
+
+    Returns
+    -------
+    raArray: `np.array`
+       Float array of RAs (degrees)
+    decArray: `np.array`
+       Float array of declinations (degrees)
+    """
+
+    if rng is None:
+        rng = np.random.RandomState()
 
     # Generate uniform points on a unit sphere
     r = 1.0
@@ -73,8 +122,8 @@ def makeUniformRandoms(sparseMap, nRandom):
         # Limit the number of points in each loop
         nGen = np.clip(nLeft * 2, minGen, maxGen)
 
-        z = np.random.uniform(low=zRange[0], high=zRange[1], size=nGen)
-        phi = np.random.uniform(low=phiRange[0], high=phiRange[1], size=nGen)
+        z = rng.uniform(low=zRange[0], high=zRange[1], size=nGen)
+        phi = rng.uniform(low=phiRange[0], high=phiRange[1], size=nGen)
         theta = np.arcsin(z / r)
 
         raRandTemp = np.degrees(phi)
