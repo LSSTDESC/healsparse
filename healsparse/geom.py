@@ -54,7 +54,7 @@ def or_geom(geom, smap):
 
     Parameters
     ----------
-    geom: geommetric primitive or list thereof
+    geom: geometric primitive or list thereof
         List of Geom objects, e.g. Circle, Polygon
     smap: HealSparseMaps
         The map in which to realize the objects
@@ -221,9 +221,9 @@ class Polygon(GeomBase):
         Parameters
         ----------
         ra: array
-            ra in degrees
+            ra of vertices in degrees, size [nvert]
         dec: array
-            dec in degrees
+            dec of vertices in degrees, size [nvert]
         value: number
             Value for pixels in the map
         """
