@@ -255,6 +255,10 @@ class Circle(GeomBase):
 class Polygon(GeomBase):
     def __init__(self, *, ra, dec, value):
         """
+        represent a polygon
+
+        both counter clockwise and clockwise order for polygon vertices works
+
         Parameters
         ----------
         ra: array
