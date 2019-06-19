@@ -124,16 +124,39 @@ class GeomBase(object):
 
     @property
     def value(self):
+        """
+        get the value to be used for all pixels in the map
+        """
         return self._value
 
     def get_pixels(self, *args, **kw):
         raise NotImplementedError('implment get_pixels')
 
-    def get_values(self, *args, **kw):
-        raise NotImplementedError('implment get_values')
+    def get_map(self, *, nside, dtype):
+        """
+        get a healsparse map corresponding to this Circle
+        """
 
-    def get_map(self, *args, **kw):
-        raise NotImplementedError('implment get_map')
+        smap = HealSparseMap.makeEmpty(
+            nsideCoverage=32,
+            nsideSparse=nside,
+            dtype=dtype,
+            sentinel=0,
+        )
+        pixels = self.get_pixels(nside=nside)
+        values = self.get_values(size=pixels.size, dtype=dtype)
+        smap.updateValues(pixels, values)
+
+        return smap
+
+    def get_values(self, *, size, dtype):
+        """
+        get the values associated with this circle
+        """
+        values = np.zeros(size, dtype=dtype)
+        values[:] = self._value
+
+        return values
 
 
 class Circle(GeomBase):
@@ -147,6 +170,8 @@ class Circle(GeomBase):
             dec in degrees
         radius: float
             radius in degrees
+        value: number
+            Value for pixels in the map
         """
 
         self._ra = ra
@@ -177,28 +202,11 @@ class Circle(GeomBase):
         """
         return self._radius
 
-    def get_map(self, *, nside, dtype):
-        """
-        get a healsparse map corresponding to this Circle
-        """
-
-        smap = HealSparseMap.makeEmpty(
-            nsideCoverage=32,
-            nsideSparse=nside,
-            dtype=dtype,
-            sentinel=0,
-        )
-        pixels = self.get_pixels(nside=nside)
-        values = self.get_values(size=pixels.size, dtype=dtype)
-        smap.updateValues(pixels, values)
-
-        return smap
-
     def get_pixels(self, *, nside):
         """
         get the pixels associated with this circle
         """
-        pixels = hp.query_disc(
+        return hp.query_disc(
             nside,
             self._vec,
             self._radius_rad,
@@ -206,16 +214,64 @@ class Circle(GeomBase):
             inclusive=False,
         )
 
-        return pixels
 
-    def get_values(self, *, size, dtype):
+class Polygon(GeomBase):
+    def __init__(self, *, ra, dec, value):
         """
-        get the values associated with this circle
+        Parameters
+        ----------
+        ra: array
+            ra in degrees
+        dec: array
+            dec in degrees
+        value: number
+            Value for pixels in the map
         """
-        values = np.zeros(size, dtype=dtype)
-        values[:] = self._value
 
-        return values
+        ra = np.array(ra, ndmin=1)
+        dec = np.array(dec, ndmin=1)
+
+        if ra.size != dec.size:
+            raise ValueError('ra/dec different sizes')
+        if ra.size < 3:
+            raise ValueError('a polygon must have at least 3 vertices')
+
+        self._ra = ra
+        self._dec = dec
+        self._vertices = hp.ang2vec(ra, dec, lonlat=True)
+        self._value = value
+
+    @property
+    def ra(self):
+        """
+        get the ra value
+        """
+        return self._ra
+
+    @property
+    def dec(self):
+        """
+        get the dec value
+        """
+        return self._dec
+
+    @property
+    def vertices(self):
+        """
+        get the dec value
+        """
+        return self._vertices
+
+    def get_pixels(self, *, nside):
+        """
+        get the pixels associated with this circle
+        """
+        return hp.query_polygon(
+            nside,
+            self._vertices,
+            nest=True,
+            inclusive=False,
+        )
 
 
 def test_circle(show=False):
@@ -265,6 +321,7 @@ def test_circle(show=False):
             extent=extent,
         )
 
+
 def test_circles(show=False):
     nside = 2**17
     dtype = np.int16
@@ -298,14 +355,13 @@ def test_circles(show=False):
     test, = np.where(smap._sparseMap > 0)
     print(test.size)
 
-
-    w, = np.where( smap._sparseMap != smap._sentinel )
+    w, = np.where(smap._sparseMap != smap._sentinel)
     print(w.size)
 
     data = smap.getValuePixel(smap.validPixels)
-    print('_sparseMap:',smap._sparseMap)
-    print('data:',data)
-    w, = np.where( data != smap._sentinel )
+    print('_sparseMap:', smap._sparseMap)
+    print('data:', data)
+    w, = np.where(data != smap._sentinel)
     print(w.size)
 
     if show:
@@ -321,5 +377,68 @@ def test_circles(show=False):
             smap,
             savename='/tmp/test.png',
             show_coverage=False,
-            #extent=extent,
+            extent=extent,
         )
+
+
+def test_box(show=False):
+    ra = [200.0, 200.2, 200.2, 200.0]
+    dec = [0.0, 0.0, 0.1, 0.1]
+    nside = 2**15
+    poly = Polygon(
+        ra=ra,
+        dec=dec,
+        value=2**4,
+    )
+
+    smap = poly.get_map(nside=nside, dtype=np.int16)
+
+    if show:
+        import biggles
+        pixels = poly.get_pixels(nside=nside)
+        pra, pdec = hp.pix2ang(nside, pixels, nest=True, lonlat=True)
+        plt = biggles.plot(
+            pra,
+            pdec,
+            type='filled circle',
+            xlabel='RA',
+            ylabel='DEC',
+            aspect_ratio=0.5,
+            visible=False,
+        )
+        plt.add(
+            biggles.Box((ra[0], dec[0]), (ra[2], dec[2]), color='red'),
+        )
+        plt.show()
+
+
+def test_polygon(show=False):
+    # counter clockwise
+    ra  = [200.0, 200.2, 200.3, 200.2, 200.1]
+    dec = [0.0,     0.1,   0.2,   0.25, 0.13]
+    nside = 2**15
+    poly = Polygon(
+        ra=ra,
+        dec=dec,
+        value=2**4,
+    )
+
+    smap = poly.get_map(nside=nside, dtype=np.int16)
+
+    if show:
+        import biggles
+        pixels = poly.get_pixels(nside=nside)
+        pra, pdec = hp.pix2ang(nside, pixels, nest=True, lonlat=True)
+        plt = biggles.plot(
+            pra,
+            pdec,
+            type='filled circle',
+            xlabel='RA',
+            ylabel='DEC',
+            aspect_ratio=0.5,
+            visible=False,
+        )
+        #plt.add(
+        #    biggles.Box((ra[0], dec[0]), (ra[2], dec[2]), color='red'),
+        #)
+        plt.show()
