@@ -421,7 +421,7 @@ def test_circles(show=False):
 
         vals = smap.getValueRaDec(rra, rdec)
         uvals = np.unique(vals)
-        colors = pcolors.rainbow(uvals.size)
+        colors = list(reversed(pcolors.rainbow(uvals.size*2)))
         print('unique vals:', uvals)
 
         xrng = ra_range
@@ -444,6 +444,7 @@ def test_circles(show=False):
             plt.add(pts)
 
         plt.show()
+        return plt
 
         """
         from .visu_func import hsp_view_map
