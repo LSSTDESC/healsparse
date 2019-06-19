@@ -48,7 +48,7 @@ def make_circles(*, ra, dec, radius, value):
     return circles
 
 
-def or_geom(geom, smap):
+def realize_geom(geom, smap, type='or'):
     """
     Realize geometry objects in a map
 
@@ -59,6 +59,9 @@ def or_geom(geom, smap):
     smap: HealSparseMaps
         The map in which to realize the objects
     """
+
+    if type != 'or':
+        raise ValueError('type of composition must be or')
 
     if not smap.isIntegerMap:
         raise ValueError('can only or geometry objects into an integer map')
@@ -415,7 +418,7 @@ def test_circles(show=False, show_mat=False):
         dtype=dtype,
         sentinel=0,
     )
-    or_geom(circles, smap)
+    realize_geom(circles, smap)
 
     test, = np.where(smap._sparseMap > 0)
     print(test.size)
@@ -575,7 +578,7 @@ def test_mix(show=False):
         sentinel=0,
     )
 
-    or_geom(geoms, smap)
+    realize_geom(geoms, smap)
 
     if show:
         import biggles
@@ -655,11 +658,11 @@ def test_circles_speed():
     tm_make = time.time()-tm0
 
     tm0 = time.time()
-    or_geom(circles, smap)
+    realize_geom(circles, smap)
     tm_or = time.time()-tm0
 
     tm_tot = time.time() - tm0_tot
 
     print('total time:',tm_tot)
     print('time make:',tm_make)
-    print('time or_geom:',tm_or)
+    print('time realize_geom:',tm_or)

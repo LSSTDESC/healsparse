@@ -224,7 +224,7 @@ def test_polygon_values():
     assert np.all(vals == poly.value)
 
 
-def test_or_geom_values():
+def test_realize_geom_values():
     """
     test "or"ing two geom objects
     """
@@ -257,7 +257,7 @@ def test_or_geom_values():
         dtype=dtype,
         sentinel=0,
     )
-    healsparse.or_geom([circle1, circle2], smap)
+    healsparse.realize_geom([circle1, circle2], smap)
 
     out_ra, out_dec = 190.0, 25.0
     in1_ra, in1_dec = 200.02, 0.0

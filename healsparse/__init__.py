@@ -11,5 +11,5 @@ from .geom import (
     Circle,
     Polygon,
     make_circles,
-    or_geom,
+    realize_geom,
 )
