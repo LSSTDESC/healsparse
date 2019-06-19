@@ -373,15 +373,16 @@ def test_circles(show=False):
     dtype = np.int16
 
     rng = np.random.RandomState(31415)
-    ncircle = 5
-    ra_range = 199.0, 200.1
+    ncircle = 20
+    ra_range = 199.8, 200.2
     dec_range = -0.1, 0.1
     ra = rng.uniform(low=ra_range[0], high=ra_range[1], size=ncircle)
     dec = rng.uniform(low=dec_range[0], high=dec_range[1], size=ncircle)
 
     radius = rng.uniform(low=30.0/3600.0, high=120.0/3600.0, size=ncircle)
 
-    values = np.array([2, 4, 8, 16, 32], dtype=dtype)
+    possible = np.array([2, 4, 8, 16, 32], dtype=dtype)
+    values = rng.choice(possible, size=ncircle)
 
     circles = make_circles(
         ra=ra,
@@ -411,6 +412,40 @@ def test_circles(show=False):
     print(w.size)
 
     if show:
+        import biggles
+        import pcolors
+
+        nrand = 100000
+        rra = rng.uniform(low=ra_range[0], high=ra_range[1], size=nrand)
+        rdec = rng.uniform(low=dec_range[0], high=dec_range[1], size=nrand)
+
+        vals = smap.getValueRaDec(rra, rdec)
+        uvals = np.unique(vals)
+        colors = pcolors.rainbow(uvals.size)
+        print('unique vals:', uvals)
+
+        xrng = ra_range
+        yrng = dec_range
+        aspect = (yrng[1]-yrng[0])/(xrng[1]-xrng[0])
+        plt = biggles.FramedPlot(
+            xrange=xrng,
+            yrnage=yrng,
+            aspect_ratio=aspect,
+            xlabel='RA',
+            ylabel='DEC',
+        )
+
+        for i, val in enumerate(uvals):
+            if val == 0:
+                continue
+            w, = np.where(vals == val)
+            color = colors[i]
+            pts = biggles.Points(rra[w], rdec[w], type='dot', color=color)
+            plt.add(pts)
+
+        plt.show()
+
+        """
         from .visu_func import hsp_view_map
 
         extent = [
@@ -425,6 +460,7 @@ def test_circles(show=False):
             show_coverage=False,
             extent=extent,
         )
+        """
 
 
 def test_box(show=False):
