@@ -7,4 +7,9 @@ from .operations import andUnion, andIntersection
 from .operations import xorUnion, xorIntersection
 
 from . import geom
-from .geom import Circle
+from .geom import (
+    Circle,
+    Polygon,
+    make_circles,
+    or_geom,
+)
