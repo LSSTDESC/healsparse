@@ -115,7 +115,7 @@ def _check_int_size(value, dtype):
     ii = np.iinfo(dtype)
     if value < ii.min or value > ii.max:
         raise ValueError('value %d outside range [%d, %d]' %
-                         value, ii.min, ii.max)
+                         (value, ii.min, ii.max))
 
 
 class GeomBase(object):
