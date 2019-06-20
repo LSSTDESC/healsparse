@@ -14,7 +14,7 @@ class UniformRandomTestCase(unittest.TestCase):
         Test the uniform randoms
         """
 
-        np.random.seed(12345)
+        rng = np.random.RandomState(12345)
 
         nsideCoverage = 32
         nsideMap = 128
@@ -29,7 +29,7 @@ class UniformRandomTestCase(unittest.TestCase):
         sparseMap.updateValues(gdPix, np.zeros(gdPix.size, dtype=np.float32))
 
         nRandom = 100000
-        raRand, decRand = healsparse.makeUniformRandoms(sparseMap, nRandom)
+        raRand, decRand = healsparse.makeUniformRandoms(sparseMap, nRandom, rng=rng)
 
         self.assertEqual(raRand.size, nRandom)
         self.assertEqual(decRand.size, nRandom)
@@ -49,7 +49,7 @@ class UniformRandomTestCase(unittest.TestCase):
         Test the uniform randoms, crossing ra = 0
         """
 
-        np.random.seed(12345)
+        rng = np.random.RandomState(12345)
 
         nsideCoverage = 32
         nsideMap = 128
@@ -64,7 +64,7 @@ class UniformRandomTestCase(unittest.TestCase):
         sparseMap.updateValues(gdPix, np.zeros(gdPix.size, dtype=np.float32))
 
         nRandom = 100000
-        raRand, decRand = healsparse.makeUniformRandoms(sparseMap, nRandom)
+        raRand, decRand = healsparse.makeUniformRandoms(sparseMap, nRandom, rng=rng)
 
         self.assertEqual(raRand.size, nRandom)
         self.assertEqual(decRand.size, nRandom)
@@ -77,6 +77,40 @@ class UniformRandomTestCase(unittest.TestCase):
         # And these are all in the map
         self.assertTrue(np.all(sparseMap.getValueRaDec(raRand, decRand) > hp.UNSEEN))
 
+    def test_uniform_randoms_fast(self):
+        """
+        Test the fast uniform randoms
+        """
+
+        rng = np.random.RandomState(12345)
+
+        nsideCoverage = 32
+        nsideMap = 128
+
+        sparseMap = healsparse.HealSparseMap.makeEmpty(nsideCoverage, nsideMap, dtype=np.float32)
+
+        theta, phi = hp.pix2ang(nsideMap, np.arange(hp.nside2npix(nsideMap)), nest=True)
+        ra = np.degrees(phi)
+        dec = 90.0 - np.degrees(theta)
+        # Arbitrarily chosen range
+        gdPix, = np.where((ra > 100.0) & (ra < 180.0) & (dec > 5.0) & (dec < 30.0))
+        sparseMap.updateValues(gdPix, np.zeros(gdPix.size, dtype=np.float32))
+
+        nRandom = 100000
+        raRand, decRand = healsparse.makeUniformRandomsFast(sparseMap, nRandom, rng=rng)
+
+        self.assertEqual(raRand.size, nRandom)
+        self.assertEqual(decRand.size, nRandom)
+
+        # We have to have a cushion here because we have a finite pixel
+        # size
+        self.assertTrue(raRand.min() > (100.0 - 0.5))
+        self.assertTrue(raRand.max() < (180.0 + 0.5))
+        self.assertTrue(decRand.min() > (5.0 - 0.5))
+        self.assertTrue(decRand.max() < (30.0 + 0.5))
+
+        # And these are all in the map
+        self.assertTrue(np.all(sparseMap.getValueRaDec(raRand, decRand) > hp.UNSEEN))
 
 if __name__=='__main__':
     unittest.main()
