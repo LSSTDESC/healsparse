@@ -584,6 +584,18 @@ class HealSparseMap(object):
 
         return issubclass(self._sparseMap.dtype.type, np.integer)
 
+    @property
+    def isRecArray(self):
+        """
+        Check that the map is a recArray map.
+
+        Returns
+        -------
+        isRecArray: `bool`
+        """
+
+        return self._isRecArray
+
     def generateHealpixMap(self, nside=None, reduction='mean', key=None):
         """
         Generate the associated healpix map
@@ -761,6 +773,61 @@ class HealSparseMap(object):
         newIndexMap[:] -= np.arange(hp.nside2npix(self._nsideCoverage), dtype=np.int64) * nFinePerCov
         return HealSparseMap(covIndexMap=newIndexMap, sparseMap=newsparseMap, nsideCoverage=self._nsideCoverage,
                              nsideSparse=nside_out, primary=self._primary, sentinel=hp.UNSEEN)
+
+    def applyMask(self, maskMap, maskBits=None, inPlace=True):
+        """
+        Apply an integer mask to the map.  All pixels in the integer
+        mask that have any bits in maskBits set will be zeroed in the
+        output map.  The default is that this operation will be done
+        in place, but it may be set to return a copy with a masked map.
+
+        Parameters
+        ----------
+        maskMap: `HealSparseMap`
+           Integer mask to apply to the map.
+        maskBits: `int`, optional
+           Bits to be treated as bad in the maskMap.
+           Default is None (all non-zero pixels are masked)
+        inPlace: `bool`, optional
+           Apply operation in place.  Default is True
+
+        Returns
+        -------
+        maskedMap: `HealSparseMap`
+           self if inPlace is True, a new copy otherwise
+        """
+
+        # Check that the maskMap is an integer map (and not a recArray)
+        if not maskMap.isIntegerMap:
+            raise RuntimeError("Can only apply a maskMap that is an integer map.")
+
+        # operate on this map validPixels
+        validPixels = self.validPixels
+
+        if maskBits is None:
+            badPixels, = np.where(maskMap.getValuePixel(validPixels) > 0)
+        else:
+            badPixels, = np.where((maskMap.getValuePixel(validPixels) & maskBits) > 0)
+
+        if inPlace:
+            newMap = self
+        else:
+            newMap = HealSparseMap(covIndexMap=self._covIndexMap.copy(),
+                                   sparseMap=self._sparseMap.copy(),
+                                   nsideSparse=self._nsideSparse,
+                                   primary=self._primary,
+                                   sentinel=self._sentinel)
+
+        newValues = np.zeros(badPixels.size,
+                             dtype=newMap._sparseMap.dtype)
+        if self.isRecArray:
+            newValues[newMap._primary] = newMap._sentinel
+        else:
+            newValues[:] = newMap._sentinel
+
+        newMap.updateValues(validPixels[badPixels], newValues)
+
+        return newMap
 
     def __getitem__(self, key):
         """
