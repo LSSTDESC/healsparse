@@ -60,7 +60,12 @@ def productUnion(mapList):
        Product of maps
     """
 
-    return _applyOperation(mapList, np.multiply, 1.0, union=True)
+    if mapList[0].isIntegerMap:
+        value = 1
+    else:
+        value = 1.0
+
+    return _applyOperation(mapList, np.multiply, value, union=True)
 
 def productIntersection(mapList):
     """
@@ -79,7 +84,12 @@ def productIntersection(mapList):
        Product of maps
     """
 
-    return _applyOperation(mapList, np.multiply, 1.0, union=False)
+    if mapList[0].isIntegerMap:
+        value = 1
+    else:
+        value = 1.0
+
+    return _applyOperation(mapList, np.multiply, value, union=False)
 
 def orUnion(mapList):
     """

@@ -217,6 +217,146 @@ class OperationsTestCase(unittest.TestCase):
 
         testing.assert_almost_equal(hpmapProduct2, sparseMap1.generateHealpixMap())
 
+    def test_product_integer(self):
+        """
+        Test map products.
+        """
+
+        random.seed(seed=12345)
+
+        nsideCoverage = 32
+        nsideMap = 64
+        sentinel = 0
+        maxval = 100
+
+        # Test adding two or three maps
+
+        sparseMap1 = healsparse.HealSparseMap.makeEmpty(
+            nsideCoverage,
+            nsideMap,
+            np.int64,
+            sentinel=sentinel,
+        )
+        pixel1 = np.arange(4000, 20000)
+        pixel1 = np.delete(pixel1, 15000)
+        values1 = random.randint(low=1, high=maxval, size=pixel1.size)
+        sparseMap1.updateValues(pixel1, values1)
+
+        hpmap1 = np.zeros(hp.nside2npix(nsideMap), dtype=np.int64)
+        vpix = sparseMap1.validPixels
+        hpmap1[vpix] = sparseMap1.getValuePixel(vpix)
+
+        sparseMap2 = healsparse.HealSparseMap.makeEmpty(
+            nsideCoverage,
+            nsideMap,
+            np.int64,
+            sentinel=sentinel,
+        )
+        pixel2 = np.arange(15000, 25000)
+        values2 = random.randint(low=1, high=maxval, size=pixel2.size)
+        sparseMap2.updateValues(pixel2, values2)
+
+        hpmap2 = np.zeros(hp.nside2npix(nsideMap), dtype=np.int64)
+        vpix = sparseMap2.validPixels
+        hpmap2[vpix] = sparseMap2.getValuePixel(vpix)
+
+        sparseMap3 = healsparse.HealSparseMap.makeEmpty(
+            nsideCoverage,
+            nsideMap,
+            np.int64,
+            sentinel=sentinel,
+        )
+        pixel3 = np.arange(16000, 25000)
+        values3 = random.randint(low=1, high=maxval, size=pixel3.size)
+        sparseMap3.updateValues(pixel3, values3)
+
+        hpmap3 = np.zeros(hp.nside2npix(nsideMap), dtype=np.int64)
+        vpix = sparseMap3.validPixels
+        hpmap3[vpix] = sparseMap3.getValuePixel(vpix)
+
+        # Intersection product
+
+        # product of 2
+        productMapIntersection = healsparse.productIntersection([sparseMap1, sparseMap2])
+
+        gd, = np.where((hpmap1 > sentinel) & (hpmap2 > sentinel))
+        hpmapProductIntersection = np.zeros_like(hpmap1)
+        hpmapProductIntersection[gd] = hpmap1[gd] * hpmap2[gd]
+
+        pmap = np.zeros(hp.nside2npix(nsideMap), dtype=np.int64)
+        vpix = productMapIntersection.validPixels
+        pmap[vpix] = productMapIntersection.getValuePixel(vpix)
+
+        testing.assert_equal(hpmapProductIntersection, pmap)
+
+        # product of 3
+        productMapIntersection = healsparse.productIntersection([sparseMap1, sparseMap2, sparseMap3])
+
+        gd, = np.where((hpmap1 > sentinel) & (hpmap2 > sentinel) & (hpmap3 > sentinel))
+        hpmapProductIntersection = np.zeros_like(hpmap1)
+        hpmapProductIntersection[gd] = hpmap1[gd] * hpmap2[gd] * hpmap3[gd]
+
+        pmap = np.zeros(hp.nside2npix(nsideMap), dtype=np.int64)
+        vpix = productMapIntersection.validPixels
+        pmap[vpix] = productMapIntersection.getValuePixel(vpix)
+
+        testing.assert_equal(hpmapProductIntersection, pmap)
+
+        # Union product
+
+        # product of 2
+        productMapUnion = healsparse.productUnion([sparseMap1, sparseMap2])
+
+        gd, = np.where((hpmap1 > sentinel) | (hpmap2 > sentinel))
+        hpmapProductUnion = np.zeros_like(hpmap1)
+
+        hpmapProductUnion[gd] = 1
+        gd1, = np.where(hpmap1[gd] > sentinel)
+        hpmapProductUnion[gd[gd1]] *= hpmap1[gd[gd1]]
+        gd2, = np.where(hpmap2[gd] > sentinel)
+        hpmapProductUnion[gd[gd2]] *= hpmap2[gd[gd2]]
+
+        pmap = np.zeros(hp.nside2npix(nsideMap), dtype=np.int64)
+        vpix = productMapUnion.validPixels
+        pmap[vpix] = productMapUnion.getValuePixel(vpix)
+
+        testing.assert_equal(hpmapProductUnion, pmap)
+
+        # product 3
+        productMapUnion = healsparse.productUnion([sparseMap1, sparseMap2, sparseMap3])
+
+        gd, = np.where((hpmap1 > sentinel) | (hpmap2 > sentinel) | (hpmap3 > sentinel))
+        hpmapProductUnion = np.zeros_like(hpmap1)
+
+        hpmapProductUnion[gd] = 1
+        gd1, = np.where(hpmap1[gd] > sentinel)
+        hpmapProductUnion[gd[gd1]] *= hpmap1[gd[gd1]]
+        gd2, = np.where(hpmap2[gd] > sentinel)
+        hpmapProductUnion[gd[gd2]] *= hpmap2[gd[gd2]]
+        gd3, = np.where(hpmap3[gd] > sentinel)
+        hpmapProductUnion[gd[gd3]] *= hpmap3[gd[gd3]]
+
+        pmap = np.zeros(hp.nside2npix(nsideMap), dtype=np.int64)
+        vpix = productMapUnion.validPixels
+        pmap[vpix] = productMapUnion.getValuePixel(vpix)
+
+        testing.assert_equal(hpmapProductUnion, pmap)
+
+        # Test multiplying an int constant to a map
+
+        multMap = sparseMap1 * 2
+
+        hpmapProduct2 = np.zeros_like(hpmap1)
+        gd, = np.where(hpmap1 > sentinel)
+        hpmapProduct2[gd] = hpmap1[gd] * 2
+
+        pmap = np.zeros(hp.nside2npix(nsideMap), dtype=np.int64)
+        vpix = multMap.validPixels
+        pmap[vpix] = multMap.getValuePixel(vpix)
+
+        testing.assert_equal(hpmapProduct2, pmap)
+
+
     def test_or(self):
         """
         Test map bitwise or.
