@@ -356,25 +356,10 @@ def test_circle(show=False):
         )
         plt.show()
 
-        """
-        from .visu_func import hsp_view_map
-
-        extent = [
-            ra-radius*1.1,
-            ra+radius*1.1,
-            dec-radius*1.1,
-            dec+radius*1.1,
-        ]
-        hsp_view_map(
-            smap,
-            savename='/tmp/test.png',
-            show_coverage=False,
-            extent=extent,
-        )
-        """
         return plt
     else:
         return None
+
 
 def _make_circles(rng, ncircle, ra_range=None, dec_range=None):
     if ra_range is None:
@@ -398,6 +383,7 @@ def _make_circles(rng, ncircle, ra_range=None, dec_range=None):
     )
 
     return circles, ra_range, dec_range
+
 
 def test_circles(show=False, show_mat=False):
     """
@@ -467,23 +453,8 @@ def test_circles(show=False, show_mat=False):
 
         plt.show()
 
-    if show_mat:
-        from .visu_func import hsp_view_map
-
-        extent = [
-            ra_range[0]*0.9,
-            ra_range[1]*1.1,
-            dec_range[0]*1.1,
-            dec_range[1]*1.1,
-        ]
-        hsp_view_map(
-            smap,
-            savename='/tmp/test.png',
-            show_coverage=False,
-            extent=extent,
-        )
-
     return plt
+
 
 def test_box(show=False):
     ra = [200.0, 200.2, 200.2, 200.0]
@@ -516,6 +487,7 @@ def test_box(show=False):
         )
         plt.show()
 
+
 def _make_poly():
     # counter clockwise
     ra = [200.0, 200.2, 200.3, 200.2, 200.1]
@@ -526,6 +498,7 @@ def _make_poly():
         value=64,
     )
     return poly, ra, dec
+
 
 def test_polygon(show=False):
 
@@ -620,49 +593,3 @@ def test_mix(show=False):
         plt.show()
 
         return plt
-
-
-def test_circles_speed():
-    """
-    show_mat uses the matplotlib based stuff which is
-    super slow
-    """
-    import time
-
-    rng = np.random.RandomState(31415)
-    nside = 2**17
-    dtype = np.int16
-
-    ncircle = 2000
-    print('timing',ncircle,'circles')
-
-    tm0_tot = time.time()
-
-    tm0 = time.time()
-    ra_range = [200.0, 200.15]
-    dec_range = [0.0, 0.3]
-
-    circles, _, _ = _make_circles(
-        rng,
-        ncircle,
-        ra_range=ra_range,
-        dec_range=dec_range,
-    )
-
-    smap = HealSparseMap.makeEmpty(
-        nsideCoverage=32,
-        nsideSparse=nside,
-        dtype=dtype,
-        sentinel=0,
-    )
-    tm_make = time.time()-tm0
-
-    tm0 = time.time()
-    realize_geom(circles, smap)
-    tm_or = time.time()-tm0
-
-    tm_tot = time.time() - tm0_tot
-
-    print('total time:',tm_tot)
-    print('time make:',tm_make)
-    print('time realize_geom:',tm_or)
