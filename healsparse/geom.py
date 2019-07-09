@@ -21,6 +21,24 @@ def make_circles(*, ra, dec, radius, value):
     Returns
     -------
     List of Circle objects
+
+    Examples
+    --------
+
+    # one circle
+    ra = 200.0
+    dec = 0.0
+    radius = 0.02
+    value = 1
+
+    circles = make_circles(ra, dec, radius, value)
+
+    # multiple circles
+    ra = [200, 200.1, 200.2]
+    dec = [0.0, 0.1, 0.2]
+    radius = [0.2]*len(ra)
+    value = [1]*len*(ra)
+    circles = make_circles(ra, dec, radius, value)
     """
     ra = np.array(ra, ndmin=1)
     dec = np.array(dec, ndmin=1)
