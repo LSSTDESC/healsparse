@@ -58,6 +58,9 @@ def realize_geom(geom, smap, type='or'):
         List of Geom objects, e.g. Circle, Polygon
     smap: HealSparseMaps
         The map in which to realize the objects
+    type: string
+        Way to combine the list of geometric objects.  Default
+        is to "or" them
     """
 
     if type != 'or':
