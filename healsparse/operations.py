@@ -268,50 +268,36 @@ def _applyOperation(mapList, func, fillerValue, union=False, intOnly=False):
     covIndexMap = np.zeros(hp.nside2npix(nsideCoverage), dtype=np.int64)
     covIndexMap[covPix] = np.arange(1, covPix.size + 1) * nFinePerCov
     covIndexMap[:] -= np.arange(hp.nside2npix(nsideCoverage), dtype=np.int64) * nFinePerCov
-    combinedSparseMap = np.zeros((covPix.size + 1) * nFinePerCov, dtype=dtype) + sentinel
+    combinedSparseMap = np.zeros((covPix.size + 1) * nFinePerCov, dtype=dtype) + fillerValue
 
-    # Determine which individual pixels might be in the combined map
-    allPixels = None
-    for m in mapList:
-        pixels = np.arange(m._sparseMap.size)
-        covIndex = np.right_shift(pixels, bitShift)
-        pixels -= m._covIndexMap[m.coverageMask][covIndex - 1]
-
-        if allPixels is None:
-            allPixels = pixels.copy()
-        else:
-            allPixels = np.concatenate((allPixels, pixels))
-
-    allPixels = np.unique(allPixels)
-    covIndex = np.right_shift(allPixels, bitShift)
-
-    m = mapList[0]
-    gd = (m._sparseMap[allPixels + m._covIndexMap[covIndex]] > m._sentinel)
-    for m in mapList[1: ]:
-        if union:
-            # Union mode
-            gd |= (m._sparseMap[allPixels + m._covIndexMap[covIndex]] > m._sentinel)
-        else:
-            # Intersection mode
-            gd &= (m._sparseMap[allPixels + m._covIndexMap[covIndex]] > m._sentinel)
-
-    allPixels = allPixels[gd]
-    covIndex = covIndex[gd]
-
-    combinedSparseMap[allPixels + covIndexMap[covIndex]] = fillerValue
+    if union:
+        combinedSparseMapTouched = np.zeros_like(combinedSparseMap, dtype=np.bool)
+    else:
+        combinedSparseMapNTouch = np.zeros_like(combinedSparseMap, dtype=np.int32)
 
     for m in mapList:
+        mValidPixels = m.validPixels
+
+        ipnestCov = np.right_shift(mValidPixels, m._bitShift)
+
+        combinedPixelIndex = mValidPixels + covIndexMap[ipnestCov]
+
+        combinedSparseMap[combinedPixelIndex] = func(combinedSparseMap[combinedPixelIndex],
+                                                     m.getValuePixel(mValidPixels))
         if union:
-            # Union mode requires tracking bad pixels and replacing them
-            # Note that this is redundant with above.  I don't know if it's better
-            # to cache and take a possible memory hit, or recompute here.
-            gd = (m._sparseMap[allPixels + m._covIndexMap[covIndex]] > m._sentinel)
-            combinedSparseMap[allPixels[gd] + covIndexMap[covIndex[gd]]] = func(combinedSparseMap[allPixels[gd] + covIndexMap[covIndex[gd]]],
-                                                                                m._sparseMap[allPixels[gd] + m._covIndexMap[covIndex[gd]]])
+            combinedSparseMapTouched[combinedPixelIndex] = True
         else:
-            # Intersection mode we only have good pixels
-            combinedSparseMap[allPixels + covIndexMap[covIndex]] = func(combinedSparseMap[allPixels + covIndexMap[covIndex]],
-                                                                        m._sparseMap[allPixels + m._covIndexMap[covIndex]])
+            combinedSparseMapNTouch[combinedPixelIndex] += 1
+
+    # And when we're done, those that are untouched should be set to sentinel
+    if union:
+        # In union, replace untouched fillers with sentinel
+        if fillerValue != sentinel:
+            combinedSparseMap[~combinedSparseMapTouched] = sentinel
+    else:
+        # In intersection, all pixels that weren't touched all the time
+        # should be set to the sentinel
+        combinedSparseMap[combinedSparseMapNTouch != len(mapList)] = sentinel
 
     return HealSparseMap(covIndexMap=covIndexMap, sparseMap=combinedSparseMap, nsideSparse=nsideSparse, sentinel=sentinel)
 

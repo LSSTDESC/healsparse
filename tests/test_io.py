@@ -172,12 +172,47 @@ class IoTestCase(unittest.TestCase):
 
         self.assertEqual(hdr['TESTING'], retHdr['TESTING'])
 
+    def test_writeread_highres(self):
+        """
+        Test i/o functionality at very high resolution
+        """
+
+        random.seed(seed=12345)
+
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        nsideCoverage = 128
+        nsideMap = 2**17
+
+        vec = hp.ang2vec(100.0, 0.0, lonlat=True)
+        rad = np.radians(0.2/60.)
+        pixels = hp.query_disc(nsideMap, vec, rad, nest=True, inclusive=False)
+        pixels.sort()
+        values = np.zeros(pixels.size, dtype=np.int32) + 8
+
+        sparseMap = healsparse.HealSparseMap.makeEmpty(nsideSparse=nsideMap, nsideCoverage=nsideCoverage, dtype=np.int32)
+        sparseMap.updateValues(pixels, values)
+
+        validPixels = sparseMap.validPixels
+        validPixels.sort()
+
+        testing.assert_array_equal(validPixels, pixels)
+        testing.assert_array_equal(sparseMap.getValuePixel(validPixels), values)
+
+        sparseMap.write(os.path.join(self.test_dir, 'healsparse_map.fits'))
+
+        sparseMap2 = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healsparse_map.fits'))
+
+        validPixels2 = sparseMap2.validPixels
+
+        testing.assert_array_equal(validPixels2, pixels)
+        testing.assert_array_equal(sparseMap2.getValuePixel(validPixels2), values)
+
     def setUp(self):
         self.test_dir = None
 
     def tearDown(self):
         if self.test_dir is not None:
-            pass
             if os.path.exists(self.test_dir):
                 shutil.rmtree(self.test_dir, True)
 
