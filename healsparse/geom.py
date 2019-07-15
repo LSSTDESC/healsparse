@@ -275,6 +275,10 @@ class Circle(GeomBase):
             inclusive=False,
         )
 
+    def __repr__(self):
+        s = 'Circle(ra=%.16g, dec=%.16g, radius=%.16g, value=%d)'
+        return s % (self._ra, self._dec, self._radius, self._value)
+
 
 class Polygon(GeomBase):
     def __init__(self, *, ra, dec, value):
@@ -342,6 +346,13 @@ class Polygon(GeomBase):
             nest=True,
             inclusive=False,
         )
+
+    def __repr__(self):
+        ras = repr(self._ra)
+        decs = repr(self._dec)
+
+        s = 'Polygon(ra=%s, dec=%s, value=%d)'
+        return s % (ras, decs, self._value)
 
 
 def test_circle(show=False):
