@@ -1,5 +1,7 @@
 import numpy as np
+from numpy import array  # noqa
 import healsparse
+from healsparse import Circle, Polygon
 
 
 def test_circle_smoke():
@@ -9,7 +11,7 @@ def test_circle_smoke():
     ra, dec = 200.0, 0.0
     radius = 30.0/3600.0
     nside = 2**17
-    circle = healsparse.Circle(
+    circle = Circle(
         ra=ra,
         dec=dec,
         radius=radius,
@@ -121,7 +123,7 @@ def test_circle_values():
 
     ra, dec = 200.0, 0.0
     radius = 30.0/3600.0
-    circle = healsparse.Circle(
+    circle = Circle(
         ra=ra,
         dec=dec,
         radius=radius,
@@ -166,7 +168,7 @@ def test_polygon_smoke():
     # counter clockwise
     ra = [200.0, 200.2, 200.3, 200.2, 200.1]
     dec = [0.0,     0.1,   0.2,   0.25, 0.13]
-    poly = healsparse.Polygon(
+    poly = Polygon(
         ra=ra,
         dec=dec,
         value=64,
@@ -197,7 +199,7 @@ def test_polygon_values():
 
     ra = [ra_range[0], ra_range[1], ra_range[1], ra_range[0]]
     dec = [dec_range[0], dec_range[0], dec_range[1], dec_range[1]]
-    poly = healsparse.Polygon(
+    poly = Polygon(
         ra=ra,
         dec=dec,
         value=64,
@@ -238,13 +240,13 @@ def test_realize_geom_values():
     value1 = 2**2
     value2 = 2**4
 
-    circle1 = healsparse.Circle(
+    circle1 = Circle(
         ra=ra1,
         dec=dec1,
         radius=radius1,
         value=value1,
     )
-    circle2 = healsparse.Circle(
+    circle2 = Circle(
         ra=ra2,
         dec=dec2,
         radius=radius2,
@@ -273,3 +275,36 @@ def test_realize_geom_values():
     assert np.all(in1_vals == value1)
     assert np.all(in2_vals == value2)
     assert np.all(both_vals == (value1 | value2))
+
+
+def test_repr():
+    ra, dec = 200.0, 0.0
+    radius = 30.0/3600.0
+    circle = Circle(
+        ra=ra,
+        dec=dec,
+        radius=radius,
+        value=2**4,
+    )
+
+    rep = repr(circle)
+    circle_rep = eval(rep)
+    assert np.allclose(circle._ra, circle_rep._ra)
+    assert np.allclose(circle._dec, circle_rep._dec)
+    assert np.allclose(circle._radius, circle_rep._radius)
+    assert np.allclose(circle._value, circle_rep._value)
+
+    ra = [200.0, 200.2, 200.3, 200.2, 200.1]
+    dec = [0.0,     0.1,   0.2,   0.25, 0.13]
+    poly = Polygon(
+        ra=ra,
+        dec=dec,
+        value=64,
+    )
+
+    rep = repr(poly)
+    poly_rep = eval(rep)
+
+    assert np.allclose(poly._ra, poly_rep._ra)
+    assert np.allclose(poly._dec, poly_rep._dec)
+    assert np.allclose(poly._value, poly_rep._value)
