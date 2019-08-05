@@ -340,12 +340,21 @@ class Polygon(GeomBase):
         nside: int
             Nside for the pixels
         """
-        return hp.query_polygon(
-            nside,
-            self._vertices,
-            nest=True,
-            inclusive=False,
-        )
+        try:
+
+            pixels = hp.query_polygon(
+                nside,
+                self._vertices,
+                nest=True,
+                inclusive=False,
+            )
+
+        except RuntimeError:
+            # healpy raises a RuntimeError with no information attached in the
+            # string, but this seems to always be a non-convex polygon
+            raise ValueError('polygon is not convex: %s' % repr(self))
+
+        return pixels
 
     def __repr__(self):
         ras = repr(self._ra)
