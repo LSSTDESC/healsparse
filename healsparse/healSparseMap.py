@@ -666,52 +666,21 @@ class HealSparseMap(object):
         validPixels: `np.array`
         """
 
-        if self._isRecArray:
-            validSparsePixels, = np.where(self._sparseMap[self._primary] > self._sentinel)
-        else:
-            validSparsePixels, = np.where(self._sparseMap > self._sentinel)
-
-        # To translate the pixel indices in the table (validSparsePixels) into healpix
-        # pixel numbers generally is not trivial.  This is because the filling of the
-        # coverage map is allowed to be out of order.  And the basic problem is that
-        # the transformation from healpix pixel to sparse map pixel in getValuePixel
-        # is:
-        #  sparsePixel = healPixel + self._covIndexMap[np.right_shift(healPixel, self._bitShift)]
-        # And so the reverse is tricky.
-
-        # We need to know these things to do the reverse:
-        # * the sparsePixel (validSparsePixels)
-        # * the sparsePixel "zeropoint" to get the offset index for each sparse
-        #   coverage pixel
-        # * The coverage pixel number associated with set of sparse pixels
-
-        # This tells us which pixels are valid in the coverage map (and each
-        # validSparsePixel will be associated with one of these)
+        # Get the coarse pixels that are in the map
         validCoverage, = np.where(self.coverageMask)
         nFinePerCov = 2**self._bitShift
 
-        # This tells us which of these validCoverage pixels matches the validSparsePixels
-        # The offset of -1 is because of the initial overflow bin in the sparseMap
+        # For each coarse pixel, this is the starting point for the pixel number
+        pixBase = np.left_shift(validCoverage, self._bitShift)
 
-        coverageIndex = validSparsePixels // nFinePerCov - 1
+        # Tile/repeat to expand into the full pixel numbers
+        # Note that these are all the pixels that are defined in the sparse map,
+        # but not all of them are valid
+        validPixels = (np.tile(np.arange(nFinePerCov), validCoverage.size) +
+                       np.repeat(pixBase, nFinePerCov))
 
-        # The actual coverage pixel needs to come from this index swizzling
-        # which gets from the _covIndexMap the location in the sparseMap.
-        # The sum is to offset the _covIndexMap zeropoint which comes from
-        # arange(npix) * nFinePerCov
-
-        ipnestCov = validCoverage[(self._covIndexMap[validCoverage[coverageIndex]] +
-                                   validCoverage[coverageIndex] * nFinePerCov) // nFinePerCov - 1]
-
-        # The pixel zeropoint is just the index times the number per coarse pixel.
-        # The +1 is to allow for the initial overflow bin
-        pixelZero = (coverageIndex + 1) * nFinePerCov
-
-        # And the validPixels is then the healpix start (from the left_shift), added
-        # to the location of each pixel in its bin.
-        validPixels = np.left_shift(ipnestCov, self._bitShift) + validSparsePixels - pixelZero
-
-        return validPixels
+        # And return only the valid subset
+        return validPixels[self.getValuePixel(validPixels, validMask=True)]
 
     def degrade(self, nside_out, reduction='mean'):
         """
