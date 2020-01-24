@@ -40,7 +40,7 @@ def reduce_array(x, reduction='mean', axis=2):
     return ret
 
 
-def checkSentinel(type, sentinel):
+def check_sentinel(type, sentinel):
     """
     Check if the sentinel value works for the given dtype.
 

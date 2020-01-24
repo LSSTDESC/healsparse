@@ -5,101 +5,100 @@ import numpy.testing as testing
 import numpy as np
 import healpy as hp
 from numpy import random
-import os
 import healsparse
 
+
 class GenerateHealpixMapTestCase(unittest.TestCase):
-    def test_generateHealpixMap_single(self):
+    def test_generate_healpix_map_single(self):
         """
         Test the generation of a healpix map from a sparse map for a single-value field
         """
         random.seed(seed=12345)
 
-        nsideCoverage = 32
-        nsideMap = 64
+        nside_coverage = 32
+        nside_map = 64
 
-        nRand = 1000
-        ra = np.random.random(nRand) * 360.0
-        dec = np.random.random(nRand) * 180.0 - 90.0
-        value = np.random.random(nRand)
+        n_rand = 1000
+        ra = np.random.random(n_rand) * 360.0
+        dec = np.random.random(n_rand) * 180.0 - 90.0
+        value = np.random.random(n_rand)
 
         # Create a HEALPix map
-        healpixMap = np.zeros(hp.nside2npix(nsideMap), dtype=np.float) + hp.UNSEEN
-        idx = hp.ang2pix(nsideMap, np.pi/2-np.radians(dec), np.radians(ra), nest=True)
-        healpixMap[idx]=value
+        healpix_map = np.zeros(hp.nside2npix(nside_map), dtype=np.float) + hp.UNSEEN
+        idx = hp.ang2pix(nside_map, np.pi/2 - np.radians(dec), np.radians(ra), nest=True)
+        healpix_map[idx] = value
         # Create a HealSparseMap
-        sparseMap = healsparse.HealSparseMap(nsideCoverage=nsideCoverage, healpixMap=healpixMap)
-        hp_out = sparseMap.generateHealpixMap(nside=nsideMap)
-        testing.assert_almost_equal(healpixMap, hp_out)
+        sparse_map = healsparse.HealSparseMap(nside_coverage=nside_coverage, healpix_map=healpix_map)
+        hp_out = sparse_map.generate_healpix_map(nside=nside_map)
+        testing.assert_almost_equal(healpix_map, hp_out)
 
         # Now check that it works specifying a different resolution
-        nsideMap2 = 32
-        hp_out = sparseMap.generateHealpixMap(nside=nsideMap2)
+        nside_map2 = 32
+        hp_out = sparse_map.generate_healpix_map(nside=nside_map2)
         # Let's compare with the original downgraded
-        healpixMap = hp.ud_grade(healpixMap, nside_out=nsideMap2, order_in='NESTED', order_out='NESTED')
-        testing.assert_almost_equal(healpixMap, hp_out)
+        healpix_map = hp.ud_grade(healpix_map, nside_out=nside_map2, order_in='NESTED', order_out='NESTED')
+        testing.assert_almost_equal(healpix_map, hp_out)
 
-    def test_generateHealpixMap_recarray(self):
+    def test_generate_healpix_map_recarray(self):
         """
         Testing the generation of a healpix map from recarray healsparsemap
         we also test the pixel and position lookup
         """
         random.seed(seed=12345)
 
-        nsideCoverage = 32
-        nsideMap = 64
+        nside_coverage = 32
+        nside_map = 64
 
-        nRand = 1000
-        ra = np.random.random(nRand) * 360.0
-        dec = np.random.random(nRand) * 180.0 - 90.0
-        value = np.random.random(nRand)
+        n_rand = 1000
+        ra = np.random.random(n_rand) * 360.0
+        dec = np.random.random(n_rand) * 180.0 - 90.0
+        value = np.random.random(n_rand)
         # Create empty healpix map
-        healpixMap = np.zeros(hp.nside2npix(nsideMap), dtype='f4')+hp.UNSEEN
-        healpixMap2 = np.zeros(hp.nside2npix(nsideMap), dtype='f8')+hp.UNSEEN
-        healpixMap[hp.ang2pix(nsideMap, np.pi/2-np.radians(dec), np.radians(ra), nest=True)] = value
-        healpixMap2[hp.ang2pix(nsideMap, np.pi/2-np.radians(dec), np.radians(ra), nest=True)] = value
+        healpix_map = np.zeros(hp.nside2npix(nside_map), dtype='f4') + hp.UNSEEN
+        healpix_map2 = np.zeros(hp.nside2npix(nside_map), dtype='f8') + hp.UNSEEN
+        healpix_map[hp.ang2pix(nside_map, np.pi/2 - np.radians(dec),
+                               np.radians(ra), nest=True)] = value
+        healpix_map2[hp.ang2pix(nside_map, np.pi/2 - np.radians(dec),
+                                np.radians(ra), nest=True)] = value
         # Create an empty map
         dtype = [('col1', 'f4'), ('col2', 'f8')]
 
-        self.assertRaises(RuntimeError, healsparse.HealSparseMap.makeEmpty, nsideCoverage, nsideMap, dtype)
+        self.assertRaises(RuntimeError, healsparse.HealSparseMap.make_empty, nside_coverage, nside_map, dtype)
         # Generate empty map that will be updated
-        sparseMap = healsparse.HealSparseMap.makeEmpty(nsideCoverage, nsideMap, dtype, primary='col1')
-        # Generate auxiliary map to get the correct coverage index map so we can lookup the positions
-        aux_spMap = healsparse.HealSparseMap(nsideCoverage=nsideCoverage, healpixMap=healpixMap)
-        pixel = hp.ang2pix(nsideMap, np.radians(90-dec), np.radians(ra), nest=True)
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype, primary='col1')
+        pixel = hp.ang2pix(nside_map, ra, dec, nest=True, lonlat=True)
         values = np.zeros_like(pixel, dtype=dtype)
         values['col1'] = value
         values['col2'] = value
-        sparseMap.updateValues(pixel, values) # Update values works with the HEALPix-like indexing scheme
-        hp_out1 = sparseMap.generateHealpixMap(nside=nsideMap, key='col1')
-        hp_out2 = sparseMap.generateHealpixMap(nside=nsideMap, key='col2')
-        testing.assert_almost_equal(healpixMap, hp_out1)
-        testing.assert_almost_equal(healpixMap2, hp_out2)
+        # Update values works with the HEALPix-like indexing scheme
+        sparse_map.update_values_pix(pixel, values)
+        hp_out1 = sparse_map.generate_healpix_map(nside=nside_map, key='col1')
+        hp_out2 = sparse_map.generate_healpix_map(nside=nside_map, key='col2')
+        testing.assert_almost_equal(healpix_map, hp_out1)
+        testing.assert_almost_equal(healpix_map2, hp_out2)
 
-    def test_generateHealpixMap_int(self):
+    def test_generate_healpix_map_int(self):
         """
         Testing the generation of a healpix map from an integer map
         """
         random.seed(seed=12345)
 
-        nsideCoverage = 32
-        nsideMap = 64
+        nside_coverage = 32
+        nside_map = 64
 
-        sparseMap = healsparse.HealSparseMap.makeEmpty(nsideCoverage, nsideMap, np.int64)
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.int64)
         pixel = np.arange(4000, 20000)
         pixel = np.delete(pixel, 15000)
         # Get a random list of integers
         values = np.random.poisson(size=pixel.size, lam=10)
-        sparseMap.updateValues(pixel, values)
+        sparse_map.update_values_pix(pixel, values)
 
-        hpmap = sparseMap.generateHealpixMap()
+        hpmap = sparse_map.generate_healpix_map()
 
         ok, = np.where(hpmap > hp.UNSEEN)
 
-        testing.assert_almost_equal(hpmap[ok], sparseMap.getValuePixel(ok).astype(np.float64))
+        testing.assert_almost_equal(hpmap[ok], sparse_map.get_values_pix(ok).astype(np.float64))
 
 
-
-
-if __name__=='__main__':
+if __name__ == '__main__':
     unittest.main()

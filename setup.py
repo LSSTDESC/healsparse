@@ -7,7 +7,7 @@ name = 'healsparse'
 setup(
     name=name,
     packages=find_packages(exclude=('tests')),
-    version=__version__,
+    version=__version__, # noqa
     description='A sparse healpix implementation',
     author='Eli Rykoff and others',
     author_email='erykoff@stanford.edu',

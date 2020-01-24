@@ -3,76 +3,73 @@ from __future__ import division, absolute_import, print_function
 import unittest
 import numpy.testing as testing
 import numpy as np
-import healpy as hp
-from numpy import random
-import os
 import healsparse
+
 
 class UpdateValuesTestCase(unittest.TestCase):
     def test_updateValues_inorder(self):
         """
         Test doing updateValues, in coarse pixel order.
         """
-
-        nsideCoverage = 32
-        nsideMap = 64
+        nside_coverage = 32
+        nside_map = 64
         dtype = np.float64
 
-        sparseMap = healsparse.HealSparseMap.makeEmpty(nsideCoverage, nsideMap, dtype)
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype)
 
-        nFinePerCov = 2**sparseMap._bitShift
+        nfine_per_cov = 2**sparse_map._bit_shift
 
-        testPix = np.arange(nFinePerCov) + nFinePerCov * 10
-        testValues = np.zeros(nFinePerCov)
+        test_pix = np.arange(nfine_per_cov) + nfine_per_cov * 10
+        test_values = np.zeros(nfine_per_cov)
 
-        sparseMap.updateValues(testPix, testValues)
-        testing.assert_almost_equal(sparseMap.getValuePixel(testPix), testValues)
+        sparse_map.update_values_pix(test_pix, test_values)
+        testing.assert_almost_equal(sparse_map.get_values_pix(test_pix), test_values)
 
-        validPixels = sparseMap.validPixels
-        testing.assert_equal(validPixels, testPix)
+        valid_pixels = sparse_map.valid_pixels
+        testing.assert_equal(valid_pixels, test_pix)
 
-        testPix2 = np.arange(nFinePerCov) + nFinePerCov * 16
-        testValues2 = np.zeros(nFinePerCov) + 100
+        test_pix2 = np.arange(nfine_per_cov) + nfine_per_cov * 16
+        test_values2 = np.zeros(nfine_per_cov) + 100
 
-        sparseMap.updateValues(testPix2, testValues2)
-        testing.assert_almost_equal(sparseMap.getValuePixel(testPix), testValues)
-        testing.assert_almost_equal(sparseMap.getValuePixel(testPix2), testValues2)
+        sparse_map.update_values_pix(test_pix2, test_values2)
+        testing.assert_almost_equal(sparse_map.get_values_pix(test_pix), test_values)
+        testing.assert_almost_equal(sparse_map.get_values_pix(test_pix2), test_values2)
 
-        validPixels = sparseMap.validPixels
-        testing.assert_equal(np.sort(validPixels), np.sort(np.concatenate((testPix, testPix2))))
+        valid_pixels = sparse_map.valid_pixels
+        testing.assert_equal(np.sort(valid_pixels), np.sort(np.concatenate((test_pix, test_pix2))))
 
     def test_updateValues_outoforder(self):
         """
         Test doing updateValues, out of order.
         """
 
-        nsideCoverage = 32
-        nsideMap = 64
+        nside_coverage = 32
+        nside_map = 64
         dtype = np.float64
 
-        sparseMap = healsparse.HealSparseMap.makeEmpty(nsideCoverage, nsideMap, dtype)
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype)
 
-        nFinePerCov = 2**sparseMap._bitShift
+        nfine_per_cov = 2**sparse_map._bit_shift
 
-        testPix = np.arange(nFinePerCov) + nFinePerCov * 16
-        testValues = np.zeros(nFinePerCov)
+        test_pix = np.arange(nfine_per_cov) + nfine_per_cov * 16
+        test_values = np.zeros(nfine_per_cov)
 
-        sparseMap.updateValues(testPix, testValues)
-        testing.assert_almost_equal(sparseMap.getValuePixel(testPix), testValues)
+        sparse_map.update_values_pix(test_pix, test_values)
+        testing.assert_almost_equal(sparse_map.get_values_pix(test_pix), test_values)
 
-        validPixels = sparseMap.validPixels
-        testing.assert_equal(validPixels, testPix)
+        valid_pixels = sparse_map.valid_pixels
+        testing.assert_equal(valid_pixels, test_pix)
 
-        testPix2 = np.arange(nFinePerCov) + nFinePerCov * 10
-        testValues2 = np.zeros(nFinePerCov) + 100
+        test_pix2 = np.arange(nfine_per_cov) + nfine_per_cov * 10
+        test_values2 = np.zeros(nfine_per_cov) + 100
 
-        sparseMap.updateValues(testPix2, testValues2)
-        testing.assert_almost_equal(sparseMap.getValuePixel(testPix), testValues)
-        testing.assert_almost_equal(sparseMap.getValuePixel(testPix2), testValues2)
+        sparse_map.update_values_pix(test_pix2, test_values2)
+        testing.assert_almost_equal(sparse_map.get_values_pix(test_pix), test_values)
+        testing.assert_almost_equal(sparse_map.get_values_pix(test_pix2), test_values2)
 
-        validPixels = sparseMap.validPixels
-        testing.assert_equal(np.sort(validPixels), np.sort(np.concatenate((testPix, testPix2))))
+        valid_pixels = sparse_map.valid_pixels
+        testing.assert_equal(np.sort(valid_pixels), np.sort(np.concatenate((test_pix, test_pix2))))
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     unittest.main()
