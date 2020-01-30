@@ -43,8 +43,8 @@ def make_uniform_randoms_fast(sparse_map, n_random, nside_randoms=2**23, rng=Non
     sub_pixels = rng.randint(0, high=2**bit_shift - 1, size=n_random)
 
     ra_rand, dec_rand = hp.pix2ang(nside_randoms,
-                                  np.left_shift(ipnest_coarse, bit_shift) + sub_pixels,
-                                  lonlat=True, nest=True)
+                                   np.left_shift(ipnest_coarse, bit_shift) + sub_pixels,
+                                   lonlat=True, nest=True)
 
     return ra_rand, dec_rand
 
