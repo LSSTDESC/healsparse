@@ -7,7 +7,7 @@ import healsparse
 
 
 class UpdateValuesTestCase(unittest.TestCase):
-    def test_updateValues_inorder(self):
+    def test_update_values_inorder(self):
         """
         Test doing updateValues, in coarse pixel order.
         """
@@ -38,7 +38,7 @@ class UpdateValuesTestCase(unittest.TestCase):
         valid_pixels = sparse_map.valid_pixels
         testing.assert_equal(np.sort(valid_pixels), np.sort(np.concatenate((test_pix, test_pix2))))
 
-    def test_updateValues_outoforder(self):
+    def test_update_values_outoforder(self):
         """
         Test doing updateValues, out of order.
         """

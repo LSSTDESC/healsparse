@@ -37,16 +37,16 @@ def make_uniform_randoms_fast(sparse_map, n_random, nside_randoms=2**23, rng=Non
     ipnest_coarse = rng.choice(valid_pixels, size=n_random, replace=True)
 
     # What is the bitshift from the sparse_map nside to nside_randoms?
-    bitShift = 2 * int(np.round(np.log(nside_randoms / sparse_map.nside_sparse) / np.log(2)))
+    bit_shift = 2 * int(np.round(np.log(nside_randoms / sparse_map.nside_sparse) / np.log(2)))
 
-    # The sub-pixels are random from bitShift
-    sub_pixels = rng.randint(0, high=2**bitShift - 1, size=n_random)
+    # The sub-pixels are random from bit_shift
+    sub_pixels = rng.randint(0, high=2**bit_shift - 1, size=n_random)
 
-    raRand, dec_rand = hp.pix2ang(nside_randoms,
-                                  np.left_shift(ipnest_coarse, bitShift) + sub_pixels,
+    ra_rand, dec_rand = hp.pix2ang(nside_randoms,
+                                  np.left_shift(ipnest_coarse, bit_shift) + sub_pixels,
                                   lonlat=True, nest=True)
 
-    return raRand, dec_rand
+    return ra_rand, dec_rand
 
 
 def make_uniform_randoms(sparse_map, n_random, rng=None):
@@ -76,7 +76,7 @@ def make_uniform_randoms(sparse_map, n_random, rng=None):
     # Generate uniform points on a unit sphere
     r = 1.0
     min_gen = 10000
-    maxGen = 1000000
+    max_gen = 1000000
 
     # What is the z/phi range of the coverage map?
     cov_mask = sparse_map.coverage_mask
@@ -122,7 +122,7 @@ def make_uniform_randoms(sparse_map, n_random, rng=None):
     # how many points will fall in the mask
     while (n_left > 0):
         # Limit the number of points in each loop
-        n_gen = np.clip(n_left * 2, min_gen, maxGen)
+        n_gen = np.clip(n_left * 2, min_gen, max_gen)
 
         z = rng.uniform(low=z_range[0], high=z_range[1], size=n_gen)
         phi = rng.uniform(low=phi_range[0], high=phi_range[1], size=n_gen)

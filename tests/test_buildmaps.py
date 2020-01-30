@@ -10,7 +10,7 @@ import healsparse
 
 
 class BuildMapsTestCase(unittest.TestCase):
-    def test_buildMapsSingle(self):
+    def test_build_maps_single(self):
         """
         Test building a map for a single-value field
         """
@@ -61,7 +61,7 @@ class BuildMapsTestCase(unittest.TestCase):
         hpmap[pixel2] = values2
         testing.assert_almost_equal(sparse_map.get_values_pos(ra, dec, lonlat=True), hpmap[ipnest_test])
 
-    def test_buildMapsRecarray(self):
+    def test_build_maps_recarray(self):
         """
         Testing building a map for a recarray
         """

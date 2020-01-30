@@ -8,7 +8,7 @@ import healsparse
 
 
 class CoverageMapTestCase(unittest.TestCase):
-    def test_coverageMap(self):
+    def test_coverage_map(self):
         """
         Test coverageMap functionality
         """

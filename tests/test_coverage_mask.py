@@ -8,7 +8,7 @@ import healsparse
 
 
 class CoverageMaskTestCase(unittest.TestCase):
-    def test_coverageMask(self):
+    def test_coverage_mask(self):
         """
         Test coverageMask functionality
         """

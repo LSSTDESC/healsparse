@@ -9,7 +9,7 @@ import healsparse
 
 
 class DegradeMapTestCase(unittest.TestCase):
-    def test_degradeMapFloat(self):
+    def test_degrade_map_float(self):
         """
         Test HealSparse.degrade functionality with float quantities
         """
@@ -36,7 +36,7 @@ class DegradeMapTestCase(unittest.TestCase):
 
         testing.assert_almost_equal(deg_map, new_map.generate_healpix_map())
 
-    def test_degradeMapInt(self):
+    def test_degrade_map_int(self):
         """
         Test HealSparse.degrade functionality with int quantities
         """
@@ -63,7 +63,7 @@ class DegradeMapTestCase(unittest.TestCase):
 
         testing.assert_almost_equal(deg_map, new_map.generate_healpix_map())
 
-    def test_degradeMapRecArray(self):
+    def test_degrade_map_recarray(self):
         """
         Test HealSparse.degrade functionality with recarray quantities
         """

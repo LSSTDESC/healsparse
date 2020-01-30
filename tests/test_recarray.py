@@ -13,7 +13,7 @@ import healsparse
 
 
 class RecArrayTestCase(unittest.TestCase):
-    def test_writereadRecarray(self):
+    def test_writeread_recarray(self):
         """
         Test recarray writing and reading.
         """
@@ -81,7 +81,7 @@ class RecArrayTestCase(unittest.TestCase):
         testing.assert_almost_equal(sparse_map_small.get_values_pix(ipnest_test)['col1'], test_values1b)
         testing.assert_almost_equal(sparse_map_small.get_values_pix(ipnest_test)['col2'], test_values2b)
 
-    def test_readOutOfOrderRecarray(self):
+    def test_read_outoforder_recarray(self):
         """
         Test reading of recarray maps that have been written out-of-order
         """
