@@ -1,25 +1,10 @@
+import unittest
+import numpy.testing as testing
+
 import numpy as np
-from numpy import array  # noqa
+
 import healsparse
 from healsparse import Circle, Polygon
-
-
-def test_circle_smoke():
-    """
-    just test we can make a circle and a map from it
-    """
-    ra, dec = 200.0, 0.0
-    radius = 30.0/3600.0
-    nside = 2**17
-    circle = Circle(
-        ra=ra,
-        dec=dec,
-        radius=radius,
-        value=2**4,
-    )
-    pixels = circle.get_pixels(nside=nside)  # noqa
-
-    smap = circle.get_map(nside=nside, dtype=np.int16)  # noqa
 
 
 def atbound(longitude, minval, maxval):
@@ -73,8 +58,6 @@ def _randcap(rng, nrand, ra, dec, rad, get_radius=False):
 
     sintheta = np.sin(theta)
     costheta = np.cos(theta)
-    # sinphi = np.sin(phi)
-    # cosphi = np.cos(phi)
 
     sinr = np.sin(rand_r)
     cosr = np.cos(rand_r)
@@ -110,201 +93,231 @@ def _randcap(rng, nrand, ra, dec, rad, get_radius=False):
         return rand_ra, rand_dec
 
 
-def test_circle_values():
-    """
-    make sure we get out the value we used for the map
+class GeomTestCase(unittest.TestCase):
+    def test_circle_smoke(self):
+        """
+        just test we can make a circle and a map from it
+        """
+        ra, dec = 200.0, 0.0
+        radius = 30.0/3600.0
+        nside = 2**17
+        circle = Circle(
+            ra=ra,
+            dec=dec,
+            radius=radius,
+            value=2**4,
+        )
 
-    Note however that we do not use inclusive intersections, we we will test
-    values from a slightly smaller circle
-    """
+        pixels = circle.get_pixels(nside=nside)
+        self.assertGreater(pixels.size, 0)
 
-    rng = np.random.RandomState(7812)
-    nside = 2**17
+        smap = circle.get_map(nside=nside, dtype=np.int16)
+        self.assertTrue(isinstance(smap, healsparse.HealSparseMap))
 
-    ra, dec = 200.0, 0.0
-    radius = 30.0/3600.0
-    circle = Circle(
-        ra=ra,
-        dec=dec,
-        radius=radius,
-        value=2**4,
-    )
+    def test_circle_values(self):
+        """
+        make sure we get out the value we used for the map
 
-    smap = circle.get_map(nside=nside, dtype=np.int16)
+        Note however that we do not use inclusive intersections, we we will test
+        values from a slightly smaller circle
+        """
 
-    # test points we expect to be inside
-    smallrad = radius*0.95
-    nrand = 10000
-    rra, rdec = _randcap(rng, nrand, ra, dec, smallrad)
+        rng = np.random.RandomState(7812)
+        nside = 2**17
 
-    vals = smap.getValueRaDec(rra, rdec)  # noqa
+        ra, dec = 200.0, 0.0
+        radius = 30.0/3600.0
+        circle = Circle(
+            ra=ra,
+            dec=dec,
+            radius=radius,
+            value=2**4,
+        )
 
-    assert np.all(vals == circle.value)
+        smap = circle.get_map(nside=nside, dtype=np.int16)
 
-    # test points we expect to be outside
-    bigrad = radius*2
-    nrand = 10000
-    rra, rdec, rrand = _randcap(
-        rng,
-        nrand,
-        ra,
-        dec,
-        bigrad,
-        get_radius=True,
-    )
-    w, = np.where(rrand > 1.1*radius)
+        # test points we expect to be inside
+        smallrad = radius*0.95
+        nrand = 10000
+        rra, rdec = _randcap(rng, nrand, ra, dec, smallrad)
 
-    vals = smap.getValueRaDec(rra[w], rdec[w])  # noqa
+        vals = smap.get_values_pos(rra, rdec, lonlat=True)
 
-    assert np.all(vals == 0)
+        testing.assert_array_equal(vals, circle.value)
+
+        # test points we expect to be outside
+        bigrad = radius*2
+        nrand = 10000
+        rra, rdec, rrand = _randcap(
+            rng,
+            nrand,
+            ra,
+            dec,
+            bigrad,
+            get_radius=True,
+        )
+        w, = np.where(rrand > 1.1*radius)
+
+        vals = smap.get_values_pos(rra[w], rdec[w], lonlat=True)
+
+        testing.assert_array_equal(vals, 0)
+
+    def test_polygon_smoke(self):
+        """
+        just test we can make a polygon and a map from it
+        """
+        nside = 2**15
+
+        # counter clockwise
+        ra = [200.0, 200.2, 200.3, 200.2, 200.1]
+        dec = [0.0, 0.1, 0.2, 0.25, 0.13]
+        poly = Polygon(
+            ra=ra,
+            dec=dec,
+            value=64,
+        )
+
+        smap = poly.get_map(nside=nside, dtype=np.int16)
+
+        ra = np.array([200.1, 200.15])
+        dec = np.array([0.05, 0.015])
+        vals = smap.get_values_pos(ra, dec, lonlat=True)
+
+        testing.assert_array_equal(vals, [poly.value, 0])
+
+    def test_polygon_values(self):
+        """
+        make sure we get out the value we used for the map
+
+        Use a box so "truth" is easy to calculate.  Note however
+        that we do not use inclusive intersections, we we will
+        test values from a slightly smaller box
+        """
+        nside = 2**15
+        rng = np.random.RandomState(8312)
+        nrand = 10000
+
+        # make a box
+        ra_range = 200.0, 200.1
+        dec_range = 0.1, 0.2
+
+        ra = [ra_range[0], ra_range[1], ra_range[1], ra_range[0]]
+        dec = [dec_range[0], dec_range[0], dec_range[1], dec_range[1]]
+        poly = Polygon(
+            ra=ra,
+            dec=dec,
+            value=64,
+        )
+
+        smap = poly.get_map(nside=nside, dtype=np.int16)
+
+        rad = 0.1*(ra_range[1] - ra_range[0])
+        decd = 0.1*(dec_range[1] - dec_range[0])
+
+        rra = rng.uniform(
+            low=ra_range[0]+rad,
+            high=ra_range[1]-rad,
+            size=nrand,
+        )
+        rdec = rng.uniform(
+            low=dec_range[0]+decd,
+            high=dec_range[1]-decd,
+            size=nrand,
+        )
+
+        vals = smap.get_values_pos(rra, rdec, lonlat=True)
+
+        testing.assert_array_equal(vals, poly.value)
+
+    def test_realize_geom_values(self):
+        """
+        test "or"ing two geom objects
+        """
+        nside = 2**17
+        dtype = np.int16
+
+        radius1 = 0.075
+        radius2 = 0.075
+        ra1, dec1 = 200.0, 0.0
+        ra2, dec2 = 200.1, 0.0
+        value1 = 2**2
+        value2 = 2**4
+
+        circle1 = Circle(
+            ra=ra1,
+            dec=dec1,
+            radius=radius1,
+            value=value1,
+        )
+        circle2 = Circle(
+            ra=ra2,
+            dec=dec2,
+            radius=radius2,
+            value=value2,
+        )
+
+        smap = healsparse.HealSparseMap.make_empty(
+            nside_coverage=32,
+            nside_sparse=nside,
+            dtype=dtype,
+            sentinel=0,
+        )
+        healsparse.realize_geom([circle1, circle2], smap)
+
+        out_ra, out_dec = 190.0, 25.0
+        in1_ra, in1_dec = 200.02, 0.0
+        in2_ra, in2_dec = 200.095, 0.0
+        both_ra, both_dec = 200.05, 0.0
+
+        out_vals = smap.get_values_pos(out_ra, out_dec, lonlat=True)
+        in1_vals = smap.get_values_pos(in1_ra, in1_dec, lonlat=True)
+        in2_vals = smap.get_values_pos(in2_ra, in2_dec, lonlat=True)
+        both_vals = smap.get_values_pos(both_ra, both_dec, lonlat=True)
+
+        testing.assert_array_equal(out_vals, 0)
+        testing.assert_array_equal(in1_vals, value1)
+        testing.assert_array_equal(in2_vals, value2)
+        testing.assert_array_equal(both_vals, (value1 | value2))
+
+    def test_repr(self):
+        """
+        Test representations
+        """
+        # The following is needed to eval the repr.
+        from numpy import array # noqa
+
+        ra, dec = 200.0, 0.0
+        radius = 30.0/3600.0
+        circle = Circle(
+            ra=ra,
+            dec=dec,
+            radius=radius,
+            value=2**4,
+        )
+
+        rep = repr(circle)
+        circle_rep = eval(rep)
+
+        testing.assert_almost_equal(circle._ra, circle_rep._ra)
+        testing.assert_almost_equal(circle._dec, circle_rep._dec)
+        testing.assert_almost_equal(circle._radius, circle_rep._radius)
+        testing.assert_array_equal(circle._value, circle_rep._value)
+
+        ra = [200.0, 200.2, 200.3, 200.2, 200.1]
+        dec = [0.0, 0.1, 0.2, 0.25, 0.13]
+        poly = Polygon(
+            ra=ra,
+            dec=dec,
+            value=64,
+        )
+
+        rep = repr(poly)
+        poly_rep = eval(rep)
+
+        testing.assert_almost_equal(poly._ra, poly_rep._ra)
+        testing.assert_almost_equal(poly._dec, poly_rep._dec)
+        testing.assert_array_equal(poly._value, poly_rep._value)
 
 
-def test_polygon_smoke():
-    """
-    just test we can make a polygon and a map from it
-    """
-    nside = 2**15
-
-    # counter clockwise
-    ra = [200.0, 200.2, 200.3, 200.2, 200.1]
-    dec = [0.0,     0.1,   0.2,   0.25, 0.13]
-    poly = Polygon(
-        ra=ra,
-        dec=dec,
-        value=64,
-    )
-
-    smap = poly.get_map(nside=nside, dtype=np.int16)
-
-    ra = np.array([200.1, 200.15])
-    dec = np.array([0.05, 0.015])
-    vals = smap.getValueRaDec(ra, dec)  # noqa
-
-
-def test_polygon_values():
-    """
-    make sure we get out the value we used for the map
-
-    Use a box so "truth" is easy to calculate.  Note however
-    that we do not use inclusive intersections, we we will
-    test values from a slightly smaller box
-    """
-    nside = 2**15
-    rng = np.random.RandomState(8312)
-    nrand = 10000
-
-    # make a box
-    ra_range = 200.0, 200.1
-    dec_range = 0.1, 0.2
-
-    ra = [ra_range[0], ra_range[1], ra_range[1], ra_range[0]]
-    dec = [dec_range[0], dec_range[0], dec_range[1], dec_range[1]]
-    poly = Polygon(
-        ra=ra,
-        dec=dec,
-        value=64,
-    )
-
-    smap = poly.get_map(nside=nside, dtype=np.int16)
-
-    rad = 0.1*(ra_range[1] - ra_range[0])
-    decd = 0.1*(dec_range[1] - dec_range[0])
-
-    rra = rng.uniform(
-        low=ra_range[0]+rad,
-        high=ra_range[1]-rad,
-        size=nrand,
-    )
-    rdec = rng.uniform(
-        low=dec_range[0]+decd,
-        high=dec_range[1]-decd,
-        size=nrand,
-    )
-
-    vals = smap.getValueRaDec(rra, rdec)  # noqa
-
-    assert np.all(vals == poly.value)
-
-
-def test_realize_geom_values():
-    """
-    test "or"ing two geom objects
-    """
-    nside = 2**17
-    dtype = np.int16
-
-    radius1 = 0.075
-    radius2 = 0.075
-    ra1, dec1 = 200.0, 0.0
-    ra2, dec2 = 200.1, 0.0
-    value1 = 2**2
-    value2 = 2**4
-
-    circle1 = Circle(
-        ra=ra1,
-        dec=dec1,
-        radius=radius1,
-        value=value1,
-    )
-    circle2 = Circle(
-        ra=ra2,
-        dec=dec2,
-        radius=radius2,
-        value=value2,
-    )
-
-    smap = healsparse.HealSparseMap.makeEmpty(
-        nsideCoverage=32,
-        nsideSparse=nside,
-        dtype=dtype,
-        sentinel=0,
-    )
-    healsparse.realize_geom([circle1, circle2], smap)
-
-    out_ra, out_dec = 190.0, 25.0
-    in1_ra, in1_dec = 200.02, 0.0
-    in2_ra, in2_dec = 200.095, 0.0
-    both_ra, both_dec = 200.05, 0.0
-
-    out_vals = smap.getValueRaDec(out_ra, out_dec)
-    in1_vals = smap.getValueRaDec(in1_ra, in1_dec)
-    in2_vals = smap.getValueRaDec(in2_ra, in2_dec)
-    both_vals = smap.getValueRaDec(both_ra, both_dec)
-
-    assert np.all(out_vals == 0)
-    assert np.all(in1_vals == value1)
-    assert np.all(in2_vals == value2)
-    assert np.all(both_vals == (value1 | value2))
-
-
-def test_repr():
-    ra, dec = 200.0, 0.0
-    radius = 30.0/3600.0
-    circle = Circle(
-        ra=ra,
-        dec=dec,
-        radius=radius,
-        value=2**4,
-    )
-
-    rep = repr(circle)
-    circle_rep = eval(rep)
-    assert np.allclose(circle._ra, circle_rep._ra)
-    assert np.allclose(circle._dec, circle_rep._dec)
-    assert np.allclose(circle._radius, circle_rep._radius)
-    assert np.allclose(circle._value, circle_rep._value)
-
-    ra = [200.0, 200.2, 200.3, 200.2, 200.1]
-    dec = [0.0,     0.1,   0.2,   0.25, 0.13]
-    poly = Polygon(
-        ra=ra,
-        dec=dec,
-        value=64,
-    )
-
-    rep = repr(poly)
-    poly_rep = eval(rep)
-
-    assert np.allclose(poly._ra, poly_rep._ra)
-    assert np.allclose(poly._dec, poly_rep._dec)
-    assert np.allclose(poly._value, poly_rep._value)
+if __name__ == '__main__':
+    unittest.main()

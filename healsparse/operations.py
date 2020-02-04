@@ -3,10 +3,10 @@ from __future__ import division, absolute_import, print_function
 import numpy as np
 import healpy as hp
 
-from .utils import reduce_array, checkSentinel
 from .healSparseMap import HealSparseMap
 
-def sumUnion(mapList):
+
+def sum_union(map_list):
     """
     Sum a list of HealSparseMaps as a union.  Empty values will be treated as
     0s in the summation, and the output map will have a union of all the input
@@ -14,36 +14,38 @@ def sumUnion(mapList):
 
     Parameters
     ----------
-    mapList: `list` of `HealSparseMap`
+    map_list : `list` of `HealSparseMap`
        Input list of maps to sum
 
     Returns
     -------
-    result: `HealSparseMap`
+    result : `HealSparseMap`
        Summation of maps
     """
 
-    return _applyOperation(mapList, np.add, 0, union=True)
+    return _apply_operation(map_list, np.add, 0, union=True)
 
-def sumIntersection(mapList):
+
+def sum_intersection(map_list):
     """
     Sum a list of HealSparseMaps as an intersection.  Only pixels that are valid
     in all the input maps will have valid values in the output.
 
     Parameters
     ----------
-    mapList: `list` of `HealSparseMap`
+    map_list : `list` of `HealSparseMap`
        Input list of maps to sum
 
     Returns
     -------
-    result: `HealSparseMap`
+    result : `HealSparseMap`
        Summation of maps
     """
 
-    return _applyOperation(mapList, np.add, 0, union=False)
+    return _apply_operation(map_list, np.add, 0, union=False)
 
-def productUnion(mapList):
+
+def product_union(map_list):
     """
     Compute the product of a list of HealSparseMaps as a union.  Empty values
     will be treated as 1s in the product, and the output map will have a
@@ -51,23 +53,24 @@ def productUnion(mapList):
 
     Parameters
     ----------
-    mapList: `list` of `HealSparseMap`
+    map_list : `list` of `HealSparseMap`
        Input list of maps to take the product
 
     Returns
     -------
-    result: `HealSparseMap`
+    result : `HealSparseMap`
        Product of maps
     """
 
-    if mapList[0].isIntegerMap:
+    if map_list[0].is_integer_map:
         value = 1
     else:
         value = 1.0
 
-    return _applyOperation(mapList, np.multiply, value, union=True)
+    return _apply_operation(map_list, np.multiply, value, union=True)
 
-def productIntersection(mapList):
+
+def product_intersection(map_list):
     """
     Compute the product of a list of HealSparseMaps as an intersection.  Only
     pixels that are valid in all the input maps will have valid values in the
@@ -75,23 +78,24 @@ def productIntersection(mapList):
 
     Parameters
     ----------
-    mapList: `list` of `HealSparseMap`
+    map_list : `list` of `HealSparseMap`
        Input list of maps to take the product
 
     Returns
     -------
-    result: `HealSparseMap`
+    result : `HealSparseMap`
        Product of maps
     """
 
-    if mapList[0].isIntegerMap:
+    if map_list[0].is_integer_map:
         value = 1
     else:
         value = 1.0
 
-    return _applyOperation(mapList, np.multiply, value, union=False)
+    return _apply_operation(map_list, np.multiply, value, union=False)
 
-def orUnion(mapList):
+
+def or_union(map_list):
     """
     Bitwise or a list of HealSparseMaps as a union.  Empty values will be
     treated as 0s in the bitwise or, and the output map will have a union of all
@@ -99,18 +103,19 @@ def orUnion(mapList):
 
     Parameters
     ----------
-    mapList: `list` of `HealSparseMap`
+    map_list : `list` of `HealSparseMap`
        Input list of maps to bitwise or
 
     Returns
     -------
-    result: `HealSparseMap`
+    result : `HealSparseMap`
        Bitwise or of maps
     """
 
-    return _applyOperation(mapList, np.bitwise_or, 0, union=True, intOnly=True)
+    return _apply_operation(map_list, np.bitwise_or, 0, union=True, int_only=True)
 
-def orIntersection(mapList):
+
+def or_intersection(map_list):
     """
     Bitwise or a list of HealSparseMaps as an intersection.  Only pixels that
     are valid in all the input maps will have valid values in the output.
@@ -118,18 +123,19 @@ def orIntersection(mapList):
 
     Parameters
     ----------
-    mapList: `list` of `HealSparseMap`
+    map_list : `list` of `HealSparseMap`
        Input list of maps to bitwise or
 
     Returns
     -------
-    result: `HealSparseMap`
+    result : `HealSparseMap`
        Bitwise or of maps
     """
 
-    return _applyOperation(mapList, np.bitwise_or, 0, union=False, intOnly=True)
+    return _apply_operation(map_list, np.bitwise_or, 0, union=False, int_only=True)
 
-def andUnion(mapList):
+
+def and_union(map_list):
     """
     Bitwise and a list of HealSparseMaps as a union.  Empty values will be
     treated as 0s in the bitwise and, and the output map will have a union of all
@@ -137,18 +143,19 @@ def andUnion(mapList):
 
     Parameters
     ----------
-    mapList: `list` of `HealSparseMap`
+    map_list : `list` of `HealSparseMap`
        Input list of maps to bitwise and
 
     Returns
     -------
-    result: `HealSparseMap`
+    result : `HealSparseMap`
        Bitwise and of maps
     """
 
-    return _applyOperation(mapList, np.bitwise_and, -1, union=True, intOnly=True)
+    return _apply_operation(map_list, np.bitwise_and, -1, union=True, int_only=True)
 
-def andIntersection(mapList):
+
+def and_intersection(map_list):
     """
     Bitwise or a list of HealSparseMaps as an intersection.  Only pixels that
     are valid in all the input maps will have valid values in the output.
@@ -156,18 +163,19 @@ def andIntersection(mapList):
 
     Parameters
     ----------
-    mapList: `list` of `HealSparseMap`
+    map_list : `list` of `HealSparseMap`
        Input list of maps to bitwise and
 
     Returns
     -------
-    result: `HealSparseMap`
+    result : `HealSparseMap`
        Bitwise and of maps
     """
 
-    return _applyOperation(mapList, np.bitwise_and, -1, union=False, intOnly=True)
+    return _apply_operation(map_list, np.bitwise_and, -1, union=False, int_only=True)
 
-def xorUnion(mapList):
+
+def xor_union(map_list):
     """
     Bitwise xor a list of HealSparseMaps as a union.  Empty values will be
     treated as 0s in the bitwise or, and the output map will have a union of all
@@ -175,18 +183,19 @@ def xorUnion(mapList):
 
     Parameters
     ----------
-    mapList: `list` of `HealSparseMap`
+    map_list : `list` of `HealSparseMap`
        Input list of maps to bitwise xor
 
     Returns
     -------
-    result: `HealSparseMap`
+    result : `HealSparseMap`
        Bitwise xor of maps
     """
 
-    return _applyOperation(mapList, np.bitwise_xor, 0, union=True, intOnly=True)
+    return _apply_operation(map_list, np.bitwise_xor, 0, union=True, int_only=True)
 
-def xorIntersection(mapList):
+
+def xor_intersection(map_list):
     """
     Bitwise xor a list of HealSparseMaps as an intersection.  Only pixels that
     are valid in all the input maps will have valid values in the output.
@@ -194,18 +203,19 @@ def xorIntersection(mapList):
 
     Parameters
     ----------
-    mapList: `list` of `HealSparseMap`
+    map_list : `list` of `HealSparseMap`
        Input list of maps to bitwise xor
 
     Returns
     -------
-    result: `HealSparseMap`
+    result : `HealSparseMap`
        Bitwise xor of maps
     """
 
-    return _applyOperation(mapList, np.bitwise_xor, 0, union=False, intOnly=True)
+    return _apply_operation(map_list, np.bitwise_xor, 0, union=False, int_only=True)
 
-def _applyOperation(mapList, func, fillerValue, union=False, intOnly=False):
+
+def _apply_operation(map_list, func, filler_value, union=False, int_only=False):
     """
     Apply a generic arithmetic function.
 
@@ -213,101 +223,100 @@ def _applyOperation(mapList, func, fillerValue, union=False, intOnly=False):
 
     Parameters
     ----------
-    mapList: `list` of `HealSparseMap`
+    map_list : `list` of `HealSparseMap`
        Input list of maps to perform the operation on.
-    func: `np.ufunc`
+    func : `np.ufunc`
        Numpy universal function to apply
-    fillerValue: `int` or `float`
+    filler_value : `int` or `float`
        Starting value and filler when union is True
-    union: `bool`, optional
+    union : `bool`, optional
        Use union mode instead of intersection.  Default is False.
-    intOnly: `bool`, optional
+    int_only : `bool`, optional
        Check that input maps are integer types.  Default is False.
 
     Returns
     -------
-    result: `HealSparseMap`
+    result : `HealSparseMap`
        Resulting map
     """
 
     name = func.__str__()
 
-    if len(mapList) < 2:
+    if len(map_list) < 2:
         raise RuntimeError("Must supply at least 2 maps to apply %s" % (name))
 
-    nsideCoverage = None
-    for m in mapList:
+    nside_coverage = None
+    for m in map_list:
         if not isinstance(m, HealSparseMap):
             raise NotImplementedError("Can only apply %s to HealSparseMaps" % (name))
-        if m._isRecArray:
+        if m.is_rec_array:
             raise NotImplementedError("Cannot apply %s to recarray maps" % (name))
-        if intOnly:
-            if not issubclass(m._sparseMap.dtype.type, np.integer):
+        if int_only:
+            if not m.is_integer_map:
                 raise ValueError("Can only apply %s to integer maps" % (name))
 
-        if nsideCoverage is None:
-            nsideCoverage = m._nsideCoverage
-            nsideSparse = m._nsideSparse
-            bitShift = m._bitShift
-            dtype = m._sparseMap.dtype
+        if nside_coverage is None:
+            nside_coverage = m._nside_coverage
+            nside_sparse = m._nside_sparse
+            bit_shift = m._bit_shift
+            dtype = m._sparse_map.dtype
             sentinel = m._sentinel
         else:
-            if (nsideCoverage != m._nsideCoverage or
-                nsideSparse != m._nsideSparse):
+            if (nside_coverage != m._nside_coverage or nside_sparse != m._nside_sparse):
                 raise RuntimeError("Cannot apply %s to maps with different coverage or map nsides" % (name))
 
-    combinedCovMask = mapList[0].coverageMask
+    combined_cov_mask = map_list[0].coverage_mask
 
     if union:
         # Union mode
-        for m in mapList[1: ]:
-            combinedCovMask |= m.coverageMask
+        for m in map_list[1:]:
+            combined_cov_mask |= m.coverage_mask
     else:
         # Intersection mode
-        for m in mapList[1: ]:
-            combinedCovMask &= m.coverageMask
+        for m in map_list[1:]:
+            combined_cov_mask &= m.coverage_mask
 
-    covPix, = np.where(combinedCovMask)
+    cov_pix, = np.where(combined_cov_mask)
 
-    if covPix.size == 0:
+    if cov_pix.size == 0:
         # No coverage ... the result is an empty map
-        return HealSparseMap.makeEmpty(nsideCoverage, nsideSparse, dtype)
+        return HealSparseMap.make_empty(nside_coverage, nside_sparse, dtype)
 
     # Initialize the combined map, we know the size
-    nFinePerCov = 2**bitShift
-    covIndexMap = np.zeros(hp.nside2npix(nsideCoverage), dtype=np.int64)
-    covIndexMap[covPix] = np.arange(1, covPix.size + 1) * nFinePerCov
-    covIndexMap[:] -= np.arange(hp.nside2npix(nsideCoverage), dtype=np.int64) * nFinePerCov
-    combinedSparseMap = np.zeros((covPix.size + 1) * nFinePerCov, dtype=dtype) + fillerValue
+    nfine_per_cov = 2**bit_shift
+    cov_index_map = np.zeros(hp.nside2npix(nside_coverage), dtype=np.int64)
+    cov_index_map[cov_pix] = np.arange(1, cov_pix.size + 1) * nfine_per_cov
+    cov_index_map[:] -= np.arange(hp.nside2npix(nside_coverage), dtype=np.int64) * nfine_per_cov
+    combined_sparse_map = np.zeros((cov_pix.size + 1) * nfine_per_cov, dtype=dtype) + filler_value
 
     if union:
-        combinedSparseMapTouched = np.zeros_like(combinedSparseMap, dtype=np.bool)
+        combined_sparse_map_touched = np.zeros_like(combined_sparse_map, dtype=np.bool)
     else:
-        combinedSparseMapNTouch = np.zeros_like(combinedSparseMap, dtype=np.int32)
+        combined_sparse_map_ntouch = np.zeros_like(combined_sparse_map, dtype=np.int32)
 
-    for m in mapList:
-        mValidPixels = m.validPixels
+    for m in map_list:
+        m_valid_pixels = m.valid_pixels
 
-        ipnestCov = np.right_shift(mValidPixels, m._bitShift)
+        ipnest_cov = np.right_shift(m_valid_pixels, m._bit_shift)
 
-        combinedPixelIndex = mValidPixels + covIndexMap[ipnestCov]
+        combined_pixel_index = m_valid_pixels + cov_index_map[ipnest_cov]
 
-        combinedSparseMap[combinedPixelIndex] = func(combinedSparseMap[combinedPixelIndex],
-                                                     m.getValuePixel(mValidPixels))
+        combined_sparse_map[combined_pixel_index] = func(combined_sparse_map[combined_pixel_index],
+                                                         m.get_values_pix(m_valid_pixels))
         if union:
-            combinedSparseMapTouched[combinedPixelIndex] = True
+            combined_sparse_map_touched[combined_pixel_index] = True
         else:
-            combinedSparseMapNTouch[combinedPixelIndex] += 1
+            combined_sparse_map_ntouch[combined_pixel_index] += 1
 
     # And when we're done, those that are untouched should be set to sentinel
     if union:
         # In union, replace untouched fillers with sentinel
-        if fillerValue != sentinel:
-            combinedSparseMap[~combinedSparseMapTouched] = sentinel
+        if filler_value != sentinel:
+            combined_sparse_map[~combined_sparse_map_touched] = sentinel
     else:
         # In intersection, all pixels that weren't touched all the time
         # should be set to the sentinel
-        combinedSparseMap[combinedSparseMapNTouch != len(mapList)] = sentinel
+        combined_sparse_map[combined_sparse_map_ntouch != len(map_list)] = sentinel
 
-    return HealSparseMap(covIndexMap=covIndexMap, sparseMap=combinedSparseMap, nsideSparse=nsideSparse, sentinel=sentinel)
-
+    return HealSparseMap(cov_index_map=cov_index_map, sparse_map=combined_sparse_map,
+                         nside_sparse=nside_sparse, sentinel=sentinel)

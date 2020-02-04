@@ -12,6 +12,7 @@ cache:
 # Install dependencies and package
 install:
     - pip install -r requirements.txt
+    - pip install flake8
     - pip install .
 # Test!
-script: pytest
+script: flake8 && pytest

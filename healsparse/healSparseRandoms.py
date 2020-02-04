@@ -3,26 +3,27 @@ import numpy as np
 import healpy as hp
 import copy
 
-def makeUniformRandomsFast(sparseMap, nRandom, nsideRandoms=2**23, rng=None):
+
+def make_uniform_randoms_fast(sparse_map, n_random, nside_randoms=2**23, rng=None):
     """
     Make an array of uniform randoms.
 
     Parameters
     ----------
-    sparseMap: `healsparse.HealSparseMap`
+    sparse_map: `healsparse.HealSparseMap`
        Sparse map object
-    nRandom: `int`
+    n_random: `int`
        Number of randoms to generate
-    nsideRandoms: `int`, optional
+    nside_randoms: `int`, optional
        Nside for pixel centers to select random points
     rng: `np.random.RandomState`, optional
        Pre-set Random number generator.  Default is None.
 
     Returns
     -------
-    raArray: `np.array`
+    ra_array: `np.array`
        Float array of RAs (degrees)
-    decArray: `np.array`
+    dec_array: `np.array`
        Float array of declinations (degrees)
     """
 
@@ -30,41 +31,42 @@ def makeUniformRandomsFast(sparseMap, nRandom, nsideRandoms=2**23, rng=None):
         rng = np.random.RandomState()
 
     # get the valid pixels
-    validPixels = sparseMap.validPixels
+    valid_pixels = sparse_map.valid_pixels
 
     # Select which "coarse" valid pixels are selected
-    ipnestCoarse = rng.choice(validPixels, size=nRandom, replace=True)
+    ipnest_coarse = rng.choice(valid_pixels, size=n_random, replace=True)
 
-    # What is the bitshift from the sparseMap nside to nsideRandoms?
-    bitShift = 2 * int(np.round(np.log(nsideRandoms / sparseMap.nsideSparse) / np.log(2)))
+    # What is the bitshift from the sparse_map nside to nside_randoms?
+    bit_shift = 2 * int(np.round(np.log(nside_randoms / sparse_map.nside_sparse) / np.log(2)))
 
-    # The sub-pixels are random from bitShift
-    subPixels = rng.randint(0, high=2**bitShift - 1, size=nRandom)
+    # The sub-pixels are random from bit_shift
+    sub_pixels = rng.randint(0, high=2**bit_shift - 1, size=n_random)
 
-    raRand, decRand = hp.pix2ang(nsideRandoms,
-                                 np.left_shift(ipnestCoarse, bitShift) + subPixels,
-                                 lonlat=True, nest=True)
+    ra_rand, dec_rand = hp.pix2ang(nside_randoms,
+                                   np.left_shift(ipnest_coarse, bit_shift) + sub_pixels,
+                                   lonlat=True, nest=True)
 
-    return raRand, decRand
+    return ra_rand, dec_rand
 
-def makeUniformRandoms(sparseMap, nRandom, rng=None):
+
+def make_uniform_randoms(sparse_map, n_random, rng=None):
     """
     Make an array of uniform randoms.
 
     Parameters
     ----------
-    sparseMap: `healsparse.HealSparseMap`
+    sparse_map: `healsparse.HealSparseMap`
        Sparse map object
-    nRandom: `int`
+    n_random: `int`
        Number of randoms to generate
     rng: `np.random.RandomState`, optional
        Pre-set Random number generator.  Default is None.
 
     Returns
     -------
-    raArray: `np.array`
+    ra_array: `np.array`
        Float array of RAs (degrees)
-    decArray: `np.array`
+    dec_array: `np.array`
        Float array of declinations (degrees)
     """
 
@@ -73,76 +75,77 @@ def makeUniformRandoms(sparseMap, nRandom, rng=None):
 
     # Generate uniform points on a unit sphere
     r = 1.0
-    minGen = 10000
-    maxGen = 1000000
+    min_gen = 10000
+    max_gen = 1000000
 
     # What is the z/phi range of the coverage map?
-    covMask = sparseMap.coverageMask
-    covPix, = np.where(covMask)
+    cov_mask = sparse_map.coverage_mask
+    cov_pix, = np.where(cov_mask)
 
     # Get range of coverage pixels
-    covTheta, covPhi = hp.pix2ang(sparseMap.nsideCoverage, covPix, nest=True)
+    cov_theta, cov_phi = hp.pix2ang(sparse_map.nside_coverage, cov_pix, nest=True)
 
-    extraBoundary = 2.0 * hp.nside2resol(sparseMap.nsideCoverage)
+    extra_boundary = 2.0 * hp.nside2resol(sparse_map.nside_coverage)
 
-    raRange = np.clip([np.min(covPhi - extraBoundary),
-                       np.max(covPhi + extraBoundary)],
-                      0.0, 2.0 * np.pi)
-    decRange = np.clip([np.min((np.pi/2. - covTheta) - extraBoundary),
-                        np.max((np.pi/2. - covTheta) + extraBoundary)],
-                       -np.pi/2., np.pi/2.)
+    ra_range = np.clip([np.min(cov_phi - extra_boundary),
+                        np.max(cov_phi + extra_boundary)],
+                       0.0, 2.0 * np.pi)
+    dec_range = np.clip([np.min((np.pi/2. - cov_theta) - extra_boundary),
+                         np.max((np.pi/2. - cov_theta) + extra_boundary)],
+                        -np.pi/2., np.pi/2.)
 
     # Check if we can do things more efficiently by rotating 180 degrees
     # for maps that wrap 0
     rotated = False
-    covPhiRot = covPhi + np.pi
-    test, = np.where(covPhiRot > 2.0 * np.pi)
-    covPhiRot[test] -= 2.0 * np.pi
-    raRangeRot = np.clip([np.min(covPhiRot - extraBoundary),
-                          np.max(covPhiRot + extraBoundary)],
-                         0.0, 2.0 * np.pi)
-    if ((raRangeRot[1] - raRangeRot[0]) < ((raRange[1] - raRange[0]) - 0.1)):
+    cov_phi_rot = cov_phi + np.pi
+    test, = np.where(cov_phi_rot > 2.0 * np.pi)
+    cov_phi_rot[test] -= 2.0 * np.pi
+    ra_range_rot = np.clip([np.min(cov_phi_rot - extra_boundary),
+                            np.max(cov_phi_rot + extra_boundary)],
+                           0.0, 2.0 * np.pi)
+    if ((ra_range_rot[1] - ra_range_rot[0]) < ((ra_range[1] - ra_range[0]) - 0.1)):
         # This is a more efficient range in rotated space
-        raRange = raRangeRot
+        ra_range = ra_range_rot
         rotated = True
 
     # And the spherical coverage
-    zRange = r * np.sin(decRange)
-    phiRange = raRange
+    z_range = r * np.sin(dec_range)
+    phi_range = ra_range
 
-    raRand = np.zeros(nRandom)
-    decRand = np.zeros(nRandom)
+    ra_rand = np.zeros(n_random)
+    dec_rand = np.zeros(n_random)
 
-    nLeft = copy.copy(nRandom)
+    n_left = copy.copy(n_random)
     ctr = 0
 
     # We have to have a loop here because we don't know
     # how many points will fall in the mask
-    while (nLeft > 0):
+    while (n_left > 0):
         # Limit the number of points in each loop
-        nGen = np.clip(nLeft * 2, minGen, maxGen)
+        n_gen = np.clip(n_left * 2, min_gen, max_gen)
 
-        z = rng.uniform(low=zRange[0], high=zRange[1], size=nGen)
-        phi = rng.uniform(low=phiRange[0], high=phiRange[1], size=nGen)
+        z = rng.uniform(low=z_range[0], high=z_range[1], size=n_gen)
+        phi = rng.uniform(low=phi_range[0], high=phi_range[1], size=n_gen)
         theta = np.arcsin(z / r)
 
-        raRandTemp = np.degrees(phi)
-        decRandTemp = np.degrees(theta)
+        ra_rand_temp = np.degrees(phi)
+        dec_rand_temp = np.degrees(theta)
 
         if rotated:
-            raRandTemp -= 180.0
-            raRandTemp[raRandTemp < 0.0] += 360.0
+            ra_rand_temp -= 180.0
+            ra_rand_temp[ra_rand_temp < 0.0] += 360.0
 
-        valid, = np.where(sparseMap.getValueRaDec(raRandTemp, decRandTemp, validMask=True))
-        nValid = valid.size
+        valid, = np.where(sparse_map.get_values_pos(ra_rand_temp, dec_rand_temp,
+                                                    lonlat=True, valid_mask=True))
+        n_valid = valid.size
 
-        if nValid > nLeft:
-            nValid = nLeft
+        if n_valid > n_left:
+            n_valid = n_left
 
-        raRand[ctr: ctr + nValid] = raRandTemp[valid[0: nValid]]
-        decRand[ctr: ctr + nValid] = decRandTemp[valid[0: nValid]]
+        ra_rand[ctr: ctr + n_valid] = ra_rand_temp[valid[0: n_valid]]
+        dec_rand[ctr: ctr + n_valid] = dec_rand_temp[valid[0: n_valid]]
 
-        ctr += nValid
-        nLeft -= nValid
+        ctr += n_valid
+        n_left -= n_valid
 
-    return raRand, decRand
+    return ra_rand, dec_rand

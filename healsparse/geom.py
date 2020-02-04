@@ -84,7 +84,7 @@ def realize_geom(geom, smap, type='or'):
     if type != 'or':
         raise ValueError('type of composition must be or')
 
-    if not smap.isIntegerMap:
+    if not smap.is_integer_map:
         raise ValueError('can only or geometry objects into an integer map')
 
     if not isinstance(geom, (list, tuple)):
@@ -106,7 +106,7 @@ def realize_geom(geom, smap, type='or'):
     # the map
     for value, glist in gdict.items():
         for i, g in enumerate(glist):
-            tpixels = g.get_pixels(nside=smap.nsideSparse)
+            tpixels = g.get_pixels(nside=smap.nside_sparse)
             if i == 0:
                 pixels = tpixels
             else:
@@ -120,9 +120,9 @@ def realize_geom(geom, smap, type='or'):
 
         pixels = np.unique(pixels)
 
-        values = smap.getValuePixel(pixels)
+        values = smap.get_values_pix(pixels)
         values |= value
-        smap.updateValues(pixels, values)
+        smap.update_values_pix(pixels, values)
 
 
 def _check_int(x):
@@ -182,15 +182,15 @@ class GeomBase(object):
         HealSparseMap
         """
 
-        smap = HealSparseMap.makeEmpty(
-            nsideCoverage=32,
-            nsideSparse=nside,
+        smap = HealSparseMap.make_empty(
+            nside_coverage=32,
+            nside_sparse=nside,
             dtype=dtype,
             sentinel=0,
         )
         pixels = self.get_pixels(nside=nside)
         values = self.get_values(size=pixels.size, dtype=dtype)
-        smap.updateValues(pixels, values)
+        smap.update_values_pix(pixels, values)
 
         return smap
 
@@ -439,9 +439,9 @@ def test_circles(show=False, show_mat=False):
 
     circles, ra_range, dec_range = _make_circles(rng, ncircle)
 
-    smap = HealSparseMap.makeEmpty(
-        nsideCoverage=32,
-        nsideSparse=nside,
+    smap = HealSparseMap.make_empty(
+        nside_coverage=32,
+        nside_sparse=nside,
         dtype=dtype,
         sentinel=0,
     )
@@ -453,7 +453,7 @@ def test_circles(show=False, show_mat=False):
     w, = np.where(smap._sparseMap != smap._sentinel)
     print(w.size)
 
-    data = smap.getValuePixel(smap.validPixels)
+    data = smap.get_values_pix(smap.valid_pixels)
     print('_sparseMap:', smap._sparseMap)
     print('data:', data)
     w, = np.where(data != smap._sentinel)
@@ -532,7 +532,7 @@ def test_box(show=False):
 def _make_poly():
     # counter clockwise
     ra = [200.0, 200.2, 200.3, 200.2, 200.1]
-    dec = [0.0,     0.1,   0.2,   0.25, 0.13]
+    dec = [0.0, 0.1, 0.2, 0.25, 0.13]
     poly = Polygon(
         ra=ra,
         dec=dec,
@@ -585,9 +585,9 @@ def test_mix(show=False):
     poly, ra, dec = _make_poly()
 
     geoms = circles + [poly]
-    smap = HealSparseMap.makeEmpty(
-        nsideCoverage=32,
-        nsideSparse=nside,
+    smap = HealSparseMap.make_empty(
+        nside_coverage=32,
+        nside_sparse=nside,
         dtype=dtype,
         sentinel=0,
     )

@@ -12,6 +12,7 @@ import fitsio
 
 import healsparse
 
+
 class IoTestCase(unittest.TestCase):
     def test_writeread(self):
         """
@@ -19,156 +20,161 @@ class IoTestCase(unittest.TestCase):
         """
         random.seed(seed=12345)
 
-        nsideCoverage = 32
-        nsideMap = 64
+        nside_coverage = 32
+        nside_map = 64
 
-        nRand = 1000
-        ra = np.random.random(nRand) * 360.0
-        dec = np.random.random(nRand) * 180.0 - 90.0
+        n_rand = 1000
+        ra = np.random.random(n_rand) * 360.0
+        dec = np.random.random(n_rand) * 180.0 - 90.0
 
         self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
 
         # Generate a random map
 
-        fullMap = np.zeros(hp.nside2npix(nsideMap)) + hp.UNSEEN
-        fullMap[0: 20000] = np.random.random(size=20000)
+        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map[0: 20000] = np.random.random(size=20000)
 
         theta = np.radians(90.0 - dec)
         phi = np.radians(ra)
-        ipnest = hp.ang2pix(nsideMap, theta, phi, nest=True)
+        ipnest = hp.ang2pix(nside_map, theta, phi, nest=True)
 
-        testValues = fullMap[ipnest]
+        test_values = full_map[ipnest]
 
         # Save it with healpy in ring
 
-        fullMapRing = hp.reorder(fullMap, n2r=True)
-        hp.write_map(os.path.join(self.test_dir, 'healpix_map_ring.fits'), fullMapRing, dtype=np.float64)
+        full_map_ring = hp.reorder(full_map, n2r=True)
+        hp.write_map(os.path.join(self.test_dir, 'healpix_map_ring.fits'), full_map_ring, dtype=np.float64)
 
         # Read it with healsparse
-        # TODO Test that we raise an exception when nsideCoverage isn't set
+        # TODO Test that we raise an exception when nside_coverage isn't set
 
-        sparseMap = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healpix_map_ring.fits'), nsideCoverage=nsideCoverage)
+        sparse_map = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healpix_map_ring.fits'),
+                                                   nside_coverage=nside_coverage)
 
         # Check that we can do a basic lookup
-        testing.assert_almost_equal(sparseMap.getValuePixel(ipnest), testValues)
+        testing.assert_almost_equal(sparse_map.get_values_pix(ipnest), test_values)
 
         # Save map to healpy in nest
-        hp.write_map(os.path.join(self.test_dir, 'healpix_map_nest.fits'), fullMap, dtype=np.float64, nest=True)
+        hp.write_map(os.path.join(self.test_dir, 'healpix_map_nest.fits'), full_map,
+                     dtype=np.float64, nest=True)
 
         # Read it with healsparse
-        sparseMap = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healpix_map_nest.fits'), nsideCoverage=nsideCoverage)
+        sparse_map = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healpix_map_nest.fits'),
+                                                   nside_coverage=nside_coverage)
 
         # Check that we can do a basic lookup
-        testing.assert_almost_equal(sparseMap.getValuePixel(ipnest), testValues)
+        testing.assert_almost_equal(sparse_map.get_values_pix(ipnest), test_values)
 
         # Write it to healsparse format
-        sparseMap.write(os.path.join(self.test_dir, 'healsparse_map.fits'))
+        sparse_map.write(os.path.join(self.test_dir, 'healsparse_map.fits'))
 
         # Read in healsparse format (full map)
-        sparseMap = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healsparse_map.fits'))
+        sparse_map = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healsparse_map.fits'))
 
         # Check that we can do a basic lookup
-        testing.assert_almost_equal(sparseMap.getValuePixel(ipnest), testValues)
+        testing.assert_almost_equal(sparse_map.get_values_pix(ipnest), test_values)
 
         # Try to read in healsparse format, non-unique pixels
-        self.assertRaises(RuntimeError, healsparse.HealSparseMap.read, os.path.join(self.test_dir, 'healsparse_map.fits'), pixels=[0, 0])
+        self.assertRaises(RuntimeError, healsparse.HealSparseMap.read,
+                          os.path.join(self.test_dir, 'healsparse_map.fits'), pixels=[0, 0])
 
         # Read in healsparse format (two pixels)
-        sparseMapSmall = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healsparse_map.fits'), pixels=[0, 1])
+        sparse_map_small = healsparse.HealSparseMap.read(os.path.join(self.test_dir,
+                                                                      'healsparse_map.fits'),
+                                                         pixels=[0, 1])
 
         # Test the coverage map only has two pixels
-        covMask = sparseMapSmall.coverageMask
-        self.assertEqual(covMask.sum(), 2)
+        cov_mask = sparse_map_small.coverage_mask
+        self.assertEqual(cov_mask.sum(), 2)
 
         # Test lookup of values in those two pixels
-        ipnestCov = np.right_shift(ipnest, sparseMapSmall._bitShift)
-        outsideSmall, = np.where(ipnestCov > 1)
-        testValues2 = testValues.copy()
-        testValues2[outsideSmall] = hp.UNSEEN
+        ipnestCov = np.right_shift(ipnest, sparse_map_small._bit_shift)
+        outside_small, = np.where(ipnestCov > 1)
+        test_values2 = test_values.copy()
+        test_values2[outside_small] = hp.UNSEEN
 
-        testing.assert_almost_equal(sparseMapSmall.getValuePixel(ipnest), testValues2)
+        testing.assert_almost_equal(sparse_map_small.get_values_pix(ipnest), test_values2)
 
-    def test_readOutOfOrder(self):
+    def test_read_outoforder(self):
         """
         Test reading maps that have been written with out-of-order pixels
         """
-
         random.seed(seed=12345)
 
-        nsideCoverage = 32
-        nsideMap = 64
+        nside_coverage = 32
+        nside_map = 64
 
-        nRand = 1000
-        ra = np.random.random(nRand) * 360.0
-        dec = np.random.random(nRand) * 180.0 - 90.0
+        n_rand = 1000
+        ra = np.random.random(n_rand) * 360.0
+        dec = np.random.random(n_rand) * 180.0 - 90.0
 
         self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
 
         # Create an empty map
-        sparseMap = healsparse.HealSparseMap.makeEmpty(nsideCoverage, nsideMap, np.float64)
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.float64)
 
         # Fill it out of order
         pixel = np.arange(4000, 20000)
         values = np.random.random(pixel.size)
-        sparseMap.updateValues(pixel, values)
+        sparse_map.update_values_pix(pixel, values)
         pixel2 = np.arange(1000)
         values2 = np.random.random(pixel2.size)
-        sparseMap.updateValues(pixel2, values2)
+        sparse_map.update_values_pix(pixel2, values2)
 
-        sparseMap.write(os.path.join(self.test_dir, 'healsparse_map_outoforder.fits'))
+        sparse_map.write(os.path.join(self.test_dir, 'healsparse_map_outoforder.fits'))
 
         # And read it in...
-        sparseMap = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healsparse_map_outoforder.fits'))
+        sparse_map = healsparse.HealSparseMap.read(os.path.join(self.test_dir,
+                                                                'healsparse_map_outoforder.fits'))
 
         # Test some values
         theta = np.radians(90.0 - dec)
         phi = np.radians(ra)
-        ipnest = hp.ang2pix(nsideMap, theta, phi)
-        testMap = np.zeros(hp.nside2npix(nsideMap)) + hp.UNSEEN
-        testMap[pixel] = values
-        testMap[pixel2] = values2
+        ipnest = hp.ang2pix(nside_map, theta, phi)
+        test_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        test_map[pixel] = values
+        test_map[pixel2] = values2
 
-        testing.assert_almost_equal(sparseMap.getValuePixel(ipnest), testMap[ipnest])
+        testing.assert_almost_equal(sparse_map.get_values_pix(ipnest), test_map[ipnest])
 
         # Read in the first two and the Nth pixel
 
         # These pixels are chosen because they are covered by the random test points
-        sparseMapSmall = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healsparse_map_outoforder.fits'), pixels=[0, 1, 3179])
+        sparse_map_small = healsparse.HealSparseMap.read(
+            os.path.join(self.test_dir, 'healsparse_map_outoforder.fits'), pixels=[0, 1, 3179])
 
         # Test some values
-        ipnestCov = np.right_shift(ipnest, sparseMapSmall._bitShift)
-        testValuesSmall = testMap[ipnest]
-        outsideSmall, = np.where((ipnestCov != 0) & (ipnestCov != 1) & (ipnestCov != 3179))
-        testValuesSmall[outsideSmall] = hp.UNSEEN
+        ipnest_cov = np.right_shift(ipnest, sparse_map_small._bit_shift)
+        test_values_small = test_map[ipnest]
+        outside_small, = np.where((ipnest_cov != 0) & (ipnest_cov != 1) & (ipnest_cov != 3179))
+        test_values_small[outside_small] = hp.UNSEEN
 
-        testing.assert_almost_equal(sparseMapSmall.getValuePixel(ipnest), testValuesSmall)
+        testing.assert_almost_equal(sparse_map_small.get_values_pix(ipnest), test_values_small)
 
     def test_writeread_withheader(self):
         """
         Test i/o functionality with a header
         """
-
         random.seed(seed=12345)
 
-        nsideCoverage = 32
-        nsideMap = 64
-
-        nRand = 1000
-        ra = np.random.random(nRand) * 360.0
-        dec = np.random.random(nRand) * 180.0 - 90.0
+        nside_coverage = 32
+        nside_map = 64
 
         self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
 
-        fullMap = np.zeros(hp.nside2npix(nsideMap)) + hp.UNSEEN
-        fullMap[0: 20000] = np.random.random(size=20000)
+        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map[0: 20000] = np.random.random(size=20000)
 
-        sparseMap = healsparse.HealSparseMap(healpixMap=fullMap, nsideCoverage=nsideCoverage, nest=True)
+        sparse_map = healsparse.HealSparseMap(healpix_map=full_map,
+                                              nside_coverage=nside_coverage, nest=True)
         hdr = fitsio.FITSHDR()
         hdr['TESTING'] = 1.0
 
-        sparseMap.write(os.path.join(self.test_dir, 'sparsemap_with_header.fits'), header=hdr)
+        sparse_map.write(os.path.join(self.test_dir, 'sparsemap_with_header.fits'), header=hdr)
 
-        retMap, retHdr = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'sparsemap_with_header.fits'), header=True)
+        retMap, retHdr = healsparse.HealSparseMap.read(os.path.join(self.test_dir,
+                                                                    'sparsemap_with_header.fits'),
+                                                       header=True)
 
         self.assertEqual(hdr['TESTING'], retHdr['TESTING'])
 
@@ -176,37 +182,38 @@ class IoTestCase(unittest.TestCase):
         """
         Test i/o functionality at very high resolution
         """
-
         random.seed(seed=12345)
 
         self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
 
-        nsideCoverage = 128
-        nsideMap = 2**17
+        nside_coverage = 128
+        nside_map = 2**17
 
         vec = hp.ang2vec(100.0, 0.0, lonlat=True)
         rad = np.radians(0.2/60.)
-        pixels = hp.query_disc(nsideMap, vec, rad, nest=True, inclusive=False)
+        pixels = hp.query_disc(nside_map, vec, rad, nest=True, inclusive=False)
         pixels.sort()
         values = np.zeros(pixels.size, dtype=np.int32) + 8
 
-        sparseMap = healsparse.HealSparseMap.makeEmpty(nsideSparse=nsideMap, nsideCoverage=nsideCoverage, dtype=np.int32)
-        sparseMap.updateValues(pixels, values)
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_sparse=nside_map,
+                                                         nside_coverage=nside_coverage,
+                                                         dtype=np.int32)
+        sparse_map.update_values_pix(pixels, values)
 
-        validPixels = sparseMap.validPixels
-        validPixels.sort()
+        valid_pixels = sparse_map.valid_pixels
+        valid_pixels.sort()
 
-        testing.assert_array_equal(validPixels, pixels)
-        testing.assert_array_equal(sparseMap.getValuePixel(validPixels), values)
+        testing.assert_array_equal(valid_pixels, pixels)
+        testing.assert_array_equal(sparse_map.get_values_pix(valid_pixels), values)
 
-        sparseMap.write(os.path.join(self.test_dir, 'healsparse_map.fits'))
+        sparse_map.write(os.path.join(self.test_dir, 'healsparse_map.fits'))
 
-        sparseMap2 = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healsparse_map.fits'))
+        sparse_map2 = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healsparse_map.fits'))
 
-        validPixels2 = sparseMap2.validPixels
+        valid_pixels2 = sparse_map2.valid_pixels
 
-        testing.assert_array_equal(validPixels2, pixels)
-        testing.assert_array_equal(sparseMap2.getValuePixel(validPixels2), values)
+        testing.assert_array_equal(valid_pixels2, pixels)
+        testing.assert_array_equal(sparse_map2.get_values_pix(valid_pixels2), values)
 
     def setUp(self):
         self.test_dir = None
@@ -216,5 +223,6 @@ class IoTestCase(unittest.TestCase):
             if os.path.exists(self.test_dir):
                 shutil.rmtree(self.test_dir, True)
 
-if __name__=='__main__':
+
+if __name__ == '__main__':
     unittest.main()
