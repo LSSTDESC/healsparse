@@ -230,7 +230,8 @@ class HealSparseMap(object):
                 # hdu = fits['SPARSE']
                 # s_hdr = hdu.read_header()
                 hdu = f['SPARSE']
-                s_hdr = hdu.header
+                data = hdu.data
+                s_hdr = data.header
 
                 nside_sparse = s_hdr['NSIDE']
                 nside_coverage = hp.npix2nside(cov_index_map.size)
@@ -263,14 +264,14 @@ class HealSparseMap(object):
                 # It is not 100% sure this is the most efficient way to read in using
                 # fitsio, but it does work.
                 # sparse_map = np.zeros((sub.size + 1) * nfine_per_cov, dtype=fits['SPARSE'][0:1].dtype)
-                sparse_map = np.zeros((sub.size + 1) * nfine_per_cov, dtype=f['SPARSE'].data[0: 1].dtype)
+                sparse_map = np.zeros((sub.size + 1) * nfine_per_cov, dtype=data[0: 1].dtype)
                 # Read in the overflow bin
                 sparse_map[0: nfine_per_cov] = hdu.data[0: nfine_per_cov]
                 # And read in the pixels
                 for i, pix in enumerate(cov_pix[sub]):
-                    sparse_map[(i + 1)*nfine_per_cov: (i + 2)*nfine_per_cov] = hdu.data[cov_index_map_temp[pix]:
-                                                                                            cov_index_map_temp[pix] +
-                                                                                        nfine_per_cov]
+                    sparse_map[(i + 1)*nfine_per_cov: (i + 2)*nfine_per_cov] = data[cov_index_map_temp[pix]:
+                                                                                    cov_index_map_temp[pix] +
+                                                                                    nfine_per_cov]
 
                 # Set the coverage index map for the pixels that we read in
                 cov_index_map[:] = 0
