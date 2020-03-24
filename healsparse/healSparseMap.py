@@ -231,7 +231,7 @@ class HealSparseMap(object):
                 # s_hdr = hdu.read_header()
                 hdu = f['SPARSE']
                 data = hdu.data
-                s_hdr = data.header
+                s_hdr = hdu.header
 
                 nside_sparse = s_hdr['NSIDE']
                 nside_coverage = hp.npix2nside(cov_index_map.size)
