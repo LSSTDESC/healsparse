@@ -59,6 +59,12 @@ class LookupTestCase(unittest.TestCase):
         valid_pixels = sparse_map.valid_pixels
         testing.assert_equal(valid_pixels, np.where(full_map > hp.UNSEEN)[0])
 
+        # Test the position of valid pixels
+        ra_sp, dec_sp = sparse_map.valid_pixels_pos(lonlat=True)
+        _ra_sp, _dec_sp = hp.pix2ang(nside_map, np.where(full_map > hp.UNSEEN)[0], lonlat=True, nest=True)
+        testing.assert_equal(ra_sp, _ra_sp)
+        testing.assert_equal(dec_sp, _dec_sp)
+
 
 if __name__ == '__main__':
     unittest.main()

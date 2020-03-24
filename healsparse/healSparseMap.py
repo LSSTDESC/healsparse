@@ -669,6 +669,24 @@ class HealSparseMap(object):
         # And return only the valid subset
         return valid_pixels[self.get_values_pix(valid_pixels, valid_mask=True)]
 
+    def valid_pixels_pos(self, lonlat=False):
+        """
+        Get an array with the position of valid pixels in the sparse map.
+
+        Parameters
+        ----------
+        lonlat: `bool`, optional
+            If True, input angles are longitude and latitude in degrees.
+            Otherwise, they are co-latitude and longitude in radians.
+
+        Returns
+        -------
+        positions : `tuple`
+            By default it will return a tuple of the form (`theta`, `phi`) in radians
+            unless `lonlat = True`, for which it will return (`ra`, `dec`) in degrees.
+        """
+        return hp.pix2ang(self.nside_sparse, self.valid_pixels, lonlat=lonlat, nest=True)
+
     def degrade(self, nside_out, reduction='mean'):
         """
         Reduce the resolution, i.e., increase the pixel size
