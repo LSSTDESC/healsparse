@@ -8,7 +8,8 @@ from numpy import random
 import tempfile
 import shutil
 import os
-import fitsio
+# import fitsio
+import astropy.io.fits as fits
 
 import healsparse
 
@@ -167,7 +168,8 @@ class IoTestCase(unittest.TestCase):
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map,
                                               nside_coverage=nside_coverage, nest=True)
-        hdr = fitsio.FITSHDR()
+        # hdr = fitsio.FITSHDR()
+        hdr = fits.Header()
         hdr['TESTING'] = 1.0
 
         sparse_map.write(os.path.join(self.test_dir, 'sparsemap_with_header.fits'), header=hdr)

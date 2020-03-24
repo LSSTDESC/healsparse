@@ -1,7 +1,8 @@
 from __future__ import division, absolute_import, print_function
 import numpy as np
 import healpy as hp
-import fitsio
+# import fitsio
+import astropy.io.fits as fits
 import os
 from .utils import reduce_array, check_sentinel
 
@@ -76,7 +77,10 @@ class HealSparseMap(object):
         """
         # Check to see if the filename is a healpix map or a sparsehealpix map
 
-        hdr = fitsio.read_header(filename, ext=1)
+        # hdr = fitsio.read_header(filename, ext=1)
+        # hdr = fits.getheader(filename, ext=1)
+        with fits.open(filename) as f:
+            hdr = f[1].header
         if 'PIXTYPE' in hdr and hdr['PIXTYPE'].rstrip() == 'HEALPIX':
             if nside_coverage is None:
                 raise RuntimeError("Must specify nside_coverage when reading healpix map")
@@ -84,11 +88,15 @@ class HealSparseMap(object):
             # This is a healpix format
             # We need to determine the datatype, preserving it.
             if hdr['OBJECT'].rstrip() == 'PARTIAL':
-                row = fitsio.read(filename, ext=1, rows=[0])
-                dtype = row[0]['SIGNAL'].dtype.type
+                # row = fitsio.read(filename, ext=1, rows=[0])
+                with fits.open(filename, memmap=True, lazy_load_hdus=True) as f:
+                    row = f[1].data[0: 2]
+                    dtype = row[0]['SIGNAL'].dtype.type
             else:
-                row = fitsio.read(filename, ext=1, rows=[0])
-                dtype = row[0][0][0].dtype.type
+                # row = fitsio.read(filename, ext=1, rows=[0])
+                with fits.open(filename, memmap=True, lazy_load_hdus=True) as f:
+                    row = f[1].data[0: 2]
+                    dtype = row[0][0][0].dtype.type
 
             healpix_map = hp.read_map(filename, nest=True, verbose=False, dtype=dtype)
             if header:
@@ -189,12 +197,19 @@ class HealSparseMap(object):
         sentinel : `float` or `int`
            Sentinel value for null.  Usually hp.UNSEEN
         """
-        cov_index_map = fitsio.read(filename, ext='COV')
+        # cov_index_map = fitsio.read(filename, ext='COV')
+        # cov_index_map = fits.getdata(filename, ext=('COV', 1), view=np.ndarray)
+        with fits.open(filename) as f:
+            cov_index_map = f['COV'].data.view(np.ndarray)
         primary = None
 
         if pixels is None:
             # Read the full map
-            sparse_map, s_hdr = fitsio.read(filename, ext='SPARSE', header=True)
+            # sparse_map, s_hdr = fitsio.read(filename, ext='SPARSE', header=True)
+            # sparse_map, s_hdr = fits.getdata(filename, ext=('SPARSE', 1), header=True)
+            with fits.open(filename) as f:
+                sparse_map = f['SPARSE'].data.view(np.ndarray)
+                s_hdr = f['SPARSE'].header
             nside_sparse = s_hdr['NSIDE']
             if 'PRIMARY' in s_hdr:
                 primary = s_hdr['PRIMARY'].rstrip()
@@ -209,10 +224,13 @@ class HealSparseMap(object):
                 raise RuntimeError("Input list of pixels must be unique.")
 
             # Read part of a map
-            with fitsio.FITS(filename) as fits:
+            # with fitsio.FITS(filename) as fits:
+            with fits.open(filename) as f:
 
-                hdu = fits['SPARSE']
-                s_hdr = hdu.read_header()
+                # hdu = fits['SPARSE']
+                # s_hdr = hdu.read_header()
+                hdu = f['SPARSE']
+                s_hdr = hdu.header
 
                 nside_sparse = s_hdr['NSIDE']
                 nside_coverage = hp.npix2nside(cov_index_map.size)
@@ -225,7 +243,8 @@ class HealSparseMap(object):
                 bit_shift = 2 * int(np.round(np.log(nside_sparse / nside_coverage) / np.log(2)))
                 nfine_per_cov = 2**bit_shift
 
-                if hdu.get_exttype() != 'IMAGE_HDU':
+                # if hdu.get_exttype() != 'IMAGE_HDU':
+                if not hdu.is_image:
                     # This is a table extension
                     primary = s_hdr['PRIMARY'].rstrip()
 
@@ -243,14 +262,15 @@ class HealSparseMap(object):
 
                 # It is not 100% sure this is the most efficient way to read in using
                 # fitsio, but it does work.
-                sparse_map = np.zeros((sub.size + 1) * nfine_per_cov, dtype=fits['SPARSE'][0:1].dtype)
+                # sparse_map = np.zeros((sub.size + 1) * nfine_per_cov, dtype=fits['SPARSE'][0:1].dtype)
+                sparse_map = np.zeros((sub.size + 1) * nfine_per_cov, dtype=f['SPARSE'].data[0: 1].dtype)
                 # Read in the overflow bin
-                sparse_map[0: nfine_per_cov] = hdu[0: nfine_per_cov]
+                sparse_map[0: nfine_per_cov] = hdu.data[0: nfine_per_cov]
                 # And read in the pixels
                 for i, pix in enumerate(cov_pix[sub]):
-                    sparse_map[(i + 1)*nfine_per_cov: (i + 2)*nfine_per_cov] = hdu[cov_index_map_temp[pix]:
-                                                                                   cov_index_map_temp[pix] +
-                                                                                   nfine_per_cov]
+                    sparse_map[(i + 1)*nfine_per_cov: (i + 2)*nfine_per_cov] = hdu.data[cov_index_map_temp[pix]:
+                                                                                            cov_index_map_temp[pix] +
+                                                                                        nfine_per_cov]
 
                 # Set the coverage index map for the pixels that we read in
                 cov_index_map[:] = 0
@@ -331,17 +351,30 @@ class HealSparseMap(object):
             raise RuntimeError("Filename %s exists and clobber is False." % (filename))
 
         # Note that we put the requested header information in each of the extensions.
-        cHdr = fitsio.FITSHDR(header)
-        cHdr['PIXTYPE'] = 'HEALSPARSE'
-        cHdr['NSIDE'] = self._nside_coverage
-        fitsio.write(filename, self._cov_index_map, header=cHdr, extname='COV', clobber=True)
-        s_hdr = fitsio.FITSHDR(header)
+        # cHdr = fitsio.FITSHDR(header)
+        if header is not None:
+            c_hdr = fits.Header(header)
+        else:
+            c_hdr = fits.Header()
+        c_hdr['PIXTYPE'] = 'HEALSPARSE'
+        c_hdr['NSIDE'] = self._nside_coverage
+        # fitsio.write(filename, self._cov_index_map, header=cHdr, extname='COV', clobber=True)
+        c_hdr['EXTNAME'] = 'COV'
+        fits.writeto(filename, self._cov_index_map, header=c_hdr, overwrite=True)
+        # s_hdr = fitsio.FITSHDR(header)
+        # s_hdr = fits.Header(header)
+        if header is not None:
+            s_hdr = fits.Header(header)
+        else:
+            s_hdr = fits.Header()
         s_hdr['PIXTYPE'] = 'HEALSPARSE'
         s_hdr['NSIDE'] = self._nside_sparse
         s_hdr['SENTINEL'] = self._sentinel
         if self._is_rec_array:
             s_hdr['PRIMARY'] = self._primary
-        fitsio.write(filename, self._sparse_map, header=s_hdr, extname='SPARSE')
+        # fitsio.write(filename, self._sparse_map, header=s_hdr, extname='SPARSE')
+        s_hdr['EXTNAME'] = 'SPARSE'
+        fits.append(filename, self._sparse_map, header=s_hdr, overwrite=False)
 
     def update_values_pix(self, pixels, values, nest=True):
         """
