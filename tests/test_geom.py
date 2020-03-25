@@ -114,6 +114,11 @@ class GeomTestCase(unittest.TestCase):
         smap = circle.get_map(nside_coverage=32, nside_sparse=nside, dtype=np.int16)
         self.assertTrue(isinstance(smap, healsparse.HealSparseMap))
 
+        smap2 = circle.get_map_like(smap)
+        self.assertEqual(smap2.nside_coverage, smap.nside_coverage)
+        self.assertEqual(smap2.nside_sparse, smap.nside_sparse)
+        self.assertEqual(smap2.dtype, smap.dtype)
+
     def test_circle_values(self):
         """
         make sure we get out the value we used for the map
@@ -195,6 +200,11 @@ class GeomTestCase(unittest.TestCase):
         vals = smap.get_values_pos(ra, dec, lonlat=True)
 
         testing.assert_array_equal(vals, [poly.value, 0])
+
+        smap2 = poly.get_map_like(smap)
+        self.assertEqual(smap2.nside_coverage, smap.nside_coverage)
+        self.assertEqual(smap2.nside_sparse, smap.nside_sparse)
+        self.assertEqual(smap2.dtype, smap.dtype)
 
     def test_polygon_values(self):
         """
