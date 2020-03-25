@@ -166,31 +166,40 @@ class GeomBase(object):
         """
         raise NotImplementedError('implment get_pixels')
 
-    def get_map(self, *, nside, dtype):
+    def get_map(self, *, nside_coverage, nside_sparse, dtype):
         """
         get a healsparse map corresponding to this geometric primitive
 
         Parameters
         ----------
-        size: integer
-            Size of the values array
-        dtype: np dtype
-            For the output array
+        nside_coverage : `int`
+            nside of coverage map
+        nside_sparse : `int`
+            nside of sparse map
+        dtype : `np.dtype`
+            dtype of the output array
 
         Returns
         -------
         HealSparseMap
         """
 
+        x = np.zeros(1, dtype=dtype)
+        if (issubclass(x[0].__class__, np.integer) or
+           issubclass(x[0].__class__, int)):
+            sentinel = 0
+        else:
+            sentinel = hp.UNSEEN
+
         smap = HealSparseMap.make_empty(
-            nside_coverage=32,
-            nside_sparse=nside,
+            nside_coverage=nside_coverage,
+            nside_sparse=nside_sparse,
             dtype=dtype,
-            sentinel=0,
+            sentinel=sentinel,
         )
-        pixels = self.get_pixels(nside=nside)
-        values = self.get_values(size=pixels.size, dtype=dtype)
-        smap.update_values_pix(pixels, values)
+        pixels = self.get_pixels(nside=nside_sparse)
+        # values = self.get_values(size=pixels.size, dtype=dtype)
+        smap.update_values_pix(pixels, np.array([self._value], dtype=dtype))
 
         return smap
 
