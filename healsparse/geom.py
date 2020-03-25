@@ -149,6 +149,17 @@ class GeomBase(object):
     """
 
     @property
+    def is_integer_value(self):
+        """
+        Check if the value is an integer type
+        """
+        if (issubclass(self._value.__class__, np.integer) or
+           issubclass(self._value.__class__, int)):
+            return True
+        else:
+            return False
+
+    @property
     def value(self):
         """
         get the value to be used for all pixels in the map
@@ -166,53 +177,65 @@ class GeomBase(object):
         """
         raise NotImplementedError('implment get_pixels')
 
-    def get_map(self, *, nside, dtype):
+    def get_map(self, *, nside_coverage, nside_sparse, dtype):
         """
         get a healsparse map corresponding to this geometric primitive
 
         Parameters
         ----------
-        size: integer
-            Size of the values array
-        dtype: np dtype
-            For the output array
+        nside_coverage : `int`
+            nside of coverage map
+        nside_sparse : `int`
+            nside of sparse map
+        dtype : `np.dtype`
+            dtype of the output array
 
         Returns
         -------
         HealSparseMap
         """
 
+        x = np.zeros(1, dtype=dtype)
+        if (issubclass(x[0].__class__, np.integer) or
+           issubclass(x[0].__class__, int)):
+            sentinel = 0
+        else:
+            sentinel = hp.UNSEEN
+
         smap = HealSparseMap.make_empty(
-            nside_coverage=32,
-            nside_sparse=nside,
+            nside_coverage=nside_coverage,
+            nside_sparse=nside_sparse,
             dtype=dtype,
-            sentinel=0,
+            sentinel=sentinel,
         )
-        pixels = self.get_pixels(nside=nside)
-        values = self.get_values(size=pixels.size, dtype=dtype)
-        smap.update_values_pix(pixels, values)
+        pixels = self.get_pixels(nside=nside_sparse)
+        smap.update_values_pix(pixels, np.array([self._value], dtype=dtype))
 
         return smap
 
-    def get_values(self, *, size, dtype):
+    def get_map_like(self, sparseMap):
         """
-        get an array filled with the value
+        Get a healsparse map corresponding to this geometric primitive,
+        with the same parameters as an input sparseMap.
 
         Parameters
         ----------
-        size: integer
-            Size of the values array
-        dtype: np dtype
-            For the output array
+        sparseMap : `healsparse.HealSparseMap`
+            Input map to match parameters
 
         Returns
         -------
-        array with all elements set to the value for this geometric object
+        HealSparseMap
         """
-        values = np.zeros(size, dtype=dtype)
-        values[:] = self._value
 
-        return values
+        if not isinstance(sparseMap, HealSparseMap):
+            raise RuntimeError("Input sparseMap must be a HealSparseMap")
+        if sparseMap.is_rec_array:
+            raise RuntimeError("Input SparseMap cannot be a rec array")
+
+        return self.get_map(nside_coverage=sparseMap.nside_coverage,
+                            nside_sparse=sparseMap.nside_sparse,
+                            dtype=sparseMap.dtype)
 
 
 class Circle(GeomBase):
@@ -276,7 +299,10 @@ class Circle(GeomBase):
         )
 
     def __repr__(self):
-        s = 'Circle(ra=%.16g, dec=%.16g, radius=%.16g, value=%d)'
+        if self.is_integer_value:
+            s = 'Circle(ra=%.16g, dec=%.16g, radius=%.16g, value=%d)'
+        else:
+            s = 'Circle(ra=%.16g, dec=%.16g, radius=%.16g, value=%f)'
         return s % (self._ra, self._dec, self._radius, self._value)
 
 
@@ -309,6 +335,12 @@ class Polygon(GeomBase):
         self._dec = dec
         self._vertices = hp.ang2vec(ra, dec, lonlat=True)
         self._value = value
+
+        if (issubclass(value.__class__, np.integer) or
+           issubclass(value.__class__, int)):
+            self._is_integer = True
+        else:
+            self._is_integer = False
 
     @property
     def ra(self):
@@ -360,7 +392,10 @@ class Polygon(GeomBase):
         ras = repr(self._ra)
         decs = repr(self._dec)
 
-        s = 'Polygon(ra=%s, dec=%s, value=%d)'
+        if self.is_integer_value:
+            s = 'Polygon(ra=%s, dec=%s, value=%d)'
+        else:
+            s = 'Polygon(ra=%s, dec=%s, value=%f)'
         return s % (ras, decs, self._value)
 
 

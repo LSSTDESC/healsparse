@@ -352,7 +352,7 @@ class HealSparseMap(object):
         pixels : `np.array`
            Integer array of sparse_map pixel values
         values : `np.array`
-           Array of values.  Must be same type as sparse_map
+           Value or Array of values.  Must be same type as sparse_map
         """
 
         # First, check if these are the same type
@@ -367,6 +367,13 @@ class HealSparseMap(object):
         if self._sparse_map.dtype != values.dtype:
             raise RuntimeError("Data-type mismatch between sparse_map and values")
 
+        if values.size == 1:
+            single_value = True
+        else:
+            single_value = False
+            if values.size != pixels.size:
+                raise RuntimeError("Length of values must be the same as pixels, or length 1.")
+
         # Compute the coverage pixels
         ipnest_cov = np.right_shift(_pix, self._bit_shift)
 
@@ -376,7 +383,10 @@ class HealSparseMap(object):
         out_cov, = np.where(~cov_mask[ipnest_cov])
 
         # Replace values for those pixels in the coverage map
-        self._sparse_map[_pix[in_cov] + self._cov_index_map[ipnest_cov[in_cov]]] = values[in_cov]
+        if single_value:
+            self._sparse_map[_pix[in_cov] + self._cov_index_map[ipnest_cov[in_cov]]] = values[0]
+        else:
+            self._sparse_map[_pix[in_cov] + self._cov_index_map[ipnest_cov[in_cov]]] = values[in_cov]
 
         # Update the coverage map for the rest of the pixels (if necessary)
         if out_cov.size > 0:
@@ -407,8 +417,12 @@ class HealSparseMap(object):
                                                dtype=np.int64) * nfine_per_cov
 
             # Fill in the pixels to append
-            sparse_append[_pix[out_cov] + cov_index_map_temp[ipnest_cov[out_cov]] -
-                          self._sparse_map.size] = values[out_cov]
+            if single_value:
+                sparse_append[_pix[out_cov] + cov_index_map_temp[ipnest_cov[out_cov]] -
+                              self._sparse_map.size] = values[0]
+            else:
+                sparse_append[_pix[out_cov] + cov_index_map_temp[ipnest_cov[out_cov]] -
+                              self._sparse_map.size] = values[out_cov]
 
             # And set the values in the map
             self._cov_index_map = cov_index_map_temp

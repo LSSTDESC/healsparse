@@ -111,8 +111,13 @@ class GeomTestCase(unittest.TestCase):
         pixels = circle.get_pixels(nside=nside)
         self.assertGreater(pixels.size, 0)
 
-        smap = circle.get_map(nside=nside, dtype=np.int16)
+        smap = circle.get_map(nside_coverage=32, nside_sparse=nside, dtype=np.int16)
         self.assertTrue(isinstance(smap, healsparse.HealSparseMap))
+
+        smap2 = circle.get_map_like(smap)
+        self.assertEqual(smap2.nside_coverage, smap.nside_coverage)
+        self.assertEqual(smap2.nside_sparse, smap.nside_sparse)
+        self.assertEqual(smap2.dtype, smap.dtype)
 
     def test_circle_values(self):
         """
@@ -134,7 +139,7 @@ class GeomTestCase(unittest.TestCase):
             value=2**4,
         )
 
-        smap = circle.get_map(nside=nside, dtype=np.int16)
+        smap = circle.get_map(nside_coverage=32, nside_sparse=nside, dtype=np.int16)
 
         # test points we expect to be inside
         smallrad = radius*0.95
@@ -162,6 +167,17 @@ class GeomTestCase(unittest.TestCase):
 
         testing.assert_array_equal(vals, 0)
 
+        # And test floating point values
+        circle = Circle(
+            ra=ra,
+            dec=dec,
+            radius=radius,
+            value=2.0,
+        )
+        smap2 = circle.get_map(nside_coverage=32, nside_sparse=nside, dtype=np.float32)
+        testing.assert_array_equal(smap.valid_pixels, smap2.valid_pixels)
+        testing.assert_array_equal(smap2.get_values_pix(smap2.valid_pixels), 2.0)
+
     def test_polygon_smoke(self):
         """
         just test we can make a polygon and a map from it
@@ -177,13 +193,18 @@ class GeomTestCase(unittest.TestCase):
             value=64,
         )
 
-        smap = poly.get_map(nside=nside, dtype=np.int16)
+        smap = poly.get_map(nside_coverage=32, nside_sparse=nside, dtype=np.int16)
 
         ra = np.array([200.1, 200.15])
         dec = np.array([0.05, 0.015])
         vals = smap.get_values_pos(ra, dec, lonlat=True)
 
         testing.assert_array_equal(vals, [poly.value, 0])
+
+        smap2 = poly.get_map_like(smap)
+        self.assertEqual(smap2.nside_coverage, smap.nside_coverage)
+        self.assertEqual(smap2.nside_sparse, smap.nside_sparse)
+        self.assertEqual(smap2.dtype, smap.dtype)
 
     def test_polygon_values(self):
         """
@@ -209,7 +230,7 @@ class GeomTestCase(unittest.TestCase):
             value=64,
         )
 
-        smap = poly.get_map(nside=nside, dtype=np.int16)
+        smap = poly.get_map(nside_coverage=32, nside_sparse=nside, dtype=np.int16)
 
         rad = 0.1*(ra_range[1] - ra_range[0])
         decd = 0.1*(dec_range[1] - dec_range[0])
@@ -228,6 +249,16 @@ class GeomTestCase(unittest.TestCase):
         vals = smap.get_values_pos(rra, rdec, lonlat=True)
 
         testing.assert_array_equal(vals, poly.value)
+
+        # And test floating point values
+        poly = Polygon(
+            ra=ra,
+            dec=dec,
+            value=2.0,
+        )
+        smap2 = poly.get_map(nside_coverage=32, nside_sparse=nside, dtype=np.float32)
+        testing.assert_array_equal(smap.valid_pixels, smap2.valid_pixels)
+        testing.assert_array_equal(smap2.get_values_pix(smap2.valid_pixels), 2.0)
 
     def test_realize_geom_values(self):
         """
