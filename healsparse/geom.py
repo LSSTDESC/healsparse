@@ -342,7 +342,6 @@ class Polygon(GeomBase):
         else:
             self._is_integer = False
 
-
     @property
     def ra(self):
         """
