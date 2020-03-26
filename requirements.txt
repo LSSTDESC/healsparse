@@ -1,3 +1,2 @@
 numpy
 healpy
-fitsio>=1.0.5
