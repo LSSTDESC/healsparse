@@ -1,0 +1,2 @@
+envAppend(PYTHONPATH, ${PRODUCT_DIR}/)
+envAppend(PATH, ${PRODUCT_DIR}/scripts)

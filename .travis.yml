@@ -5,7 +5,7 @@ python:
     #- "3.4" #Same as above
     - "3.5"
     - "3.6"
-    - "3.7-dev"
+    - "3.7"
 # We cache the dependencies
 cache:
     pip: true
@@ -15,4 +15,4 @@ install:
     - pip install flake8
     - pip install .
 # Test!
-script: flake8 && pytest
+script: flake8 && pytest && pip install fitsio>=1.0.5 && pytest

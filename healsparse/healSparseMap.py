@@ -1,9 +1,9 @@
 from __future__ import division, absolute_import, print_function
 import numpy as np
 import healpy as hp
-import fitsio
 import os
 from .utils import reduce_array, check_sentinel
+from .fits_shim import HealSparseFits, _make_header, _write_filename
 
 
 class HealSparseMap(object):
@@ -71,12 +71,14 @@ class HealSparseMap(object):
         -------
         healSparseMap : `HealSparseMap`
            HealSparseMap from file, covered by pixels
-        header : `fitsio.FITSHDR` (if header=True)
+        header : `fitsio.FITSHDR` or `astropy.io.fits` (if header=True)
            Fits header for the map file.
         """
         # Check to see if the filename is a healpix map or a sparsehealpix map
 
-        hdr = fitsio.read_header(filename, ext=1)
+        with HealSparseFits(filename) as fits:
+            hdr = fits.read_ext_header(1)
+
         if 'PIXTYPE' in hdr and hdr['PIXTYPE'].rstrip() == 'HEALPIX':
             if nside_coverage is None:
                 raise RuntimeError("Must specify nside_coverage when reading healpix map")
@@ -84,11 +86,13 @@ class HealSparseMap(object):
             # This is a healpix format
             # We need to determine the datatype, preserving it.
             if hdr['OBJECT'].rstrip() == 'PARTIAL':
-                row = fitsio.read(filename, ext=1, rows=[0])
-                dtype = row[0]['SIGNAL'].dtype.type
+                with HealSparseFits(filename) as fits:
+                    row = fits.read_ext_data(1, row_range=[0, 1])
+                    dtype = row[0]['SIGNAL'].dtype.type
             else:
-                row = fitsio.read(filename, ext=1, rows=[0])
-                dtype = row[0][0][0].dtype.type
+                with HealSparseFits(filename) as fits:
+                    row = fits.read_ext_data(1, row_range=[0, 1])
+                    dtype = row[0][0][0].dtype.type
 
             healpix_map = hp.read_map(filename, nest=True, verbose=False, dtype=dtype)
             if header:
@@ -189,12 +193,15 @@ class HealSparseMap(object):
         sentinel : `float` or `int`
            Sentinel value for null.  Usually hp.UNSEEN
         """
-        cov_index_map = fitsio.read(filename, ext='COV')
+        with HealSparseFits(filename) as fits:
+            cov_index_map = fits.read_ext_data('COV')
         primary = None
 
         if pixels is None:
             # Read the full map
-            sparse_map, s_hdr = fitsio.read(filename, ext='SPARSE', header=True)
+            with HealSparseFits(filename) as fits:
+                sparse_map = fits.read_ext_data('SPARSE')
+                s_hdr = fits.read_ext_header('SPARSE')
             nside_sparse = s_hdr['NSIDE']
             if 'PRIMARY' in s_hdr:
                 primary = s_hdr['PRIMARY'].rstrip()
@@ -209,10 +216,8 @@ class HealSparseMap(object):
                 raise RuntimeError("Input list of pixels must be unique.")
 
             # Read part of a map
-            with fitsio.FITS(filename) as fits:
-
-                hdu = fits['SPARSE']
-                s_hdr = hdu.read_header()
+            with HealSparseFits(filename) as fits:
+                s_hdr = fits.read_ext_header('SPARSE')
 
                 nside_sparse = s_hdr['NSIDE']
                 nside_coverage = hp.npix2nside(cov_index_map.size)
@@ -225,7 +230,7 @@ class HealSparseMap(object):
                 bit_shift = 2 * int(np.round(np.log(nside_sparse / nside_coverage) / np.log(2)))
                 nfine_per_cov = 2**bit_shift
 
-                if hdu.get_exttype() != 'IMAGE_HDU':
+                if not fits.ext_is_image('SPARSE'):
                     # This is a table extension
                     primary = s_hdr['PRIMARY'].rstrip()
 
@@ -241,16 +246,19 @@ class HealSparseMap(object):
                     raise RuntimeError("None of the specified pixels are in the coverage map")
                 sub = np.sort(sub[ok])
 
-                # It is not 100% sure this is the most efficient way to read in using
-                # fitsio, but it does work.
-                sparse_map = np.zeros((sub.size + 1) * nfine_per_cov, dtype=fits['SPARSE'][0:1].dtype)
+                # It is not 100% sure this is the most efficient way to read in,
+                # but it does work.
+                sparse_map = np.zeros((sub.size + 1)*nfine_per_cov, dtype=fits.get_ext_dtype('SPARSE'))
                 # Read in the overflow bin
-                sparse_map[0: nfine_per_cov] = hdu[0: nfine_per_cov]
+                sparse_map[0: nfine_per_cov] = fits.read_ext_data('SPARSE',
+                                                                  row_range=[0, nfine_per_cov])
                 # And read in the pixels
                 for i, pix in enumerate(cov_pix[sub]):
-                    sparse_map[(i + 1)*nfine_per_cov: (i + 2)*nfine_per_cov] = hdu[cov_index_map_temp[pix]:
-                                                                                   cov_index_map_temp[pix] +
-                                                                                   nfine_per_cov]
+                    row_range = [cov_index_map_temp[pix],
+                                 cov_index_map_temp[pix] + nfine_per_cov]
+                    sparse_map[(i + 1)*nfine_per_cov:
+                               (i + 2)*nfine_per_cov] = fits.read_ext_data('SPARSE',
+                                                                           row_range=row_range)
 
                 # Set the coverage index map for the pixels that we read in
                 cov_index_map[:] = 0
@@ -323,7 +331,7 @@ class HealSparseMap(object):
            Name of file to save
         clobber : `bool`, optional
            Clobber existing file?  Default is False.
-        header : `fitsio.FITSHDR` or `dict`, optional
+        header : `fitsio.FITSHDR`, `astropy.io.fits.Header` or `dict`, optional
            Header to put in first extension with additional metadata.
            Default is None.
         """
@@ -331,17 +339,17 @@ class HealSparseMap(object):
             raise RuntimeError("Filename %s exists and clobber is False." % (filename))
 
         # Note that we put the requested header information in each of the extensions.
-        cHdr = fitsio.FITSHDR(header)
-        cHdr['PIXTYPE'] = 'HEALSPARSE'
-        cHdr['NSIDE'] = self._nside_coverage
-        fitsio.write(filename, self._cov_index_map, header=cHdr, extname='COV', clobber=True)
-        s_hdr = fitsio.FITSHDR(header)
+        c_hdr = _make_header(header)
+        c_hdr['PIXTYPE'] = 'HEALSPARSE'
+        c_hdr['NSIDE'] = self._nside_coverage
+
+        s_hdr = _make_header(header)
         s_hdr['PIXTYPE'] = 'HEALSPARSE'
         s_hdr['NSIDE'] = self._nside_sparse
         s_hdr['SENTINEL'] = self._sentinel
         if self._is_rec_array:
             s_hdr['PRIMARY'] = self._primary
-        fitsio.write(filename, self._sparse_map, header=s_hdr, extname='SPARSE')
+        _write_filename(filename, c_hdr, s_hdr, self._cov_index_map, self._sparse_map)
 
     def update_values_pix(self, pixels, values, nest=True):
         """
@@ -683,7 +691,7 @@ class HealSparseMap(object):
         # And return only the valid subset
         return valid_pixels[self.get_values_pix(valid_pixels, valid_mask=True)]
 
-    def valid_pixels_pos(self, lonlat=False):
+    def valid_pixels_pos(self, lonlat=False, return_pixels=False):
         """
         Get an array with the position of valid pixels in the sparse map.
 
@@ -692,14 +700,24 @@ class HealSparseMap(object):
         lonlat: `bool`, optional
             If True, input angles are longitude and latitude in degrees.
             Otherwise, they are co-latitude and longitude in radians.
+        return_pixels: `bool`, optional
+            If true, return valid_pixels / co-lat / co-lon or
+            valid_pixels / lat / lon instead of lat / lon
 
         Returns
         -------
         positions : `tuple`
             By default it will return a tuple of the form (`theta`, `phi`) in radians
             unless `lonlat = True`, for which it will return (`ra`, `dec`) in degrees.
+            If `return_pixels = True`, valid_pixels will be returned as first element
+            in tuple.
         """
-        return hp.pix2ang(self.nside_sparse, self.valid_pixels, lonlat=lonlat, nest=True)
+        if return_pixels:
+            valid_pixels = self.valid_pixels
+            lon, lat = hp.pix2ang(self.nside_sparse, valid_pixels, lonlat=lonlat, nest=True)
+            return (valid_pixels, lon, lat)
+        else:
+            return hp.pix2ang(self.nside_sparse, self.valid_pixels, lonlat=lonlat, nest=True)
 
     def degrade(self, nside_out, reduction='mean'):
         """
