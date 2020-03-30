@@ -62,10 +62,6 @@ class HealSparseFits(object):
         if use_fitsio:
             return self.fits_object[extension].read_header()
         else:
-            # if issubclass(extension, int):
-            #     return self.fits_object[extension].header
-            # else:
-            #     return self.fits_object[(extension, 1)].header
             return self.fits_object[extension].header
 
     def get_ext_dtype(self, extension):

@@ -2,6 +2,7 @@ from __future__ import division, absolute_import, print_function
 import numpy as np
 import healpy as hp
 import os
+import numbers
 from .utils import reduce_array, check_sentinel
 from .fits_shim import HealSparseFits, _make_header, _write_filename
 
@@ -662,6 +663,21 @@ class HealSparseMap(object):
         return issubclass(self._sparse_map.dtype.type, np.integer)
 
     @property
+    def is_unsigned_map(self):
+        """
+        Check that the map is an unsigned integer map
+
+        Returns
+        -------
+        is_unsigned_map : `bool`
+        """
+
+        if self._is_rec_array:
+            return False
+
+        return issubclass(self._sparse_map.dtype.type, np.unsignedinteger)
+
+    @property
     def is_rec_array(self):
         """
         Check that the map is a recArray map.
@@ -1129,9 +1145,9 @@ class HealSparseMap(object):
 
         other_int = False
         other_float = False
-        if (issubclass(other.__class__, int) or issubclass(other.__class__, np.integer)):
+        if isinstance(other, numbers.Integral):
             other_int = True
-        elif (issubclass(other.__class__, float) or issubclass(other.__class__, np.floating)):
+        elif isinstance(other, numbers.Real):
             other_float = True
 
         if not other_int and not other_float:

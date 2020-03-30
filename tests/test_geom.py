@@ -265,50 +265,52 @@ class GeomTestCase(unittest.TestCase):
         test "or"ing two geom objects
         """
         nside = 2**17
-        dtype = np.int16
 
-        radius1 = 0.075
-        radius2 = 0.075
-        ra1, dec1 = 200.0, 0.0
-        ra2, dec2 = 200.1, 0.0
-        value1 = 2**2
-        value2 = 2**4
+        for dtype in [np.int16, np.uint16]:
+            dtype = np.int16
 
-        circle1 = Circle(
-            ra=ra1,
-            dec=dec1,
-            radius=radius1,
-            value=value1,
-        )
-        circle2 = Circle(
-            ra=ra2,
-            dec=dec2,
-            radius=radius2,
-            value=value2,
-        )
+            radius1 = 0.075
+            radius2 = 0.075
+            ra1, dec1 = 200.0, 0.0
+            ra2, dec2 = 200.1, 0.0
+            value1 = 2**2
+            value2 = 2**4
 
-        smap = healsparse.HealSparseMap.make_empty(
-            nside_coverage=32,
-            nside_sparse=nside,
-            dtype=dtype,
-            sentinel=0,
-        )
-        healsparse.realize_geom([circle1, circle2], smap)
+            circle1 = Circle(
+                ra=ra1,
+                dec=dec1,
+                radius=radius1,
+                value=value1,
+            )
+            circle2 = Circle(
+                ra=ra2,
+                dec=dec2,
+                radius=radius2,
+                value=value2,
+            )
 
-        out_ra, out_dec = 190.0, 25.0
-        in1_ra, in1_dec = 200.02, 0.0
-        in2_ra, in2_dec = 200.095, 0.0
-        both_ra, both_dec = 200.05, 0.0
+            smap = healsparse.HealSparseMap.make_empty(
+                nside_coverage=32,
+                nside_sparse=nside,
+                dtype=dtype,
+                sentinel=0,
+            )
+            healsparse.realize_geom([circle1, circle2], smap)
 
-        out_vals = smap.get_values_pos(out_ra, out_dec, lonlat=True)
-        in1_vals = smap.get_values_pos(in1_ra, in1_dec, lonlat=True)
-        in2_vals = smap.get_values_pos(in2_ra, in2_dec, lonlat=True)
-        both_vals = smap.get_values_pos(both_ra, both_dec, lonlat=True)
+            out_ra, out_dec = 190.0, 25.0
+            in1_ra, in1_dec = 200.02, 0.0
+            in2_ra, in2_dec = 200.095, 0.0
+            both_ra, both_dec = 200.05, 0.0
 
-        testing.assert_array_equal(out_vals, 0)
-        testing.assert_array_equal(in1_vals, value1)
-        testing.assert_array_equal(in2_vals, value2)
-        testing.assert_array_equal(both_vals, (value1 | value2))
+            out_vals = smap.get_values_pos(out_ra, out_dec, lonlat=True)
+            in1_vals = smap.get_values_pos(in1_ra, in1_dec, lonlat=True)
+            in2_vals = smap.get_values_pos(in2_ra, in2_dec, lonlat=True)
+            both_vals = smap.get_values_pos(both_ra, both_dec, lonlat=True)
+
+            testing.assert_array_equal(out_vals, 0)
+            testing.assert_array_equal(in1_vals, value1)
+            testing.assert_array_equal(in2_vals, value2)
+            testing.assert_array_equal(both_vals, (value1 | value2))
 
     def test_repr(self):
         """
