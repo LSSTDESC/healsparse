@@ -2,6 +2,7 @@ from __future__ import division, absolute_import, print_function
 import numpy as np
 import healpy as hp
 import os
+import numbers
 from .utils import reduce_array, check_sentinel
 from .fits_shim import HealSparseFits, _make_header, _write_filename
 
@@ -15,7 +16,35 @@ class HealSparseMap(object):
                  healpix_map=None, nside_coverage=None, primary=None, sentinel=None,
                  nest=True):
         """
-        TODO
+        Instantiate a HealSparseMap.
+
+        Can be created with cov_index_map, sparse_map, and nside_sparse; or with
+        healpix_map, nside_coverage.  Also see `HealSparseMap.read()`,
+        `HealSparseMap.make_empty()`, `HealSparseMap.make_empty_like()`.
+
+        Parameters
+        ----------
+        cov_index_map : `np.ndarray`, optional
+           Coverage index map
+        sparse_map : `np.ndarray`, optional
+           Sparse map
+        nside_sparse : `int`, optional
+           Healpix nside for sparse map
+        healpix_map : `np.ndarray`, optional
+           Input healpix map to convert to a sparse map
+        nside_coverage : `int`, optional
+           Healpix nside for coverage map
+        primary : `str`, optional
+           Primary key for recarray, required if dtype has fields.
+        sentinel : `int` or `float`, optional
+           Sentinel value.  Default is `hp.UNSEEN` for floating-point types,
+           and minimum int for int types.
+        nest : `bool`, optional
+           If input healpix map is in nest format.  Default is True.
+
+        Returns
+        -------
+        healSparseMap : `HealSparseMap`
         """
         if cov_index_map is not None and sparse_map is not None and nside_sparse is not None:
             # this is a sparse map input
@@ -128,11 +157,14 @@ class HealSparseMap(object):
            Datatype, any format accepted by numpy.
         primary : `str`, optional
            Primary key for recarray, required if dtype has fields.
+        sentinel : `int` or `float`, optional
+           Sentinel value.  Default is `hp.UNSEEN` for floating-point types,
+           and minimum int for int types.
 
         Returns
         -------
         healSparseMap : `HealSparseMap`
-           HealSparseMap filled with UNSEEN values.
+           HealSparseMap filled with sentinel values.
         """
 
         bit_shift = 2 * int(np.round(np.log(nside_sparse / nside_coverage) / np.log(2)))
@@ -153,9 +185,7 @@ class HealSparseMap(object):
                     sparse_map[name][:] = _sentinel
                     primary_found = True
                 else:
-                    # TODO: Should this be something other than UNSEEN?
-                    # And does it matter?
-                    sparse_map[name][:] = hp.UNSEEN
+                    sparse_map[name][:] = check_sentinel(sparse_map[name].dtype.type, None)
 
             if not primary_found:
                 raise RuntimeError("Primary field not found in input dtype of recarray.")
@@ -167,6 +197,45 @@ class HealSparseMap(object):
 
         return cls(cov_index_map=cov_index_map, sparse_map=sparse_map,
                    nside_sparse=nside_sparse, primary=primary, sentinel=_sentinel)
+
+    @classmethod
+    def make_empty_like(cls, sparsemap, nside_coverage=None, nside_sparse=None, dtype=None,
+                        primary=None, sentinel=None):
+        """
+        Make an empty map with the same parameters as an existing map.
+
+        Parameters
+        ----------
+        sparsemap : `HealSparseMap`
+           Sparse map to use as basis for new empty map.
+        nside_coverage : `int`, optional
+           Coverage nside, default to sparsemap.nside_coverage
+        nside_sparse : `int`, optional
+           Sparse map nside, default to sparsemap.nside_sparse
+        dtype : `str` or `list` or `np.dtype`, optional
+           Datatype, any format accepted by numpy.  Default is sparsemap.dtype
+        primary : `str`, optional
+           Primary key for recarray.  Default is sparsemap.primary
+        sentinel : `int` or `float`, optional
+           Sentinel value.  Default is sparsemap._sentinel
+
+        Returns
+        -------
+        healSparseMap : `HealSparseMap`
+           HealSparseMap filled with sentinel values.
+        """
+        if nside_coverage is None:
+            nside_coverage = sparsemap.nside_coverage
+        if nside_sparse is None:
+            nside_sparse = sparsemap.nside_sparse
+        if dtype is None:
+            dtype = sparsemap.dtype
+        if primary is None:
+            primary = sparsemap.primary
+        if sentinel is None:
+            sentinel = sparsemap._sentinel
+
+        return cls.make_empty(nside_coverage, nside_sparse, dtype, primary=primary, sentinel=sentinel)
 
     @staticmethod
     def _read_healsparse_file(filename, pixels=None):
@@ -592,6 +661,21 @@ class HealSparseMap(object):
             return False
 
         return issubclass(self._sparse_map.dtype.type, np.integer)
+
+    @property
+    def is_unsigned_map(self):
+        """
+        Check that the map is an unsigned integer map
+
+        Returns
+        -------
+        is_unsigned_map : `bool`
+        """
+
+        if self._is_rec_array:
+            return False
+
+        return issubclass(self._sparse_map.dtype.type, np.unsignedinteger)
 
     @property
     def is_rec_array(self):
@@ -1061,9 +1145,9 @@ class HealSparseMap(object):
 
         other_int = False
         other_float = False
-        if (issubclass(other.__class__, int) or issubclass(other.__class__, np.integer)):
+        if isinstance(other, numbers.Integral):
             other_int = True
-        elif (issubclass(other.__class__, float) or issubclass(other.__class__, np.floating)):
+        elif isinstance(other, numbers.Real):
             other_float = True
 
         if not other_int and not other_float:

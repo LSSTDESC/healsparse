@@ -1,6 +1,7 @@
 import numpy as np
 import healpy as hp
 import warnings
+import numbers
 
 
 def reduce_array(x, reduction='mean', axis=2):
@@ -63,8 +64,7 @@ def check_sentinel(type, sentinel):
         if sentinel is None:
             return hp.UNSEEN
         # If input is a float, we're okay.  Otherwise, Raise.
-        if (issubclass(sentinel.__class__, np.floating) or
-                issubclass(sentinel.__class__, float)):
+        if isinstance(sentinel, numbers.Real):
             return sentinel
         else:
             raise ValueError("Sentinel not of floating type")
@@ -72,11 +72,30 @@ def check_sentinel(type, sentinel):
         # If we don't have a sentinel, MININT
         if sentinel is None:
             return np.iinfo(type).min
-        if (issubclass(sentinel.__class__, np.integer) or
-                issubclass(sentinel.__class__, int)):
+        if is_integer_value(sentinel):
             if (sentinel < np.iinfo(type).min or
                     sentinel > np.iinfo(type).max):
                 raise ValueError("Sentinel out of range of type")
             return sentinel
         else:
             raise ValueError("Sentinel not of integer type")
+
+
+def is_integer_value(value):
+    """
+    Check if a value is an integer type
+
+    Parameters
+    ----------
+    value : 'Object`
+       A value of any type
+
+    Returns
+    -------
+    is_integer : `bool`
+       `True` if is a numpy or python integer.  False otherwise.
+    """
+    if isinstance(value, numbers.Integral):
+        return True
+    else:
+        return False

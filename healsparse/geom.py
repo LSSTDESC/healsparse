@@ -1,6 +1,8 @@
 import numpy as np
 import healpy as hp
 from .healSparseMap import HealSparseMap
+from .utils import is_integer_value
+import numbers
 
 
 def make_circles(*, ra, dec, radius, value):
@@ -126,10 +128,7 @@ def realize_geom(geom, smap, type='or'):
 
 
 def _check_int(x):
-    check = (
-        issubclass(x.__class__, np.integer) or
-        issubclass(x.__class__, int)
-    )
+    check = isinstance(x, numbers.Integral)
     if not check:
         raise ValueError('value must be integer type, '
                          'got %s' % x)
@@ -153,11 +152,7 @@ class GeomBase(object):
         """
         Check if the value is an integer type
         """
-        if (issubclass(self._value.__class__, np.integer) or
-           issubclass(self._value.__class__, int)):
-            return True
-        else:
-            return False
+        return is_integer_value(self._value)
 
     @property
     def value(self):
@@ -196,8 +191,7 @@ class GeomBase(object):
         """
 
         x = np.zeros(1, dtype=dtype)
-        if (issubclass(x[0].__class__, np.integer) or
-           issubclass(x[0].__class__, int)):
+        if is_integer_value(x[0]):
             sentinel = 0
         else:
             sentinel = hp.UNSEEN
@@ -336,11 +330,7 @@ class Polygon(GeomBase):
         self._vertices = hp.ang2vec(ra, dec, lonlat=True)
         self._value = value
 
-        if (issubclass(value.__class__, np.integer) or
-           issubclass(value.__class__, int)):
-            self._is_integer = True
-        else:
-            self._is_integer = False
+        self._is_integer = is_integer_value(value)
 
     @property
     def ra(self):
