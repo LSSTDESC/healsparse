@@ -1,6 +1,7 @@
 import numpy as np
 import healpy as hp
 from .healSparseMap import HealSparseMap
+from .utils import is_integer_value
 
 
 def make_circles(*, ra, dec, radius, value):
@@ -153,11 +154,7 @@ class GeomBase(object):
         """
         Check if the value is an integer type
         """
-        if (issubclass(self._value.__class__, np.integer) or
-           issubclass(self._value.__class__, int)):
-            return True
-        else:
-            return False
+        return is_integer_value(self._value)
 
     @property
     def value(self):

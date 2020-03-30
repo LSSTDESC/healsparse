@@ -80,3 +80,25 @@ def check_sentinel(type, sentinel):
             return sentinel
         else:
             raise ValueError("Sentinel not of integer type")
+
+
+def is_integer_value(value):
+    """
+    Check if a value is an integer type
+
+    Parameters
+    ----------
+    value : 'Object`
+       A value of any type
+
+    Returns
+    -------
+    is_integer : `bool`
+       `True` if is a numpy or python integer.  False otherwise.
+    """
+
+    if (issubclass(value.__class__, np.integer) or
+       issubclass(value.__class__, int)):
+        return True
+    else:
+        return False

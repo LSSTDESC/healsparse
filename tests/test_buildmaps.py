@@ -61,6 +61,30 @@ class BuildMapsTestCase(unittest.TestCase):
         hpmap[pixel2] = values2
         testing.assert_almost_equal(sparse_map.get_values_pos(ra, dec, lonlat=True), hpmap[ipnest_test])
 
+        # Test making empty maps
+        sparse_map2 = healsparse.HealSparseMap.make_empty_like(sparse_map)
+        self.assertEqual(sparse_map2.nside_coverage, sparse_map.nside_coverage)
+        self.assertEqual(sparse_map2.nside_sparse, sparse_map.nside_sparse)
+        self.assertEqual(sparse_map2.dtype, sparse_map.dtype)
+        self.assertEqual(sparse_map2._sentinel, sparse_map._sentinel)
+
+        sparse_map2 = healsparse.HealSparseMap.make_empty_like(sparse_map, nside_coverage=16)
+        self.assertEqual(sparse_map2.nside_coverage, 16)
+        self.assertEqual(sparse_map2.nside_sparse, sparse_map.nside_sparse)
+        self.assertEqual(sparse_map2.dtype, sparse_map.dtype)
+        self.assertEqual(sparse_map2._sentinel, sparse_map._sentinel)
+
+        sparse_map2 = healsparse.HealSparseMap.make_empty_like(sparse_map, nside_sparse=128)
+        self.assertEqual(sparse_map2.nside_coverage, sparse_map.nside_coverage)
+        self.assertEqual(sparse_map2.nside_sparse, 128)
+        self.assertEqual(sparse_map2.dtype, sparse_map.dtype)
+        self.assertEqual(sparse_map2._sentinel, sparse_map._sentinel)
+
+        sparse_map2 = healsparse.HealSparseMap.make_empty_like(sparse_map, dtype=np.int32, sentinel=0)
+        self.assertEqual(sparse_map2.nside_coverage, sparse_map.nside_coverage)
+        self.assertEqual(sparse_map2.nside_sparse, sparse_map.nside_sparse)
+        self.assertEqual(sparse_map2.dtype, np.int32)
+
     def test_build_maps_recarray(self):
         """
         Testing building a map for a recarray
@@ -128,6 +152,13 @@ class BuildMapsTestCase(unittest.TestCase):
                                     hpmapCol1[ipnest_test])
         testing.assert_almost_equal(sparse_map.get_values_pos(ra, dec, lonlat=True)['col2'],
                                     hpmapCol2[ipnest_test])
+
+        # Test making empty maps
+        sparse_map2 = healsparse.HealSparseMap.make_empty_like(sparse_map)
+        self.assertEqual(sparse_map2.nside_coverage, sparse_map.nside_coverage)
+        self.assertEqual(sparse_map2.nside_sparse, sparse_map.nside_sparse)
+        self.assertEqual(sparse_map2.dtype, sparse_map.dtype)
+        self.assertEqual(sparse_map2._sentinel, sparse_map._sentinel)
 
 
 if __name__ == '__main__':
