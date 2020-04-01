@@ -1369,6 +1369,8 @@ class HealSparseMap(object):
         if int_only:
             if not self.is_integer_map:
                 raise NotImplementedError("Can only apply %s to integer maps" % (name))
+        if self._is_wide_mask:
+            raise NotImplementedError("Cannot use %s with wide mask maps" % (name))
 
         other_int = False
         other_float = False

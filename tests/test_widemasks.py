@@ -367,8 +367,58 @@ class WideMasksTestCase(unittest.TestCase):
         """
         Test apply_mask with a wide mask map
         """
+        nside_coverage = 128
+        nside_sparse = 2**15
 
-        pass
+        box = healsparse.geom.Polygon(ra=[200.0, 200.2, 200.2, 200.0],
+                                      dec=[10.0, 10.0, 10.2, 10.2],
+                                      value=[70])
+
+        mask_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse,
+                                                       np.uint64, sentinel=0, wide_mask_maxbits=70)
+        healsparse.geom.realize_geom(box, mask_map)
+
+        # Create an integer value map, using a bigger box
+        box2 = healsparse.geom.Polygon(ra=[199.8, 200.4, 200.4, 199.8],
+                                       dec=[9.8, 9.8, 10.4, 10.4],
+                                       value=1)
+        int_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse, np.int16, sentinel=0)
+        healsparse.geom.realize_geom(box2, int_map)
+
+        valid_pixels = int_map.valid_pixels
+
+        # Default, mask all bits
+        masked_map = int_map.apply_mask(mask_map, in_place=False)
+        masked_pixels = mask_map.valid_pixels
+
+        # Masked pixels should be zero
+        testing.assert_array_equal(masked_map.get_values_pix(masked_pixels), 0)
+
+        # Pixels that are in the original but are not in the masked pixels should be 1
+        still_good, = np.where((int_map.get_values_pix(valid_pixels) > 0) &
+                               (mask_map.get_values_pix(valid_pixels).sum(axis=1) == 0))
+        testing.assert_array_equal(masked_map.get_values_pix(valid_pixels[still_good]), 1)
+
+        # Mask specific bits
+        masked_map = int_map.apply_mask(mask_map, mask_bit_arr=[70], in_place=False)
+
+        # Masked pixels should be zero
+        testing.assert_array_equal(masked_map.get_values_pix(masked_pixels), 0)
+
+        # Pixels that are in the original but are not in the masked pixels should be 1
+        still_good, = np.where((int_map.get_values_pix(valid_pixels) > 0) &
+                               (mask_map.get_values_pix(valid_pixels).sum(axis=1) == 0))
+        testing.assert_array_equal(masked_map.get_values_pix(valid_pixels[still_good]), 1)
+
+        # And mask specific bits that are not set
+        masked_map = int_map.apply_mask(mask_map, mask_bit_arr=[16], in_place=False)
+        values = mask_map.get_values_pix(mask_map.valid_pixels)
+        masked_pixels, = np.where((values[:, 0] & (2**16)) > 0)
+        testing.assert_equal(masked_pixels.size, 0)
+
+        still_good, = np.where((int_map.get_values_pix(valid_pixels) > 0) &
+                               ((mask_map.get_values_pix(valid_pixels)[:, 0] & 2**16) == 0))
+        testing.assert_array_equal(masked_map.get_values_pix(valid_pixels[still_good]), 1)
 
     def setUp(self):
         self.test_dir = None
