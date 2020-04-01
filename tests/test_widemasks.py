@@ -3,7 +3,6 @@ import numpy.testing as testing
 import numpy as np
 import healpy as hp
 from numpy import random
-import esutil
 import tempfile
 import os
 import shutil
@@ -45,7 +44,8 @@ class WideMasksTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [5, 10]), True)
 
         pospix = hp.ang2pix(nside_map, ra, dec, lonlat=True, nest=True)
-        a, b = esutil.numpy_util.match(pixel, pospix)
+        inds = np.searchsorted(pixel, pospix)
+        b, = np.where((inds > 0) & (inds < pixel.size))
         comp_arr = np.zeros(pospix.size, dtype=np.bool)
         comp_arr[b] = True
         testing.assert_array_equal(sparse_map.check_bits_pos(ra, dec, [5], lonlat=True), comp_arr)
@@ -124,7 +124,8 @@ class WideMasksTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [5, 10]), True)
 
         pospix = hp.ang2pix(nside_map, ra, dec, lonlat=True, nest=True)
-        a, b = esutil.numpy_util.match(pixel, pospix)
+        inds = np.searchsorted(pixel, pospix)
+        b, = np.where((inds > 0) & (inds < pixel.size))
         comp_arr = np.zeros(pospix.size, dtype=np.bool)
         comp_arr[b] = True
         testing.assert_array_equal(sparse_map_in.check_bits_pos(ra, dec, [5], lonlat=True), comp_arr)
