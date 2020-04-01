@@ -31,7 +31,6 @@ class WideMasksTestCase(unittest.TestCase):
                                                          np.uint64, wide_mask_maxbits=50)
 
         self.assertTrue(sparse_map.is_wide_mask_map)
-        self.assertEqual(sparse_map._wide_mask_nbit, 64)
         self.assertEqual(sparse_map._wide_mask_maxbits, 64)
         self.assertEqual(sparse_map._sparse_map.shape, (4, 1))
         self.assertEqual(sparse_map._sentinel, 0)
@@ -113,7 +112,6 @@ class WideMasksTestCase(unittest.TestCase):
         sparse_map_in = healsparse.HealSparseMap.read(fname)
 
         self.assertTrue(sparse_map_in.is_wide_mask_map)
-        self.assertEqual(sparse_map_in._wide_mask_nbit, 64)
         self.assertEqual(sparse_map_in._wide_mask_maxbits, 64)
         self.assertEqual(sparse_map_in._sparse_map.shape[1], 1)
         self.assertEqual(sparse_map_in._wide_mask_width, 1)
@@ -141,7 +139,6 @@ class WideMasksTestCase(unittest.TestCase):
         sparse_map_in = healsparse.HealSparseMap.read(fname)
 
         self.assertTrue(sparse_map_in.is_wide_mask_map)
-        self.assertEqual(sparse_map_in._wide_mask_nbit, 64)
         self.assertEqual(sparse_map_in._wide_mask_maxbits, 128)
         self.assertEqual(sparse_map_in._sparse_map.shape[1], 2)
         self.assertEqual(sparse_map_in._wide_mask_width, 2)

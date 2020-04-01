@@ -3,7 +3,7 @@ import numpy as np
 import healpy as hp
 import os
 import numbers
-from .utils import reduce_array, check_sentinel
+from .utils import reduce_array, check_sentinel, _get_field_and_bitval, WIDE_NBIT
 from .fits_shim import HealSparseFits, _make_header, _write_filename
 
 
@@ -78,9 +78,8 @@ class HealSparseMap(object):
         else:
             if ((self._sparse_map.dtype.type == np.uint64) and len(self._sparse_map.shape) == 2):
                 self._is_wide_mask = True
-                self._wide_mask_nbit = 64
                 self._wide_mask_width = self._sparse_map.shape[1]
-                self._wide_mask_maxbits = self._wide_mask_nbit * self._wide_mask_width
+                self._wide_mask_maxbits = WIDE_NBIT * self._wide_mask_width
             self._sentinel = check_sentinel(self._sparse_map.dtype.type, sentinel)
 
         self._bit_shift = 2 * int(np.round(np.log(self._nside_sparse / self._nside_coverage) / np.log(2)))
@@ -187,8 +186,7 @@ class HealSparseMap(object):
             if sentinel is not None:
                 if sentinel != 0:
                     raise ValueError("Sentinel must be 0 for wide_mask")
-            nbit = 64
-            nbitfields = (wide_mask_maxbits - 1) // nbit + 1
+            nbitfields = (wide_mask_maxbits - 1) // WIDE_NBIT + 1
 
         bit_shift = 2 * int(np.round(np.log(nside_sparse / nside_coverage) / np.log(2)))
         nfine_per_cov = 2**bit_shift
@@ -578,7 +576,8 @@ class HealSparseMap(object):
                                                                     self._wide_mask_maxbits))
         values = self.get_values_pix(pixels, nest=nest)
         for bit in bits:
-            values[:, bit // self._wide_mask_nbit] |= np.uint64(np.left_shift(1, bit))
+            field, bitval = _get_field_and_bitval(bit)
+            values[:, field] |= bitval
 
         self.update_values_pix(pixels, values, nest=nest)
 
@@ -601,7 +600,8 @@ class HealSparseMap(object):
                                                                     self._wide_mask_maxbits))
         values = self.get_values_pix(pixels, nest=nest)
         for bit in bits:
-            values[:, bit // self._wide_mask_nbit] &= np.uint64(~np.left_shift(1, bit))
+            field, bitval = _get_field_and_bitval(bit)
+            values[:, field] &= ~bitval
 
         self.update_values_pix(pixels, values, nest=nest)
 
@@ -720,10 +720,11 @@ class HealSparseMap(object):
         values = self.get_values_pix(pixels, nest=nest)
         bit_flags = None
         for bit in bits:
+            field, bitval = _get_field_and_bitval(bit)
             if bit_flags is None:
-                bit_flags = ((values[:, bit // self._wide_mask_nbit] & np.uint64(np.left_shift(1, bit))) > 0)
+                bit_flags = ((values[:, field] & bitval) > 0)
             else:
-                bit_flags |= ((values[:, bit // self._wide_mask_nbit] & np.uint64(np.left_shift(1, bit))) > 0)
+                bit_flags |= ((values[:, field] & bitval) > 0)
 
         return bit_flags
 
@@ -1117,12 +1118,11 @@ class HealSparseMap(object):
                     mask_values = mask_map.get_values_pix(valid_pixels)
                     bad_pixel_flag = None
                     for bit in mask_bit_arr:
+                        field, bitval = _get_field_and_bitval(bit)
                         if bad_pixel_flag is None:
-                            bad_pixel_flag = ((mask_values[:, bit // mask_map._wide_mask_nbit] &
-                                               np.uint64(np.left_shift(1, bit))) > 0)
+                            bad_pixel_flag = ((mask_values[:, field] & bitval) > 0)
                         else:
-                            bad_pixel_flag |= ((mask_values[:, bit // mask_map._wide_mask_nbit] &
-                                                np.uint64(np.left_shift(1, bit))) > 0)
+                            bad_pixel_flag |= ((mask_values[:, field] & bitval) > 0)
                     bad_pixels, = np.where(bad_pixel_flag)
             else:
                 bad_pixels, = np.where(mask_map.get_values_pix(valid_pixels) > 0)
