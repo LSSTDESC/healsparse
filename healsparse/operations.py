@@ -217,6 +217,121 @@ def xor_intersection(map_list):
     return _apply_operation(map_list, np.bitwise_xor, 0, union=False, int_only=True)
 
 
+def max_intersection(map_list):
+    """
+    Element-wise maximum of the intersection of a list of the HealSparseMaps.
+
+    Parameters
+    ----------
+    map_list : `list` of `HealSparseMap`
+        Input list of maps to compute the maximum of
+
+    Returns
+    -------
+    result : `HealSparseMap`
+        Element-wise maximum of maps
+    """
+
+    return _apply_operation(map_list, np.maximum, 0, union=False, int_only=False)
+
+
+def min_intersection(map_list):
+    """
+    Element-wise minimum of the intersection of a list of HealSparseMaps.
+
+    Parameters
+    ----------
+    map_list : `list` of `HealSparseMap`
+        Input list of maps to compute the minimum of
+
+    Returns
+    -------
+    result : `HealSparseMap`
+        Element-wise minimum of maps
+    """
+
+    return _apply_operation(map_list, np.minimum, -hp.UNSEEN, union=False, int_only=False)
+
+
+def max_union(map_list):
+    """
+    Element-wise maximum of the union of a list of HealSparseMaps.
+
+    Parameters
+    ----------
+    map_list : `list` of `HealSparseMap`
+        Input list of maps to compute the maximum of
+
+    Returns
+    -------
+    result : `HealSparseMap`
+        Element-wise maximum of maps
+    """
+
+    return _apply_operation(map_list, np.maximum, 0, union=True, int_only=False)
+
+
+def min_union(map_list):
+    """
+    Element-wise minimum of the union of a list of HealSparseMaps.
+
+    Parameters
+    ----------
+    map_list : `list` of `HealSparseMap`
+        Input list of maps to compute the minimum of
+
+    Returns
+    -------
+    result : `HealSparseMap`
+        Element-wise minimum of maps
+    """
+
+    return _apply_operation(map_list, np.minimum, -hp.UNSEEN, union=True, int_only=False)
+
+
+def ufunc_intersection(map_list, func, filler_value=0):
+    """
+    Apply numpy ufunc to the intersection of a list of HealSparseMaps.
+
+    Parameters
+    ----------
+    map_list : `list` of `HealSparseMap`
+        Input list of maps where the operation is applied
+    func : `np.ufunc`
+        Numpy universal function to apply
+    filler_value : `int` or `float`
+        Starting value
+    Returns
+    -------
+    result : `HealSparseMap`
+        Resulting map
+    """
+
+    return _apply_operation(map_list, func, filler_value, union=False, int_only=False)
+
+
+def ufunc_union(map_list, func, filler_value=0):
+    """
+    Apply numpy ufunc to the union of a list of HealSparseMaps.
+
+    Parameters
+    ----------
+    map_list : `list` of `HealSparseMaps`
+        Input list of maps where the operation is applied
+    func : `np.ufunc`
+        Numpy universal function to apply
+    filler_value : `int` or `float`
+        Starting value and filler for the union
+
+    Returns
+    -------
+    result : `HealSparseMap`
+        Resulting map
+    """
+
+    return _apply_operation(map_list, func, filler_value, union=True, int_only=False)
+
+
 def _apply_operation(map_list, func, filler_value, union=False, int_only=False):
     """
     Apply a generic arithmetic function.
