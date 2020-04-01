@@ -153,7 +153,8 @@ class HealSparseMap(object):
             raise RuntimeError("Filename %s not in healpix or healsparse format." % (filename))
 
     @classmethod
-    def make_empty(cls, nside_coverage, nside_sparse, dtype, primary=None, sentinel=None, wide_mask_maxbits=None):
+    def make_empty(cls, nside_coverage, nside_sparse, dtype, primary=None, sentinel=None,
+                   wide_mask_maxbits=None):
         """
         Make an empty map with nothing in it.
 
@@ -265,7 +266,8 @@ class HealSparseMap(object):
             if sparsemap._is_wide_mask:
                 wide_mask_maxbits = sparsemap._wide_mask_maxbits
 
-        return cls.make_empty(nside_coverage, nside_sparse, dtype, primary=primary, sentinel=sentinel, wide_mask_maxbits=wide_mask_maxbits)
+        return cls.make_empty(nside_coverage, nside_sparse, dtype, primary=primary,
+                              sentinel=sentinel, wide_mask_maxbits=wide_mask_maxbits)
 
     @staticmethod
     def _read_healsparse_file(filename, pixels=None):
@@ -454,7 +456,6 @@ class HealSparseMap(object):
             _write_filename(filename, c_hdr, s_hdr, self._cov_index_map, self._sparse_map.astype(np.int64))
         else:
             _write_filename(filename, c_hdr, s_hdr, self._cov_index_map, self._sparse_map)
-
 
     def update_values_pix(self, pixels, values, nest=True):
         """
@@ -1114,11 +1115,15 @@ class HealSparseMap(object):
                 else:
                     # loop over mask_bit_arr
                     mask_values = mask_map.get_values_pix(valid_pixels)
+                    bad_pixel_flag = None
                     for bit in mask_bit_arr:
                         if bad_pixel_flag is None:
-                            bad_pixel_flag = ((mask_values[:, bit // mask_map._wide_mask_nbit] & np.uint64(np.left_shift(1, bit))) > 0)
+                            bad_pixel_flag = ((mask_values[:, bit // mask_map._wide_mask_nbit] &
+                                               np.uint64(np.left_shift(1, bit))) > 0)
                         else:
-                            bad_pixel_flag |= ((mask_values[:, bit // mask_map._wide_mask_nbit] & np.uint64(np.left_shift(1, bit))) > 0)
+                            bad_pixel_flag |= ((mask_values[:, bit // mask_map._wide_mask_nbit] &
+                                                np.uint64(np.left_shift(1, bit))) > 0)
+                    bad_pixels, = np.where(bad_pixel_flag)
             else:
                 bad_pixels, = np.where(mask_map.get_values_pix(valid_pixels) > 0)
         else:

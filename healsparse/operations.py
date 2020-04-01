@@ -409,7 +409,8 @@ def _apply_operation(map_list, func, filler_value, union=False, int_only=False):
     cov_index_map[cov_pix] = np.arange(1, cov_pix.size + 1) * nfine_per_cov
     cov_index_map[:] -= np.arange(hp.nside2npix(nside_coverage), dtype=np.int64) * nfine_per_cov
     if is_wide_mask:
-        combined_sparse_map = np.zeros(((cov_pix.size + 1) * nfine_per_cov, wide_mask_width), dtype=dtype) + filler_value
+        combined_sparse_map = np.zeros(((cov_pix.size + 1) * nfine_per_cov,
+                                        wide_mask_width), dtype=dtype) + filler_value
     else:
         combined_sparse_map = np.zeros((cov_pix.size + 1) * nfine_per_cov, dtype=dtype) + filler_value
 
