@@ -78,13 +78,21 @@ class WideMasksTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [70]), True)
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [15]), False)
 
-        # This makes sure the sizes are correct
+        # This makes sure the inferred size is correct
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
                                                          np.uint64, wide_mask_maxbits=128)
         self.assertEqual(sparse_map._wide_mask_maxbits, 128)
+
+        # And do a triple-wide
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
-                                                         np.uint64, wide_mask_maxbits=129)
+                                                         np.uint64, wide_mask_maxbits=160)
         self.assertEqual(sparse_map._wide_mask_maxbits, 192)
+
+        sparse_map.set_bits_pix(pixel, [5, 100, 150])
+        testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [5]), True)
+        testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [100]), True)
+        testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [150]), True)
+        testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [151]), False)
 
     def test_wide_mask_map_io(self):
         """
@@ -285,6 +293,82 @@ class WideMasksTestCase(unittest.TestCase):
             test_xor_union[gd] = arr1[gd, i] ^ arr2[gd, i]
             testing.assert_equal(xor_map_union.get_values_pix(all_pixels)[:, i],
                                  test_xor_union)
+
+    def test_wide_mask_polygon(self):
+        """
+        Make a wide mask with a polygon
+        """
+        nside_coverage = 128
+        nside_sparse = 2**15
+
+        ra = [200.0, 200.2, 200.3, 200.2, 200.1]
+        dec = [0.0, 0.1, 0.2, 0.25, 0.13]
+        poly = healsparse.geom.Polygon(ra=ra, dec=dec, value=[4, 70])
+
+        # Test making a map from polygon, infer the maxbits
+        smap = poly.get_map(nside_coverage=nside_coverage, nside_sparse=nside_sparse,
+                            dtype=np.uint64)
+        self.assertTrue(smap.is_wide_mask_map)
+        self.assertEqual(smap._wide_mask_maxbits, 128)
+
+        ra = np.array([200.1, 200.15])
+        dec = np.array([0.05, 0.015])
+
+        vals = smap.get_values_pos(ra, dec, lonlat=True)
+        testing.assert_array_equal(vals[:, 0], [2**4, 0])
+        testing.assert_array_equal(vals[:, 1], [2**(70 - 64), 0])
+
+        # Test making a map from polygon, specify the maxbits
+        smap = poly.get_map(nside_coverage=nside_coverage, nside_sparse=nside_sparse,
+                            dtype=np.uint64, wide_mask_maxbits=150)
+        self.assertTrue(smap.is_wide_mask_map)
+        self.assertEqual(smap._wide_mask_maxbits, 192)
+
+        vals = smap.get_values_pos(ra, dec, lonlat=True)
+        testing.assert_array_equal(vals[:, 0], [2**4, 0])
+        testing.assert_array_equal(vals[:, 1], [2**(70 - 64), 0])
+
+        # Test realizing two maps
+        nside_sparse = 2**17
+
+        radius1 = 0.075
+        radius2 = 0.075
+        ra1, dec1 = 200.0, 0.0
+        ra2, dec2 = 200.1, 0.0
+        value1 = [5, 70]
+        value2 = [6]
+
+        circle1 = healsparse.geom.Circle(ra=ra1, dec=dec1,
+                                         radius=radius1, value=value1)
+        circle2 = healsparse.geom.Circle(ra=ra2, dec=dec2,
+                                         radius=radius2, value=value2)
+
+        smap = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse,
+                                                   np.uint64, wide_mask_maxbits=75)
+        healsparse.geom.realize_geom([circle1, circle2], smap)
+
+        out_ra, out_dec = 190.0, 25.0
+        in1_ra, in1_dec = 200.02, 0.0
+        in2_ra, in2_dec = 200.095, 0.0
+        both_ra, both_dec = 200.05, 0.0
+
+        out_vals = smap.get_values_pos(out_ra, out_dec, lonlat=True)
+        in1_vals = smap.get_values_pos(in1_ra, in1_dec, lonlat=True)
+        in2_vals = smap.get_values_pos(in2_ra, in2_dec, lonlat=True)
+        both_vals = smap.get_values_pos(both_ra, both_dec, lonlat=True)
+
+        testing.assert_array_equal(out_vals, [0, 0])
+        testing.assert_array_equal(in1_vals, [2**value1[0], 2**(value1[1] - 64)])
+        testing.assert_array_equal(in2_vals, [2**value2[0], 0])
+        testing.assert_array_equal(both_vals, [2**value1[0] | 2**value2[0],
+                                               2**(value1[1] - 64)])
+
+    def test_wide_mask_apply_mask(self):
+        """
+        Test apply_mask with a wide mask map
+        """
+
+        pass
 
     def setUp(self):
         self.test_dir = None

@@ -541,10 +541,10 @@ class HealSparseMap(object):
             # Fill in the pixels to append
             if single_value:
                 sparse_append[_pix[out_cov] + cov_index_map_temp[ipnest_cov[out_cov]] -
-                              self._sparse_map.size] = values[0]
+                              len(self._sparse_map)] = values[0]
             else:
                 sparse_append[_pix[out_cov] + cov_index_map_temp[ipnest_cov[out_cov]] -
-                              self._sparse_map.size] = values[out_cov]
+                              len(self._sparse_map)] = values[out_cov]
 
             # And set the values in the map
             self._cov_index_map = cov_index_map_temp

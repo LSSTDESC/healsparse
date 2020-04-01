@@ -267,8 +267,6 @@ class GeomTestCase(unittest.TestCase):
         nside = 2**17
 
         for dtype in [np.int16, np.uint16]:
-            dtype = np.int16
-
             radius1 = 0.075
             radius2 = 0.075
             ra1, dec1 = 200.0, 0.0

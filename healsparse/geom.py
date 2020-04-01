@@ -33,8 +33,16 @@ def realize_geom(geom, smap, type='or'):
     gdict = {}
     for g in geom:
         value = g.value
-        _check_int(value)
-        _check_int_size(value, smap.dtype)
+        if isinstance(value, (tuple, list, np.ndarray)):
+            value = tuple(value)
+            # This is a wide mask
+            if not smap.is_wide_mask_map:
+                raise ValueError("Can only use wide bit geometry values in a wide mask map")
+            for v in value:
+                _check_int(v)
+        else:
+            _check_int(value)
+            _check_int_size(value, smap.dtype)
 
         if value not in gdict:
             gdict[value] = [g]
@@ -59,9 +67,12 @@ def realize_geom(geom, smap, type='or'):
 
         pixels = np.unique(pixels)
 
-        values = smap.get_values_pix(pixels)
-        values |= value
-        smap.update_values_pix(pixels, values)
+        if smap.is_wide_mask_map:
+            smap.set_bits_pix(pixels, value)
+        else:
+            values = smap.get_values_pix(pixels)
+            values |= value
+            smap.update_values_pix(pixels, values)
 
 
 def _check_int(x):
@@ -109,7 +120,7 @@ class GeomBase(object):
         """
         raise NotImplementedError('implment get_pixels')
 
-    def get_map(self, *, nside_coverage, nside_sparse, dtype):
+    def get_map(self, *, nside_coverage, nside_sparse, dtype, wide_mask_maxbits=None):
         """
         get a healsparse map corresponding to this geometric primitive
 
@@ -121,6 +132,8 @@ class GeomBase(object):
             nside of sparse map
         dtype : `np.dtype`
             dtype of the output array
+        wide_mask_maxbits : `int`, optional
+            Create a "wide bit mask" map, with this many bits.
 
         Returns
         -------
@@ -133,14 +146,30 @@ class GeomBase(object):
         else:
             sentinel = hp.UNSEEN
 
+        if isinstance(self._value, (tuple, list, np.ndarray)):
+            # This is a wide mask
+            if wide_mask_maxbits is None:
+                wide_mask_maxbits = np.max(self._value)
+            else:
+                if wide_mask_maxbits < np.max(self._value):
+                    raise ValueError("wide_mask_maxbits (%d) is less than maximum bit value (%d)" %
+                                     (wide_mask_maxbits, np.max(self._value)))
+
         smap = HealSparseMap.make_empty(
             nside_coverage=nside_coverage,
             nside_sparse=nside_sparse,
             dtype=dtype,
             sentinel=sentinel,
+            wide_mask_maxbits=wide_mask_maxbits
         )
         pixels = self.get_pixels(nside=nside_sparse)
-        smap.update_values_pix(pixels, np.array([self._value], dtype=dtype))
+
+        if wide_mask_maxbits is None:
+            # This is a regular set
+            smap.update_values_pix(pixels, np.array([self._value], dtype=dtype))
+        else:
+            # This is a wide mask
+            smap.set_bits_pix(pixels, self._value)
 
         return smap
 
