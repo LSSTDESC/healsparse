@@ -232,7 +232,7 @@ def max_intersection(map_list):
         Element-wise maximum of maps
     """
 
-    return _apply_operation(map_list, np.maximum, 0, union=False, int_only=False)
+    return _apply_operation(map_list, np.fmax, 0, union=False, int_only=False)
 
 
 def min_intersection(map_list):
@@ -250,7 +250,7 @@ def min_intersection(map_list):
         Element-wise minimum of maps
     """
 
-    return _apply_operation(map_list, np.minimum, -hp.UNSEEN, union=False, int_only=False)
+    return _apply_operation(map_list, np.fmin, -hp.UNSEEN, union=False, int_only=False)
 
 
 def max_union(map_list):
@@ -268,7 +268,7 @@ def max_union(map_list):
         Element-wise maximum of maps
     """
 
-    return _apply_operation(map_list, np.maximum, 0, union=True, int_only=False)
+    return _apply_operation(map_list, np.fmax, 0, union=True, int_only=False)
 
 
 def min_union(map_list):
@@ -286,7 +286,7 @@ def min_union(map_list):
         Element-wise minimum of maps
     """
 
-    return _apply_operation(map_list, np.minimum, -hp.UNSEEN, union=True, int_only=False)
+    return _apply_operation(map_list, np.fmin, -hp.UNSEEN, union=True, int_only=False)
 
 
 def ufunc_intersection(map_list, func, filler_value=0):

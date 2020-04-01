@@ -773,7 +773,7 @@ class OperationsTestCase(unittest.TestCase):
 
         gd, = np.where((hpmap1 > hp.UNSEEN) & (hpmap2 > hp.UNSEEN))
         hpmap_max = np.zeros_like(hpmap1) + hp.UNSEEN
-        hpmap_max[gd] = np.maximum(hpmap1[gd], hpmap2[gd])
+        hpmap_max[gd] = np.fmax(hpmap1[gd], hpmap2[gd])
 
         testing.assert_almost_equal(hpmap_max, max_map.generate_healpix_map())
 
@@ -781,8 +781,8 @@ class OperationsTestCase(unittest.TestCase):
         max_map = healsparse.max_intersection([sparse_map1, sparse_map2, sparse_map3])
         gd, = np.where((hpmap1 > hp.UNSEEN) & (hpmap2 > hp.UNSEEN) & (hpmap3 > hp.UNSEEN))
         hpmap_max = np.zeros_like(hpmap1) + hp.UNSEEN
-        hpmap_max[gd] = np.maximum(hpmap1[gd], hpmap2[gd])
-        hpmap_max[gd] = np.maximum(hpmap_max[gd], hpmap3[gd])
+        hpmap_max[gd] = np.fmax(hpmap1[gd], hpmap2[gd])
+        hpmap_max[gd] = np.fmax(hpmap_max[gd], hpmap3[gd])
 
         testing.assert_almost_equal(hpmap_max, max_map.generate_healpix_map())
 
@@ -822,7 +822,7 @@ class OperationsTestCase(unittest.TestCase):
 
         gd, = np.where((hpmap1 > hp.UNSEEN) & (hpmap2 > hp.UNSEEN))
         hpmap_min = np.zeros_like(hpmap1) + hp.UNSEEN
-        hpmap_min[gd] = np.minimum(hpmap1[gd], hpmap2[gd])
+        hpmap_min[gd] = np.fmin(hpmap1[gd], hpmap2[gd])
 
         testing.assert_almost_equal(hpmap_min, min_map.generate_healpix_map())
 
@@ -830,8 +830,8 @@ class OperationsTestCase(unittest.TestCase):
         min_map = healsparse.min_intersection([sparse_map1, sparse_map2, sparse_map3])
         gd, = np.where((hpmap1 > hp.UNSEEN) & (hpmap2 > hp.UNSEEN) & (hpmap3 > hp.UNSEEN))
         hpmap_min = np.zeros_like(hpmap1) + hp.UNSEEN
-        hpmap_min[gd] = np.minimum(hpmap1[gd], hpmap2[gd])
-        hpmap_min[gd] = np.minimum(hpmap_min[gd], hpmap3[gd])
+        hpmap_min[gd] = np.fmin(hpmap1[gd], hpmap2[gd])
+        hpmap_min[gd] = np.fmin(hpmap_min[gd], hpmap3[gd])
         testing.assert_almost_equal(hpmap_min, min_map.generate_healpix_map())
 
     def test_max_union(self):
@@ -870,7 +870,7 @@ class OperationsTestCase(unittest.TestCase):
 
         gd, = np.where((hpmap1 > hp.UNSEEN) | (hpmap2 > hp.UNSEEN))
         hpmap_max = np.zeros_like(hpmap1) + hp.UNSEEN
-        hpmap_max[gd] = np.maximum(hpmap1[gd], hpmap2[gd])
+        hpmap_max[gd] = np.fmax(hpmap1[gd], hpmap2[gd])
 
         testing.assert_almost_equal(hpmap_max, max_map.generate_healpix_map())
 
@@ -878,8 +878,8 @@ class OperationsTestCase(unittest.TestCase):
         max_map = healsparse.max_union([sparse_map1, sparse_map2, sparse_map3])
         gd, = np.where((hpmap1 > hp.UNSEEN) | (hpmap2 > hp.UNSEEN) | (hpmap3 > hp.UNSEEN))
         hpmap_max = np.zeros_like(hpmap1) + hp.UNSEEN
-        hpmap_max[gd] = np.maximum(hpmap1[gd], hpmap2[gd])
-        hpmap_max[gd] = np.maximum(hpmap_max[gd], hpmap3[gd])
+        hpmap_max[gd] = np.fmax(hpmap1[gd], hpmap2[gd])
+        hpmap_max[gd] = np.fmax(hpmap_max[gd], hpmap3[gd])
 
         testing.assert_almost_equal(hpmap_max, max_map.generate_healpix_map())
 
@@ -921,7 +921,7 @@ class OperationsTestCase(unittest.TestCase):
         hpmap2[hpmap2 == hp.UNSEEN] = -hp.UNSEEN
         gd, = np.where((hpmap1 < -hp.UNSEEN) | (hpmap2 < -hp.UNSEEN))
         hpmap_min = np.zeros_like(hpmap1) + hp.UNSEEN
-        hpmap_min[gd] = np.minimum(hpmap1[gd], hpmap2[gd])  # This would be the intersection
+        hpmap_min[gd] = np.fmin(hpmap1[gd], hpmap2[gd])  # This would be the intersection
 
         testing.assert_almost_equal(hpmap_min, min_map.generate_healpix_map())
 
@@ -932,8 +932,8 @@ class OperationsTestCase(unittest.TestCase):
         hpmap3[hpmap3 == hp.UNSEEN] = -hp.UNSEEN
         gd, = np.where((hpmap1 < -hp.UNSEEN) | (hpmap2 < -hp.UNSEEN) | (hpmap3 < -hp.UNSEEN))
         hpmap_min = np.zeros_like(hpmap1) + hp.UNSEEN
-        hpmap_min[gd] = np.minimum(hpmap1[gd], hpmap2[gd])
-        hpmap_min[gd] = np.minimum(hpmap_min[gd], hpmap3[gd])
+        hpmap_min[gd] = np.fmin(hpmap1[gd], hpmap2[gd])
+        hpmap_min[gd] = np.fmin(hpmap_min[gd], hpmap3[gd])
 
         testing.assert_almost_equal(hpmap_min, min_map.generate_healpix_map())
 
