@@ -1410,6 +1410,8 @@ class HealSparseMap(object):
         if self._is_rec_array:
             descr += ', record array type.\n'
             descr += self._sparse_map.dtype.descr.__str__()
+        elif self._is_wide_mask:
+            descr += ', %d bit wide mask' % (self._wide_mask_maxbits)
         else:
             descr += ', ' + self._sparse_map.dtype.name
         return descr
