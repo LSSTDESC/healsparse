@@ -76,7 +76,7 @@ class HealSparseMap(object):
 
             self._sentinel = check_sentinel(self._sparse_map[self._primary].dtype.type, sentinel)
         else:
-            if ((self._sparse_map.dtype.type == np.uint64) and len(self._sparse_map.shape) == 2):
+            if ((self._sparse_map.dtype.type == np.uint8) and len(self._sparse_map.shape) == 2):
                 self._is_wide_mask = True
                 self._wide_mask_width = self._sparse_map.shape[1]
                 self._wide_mask_maxbits = WIDE_NBIT * self._wide_mask_width
@@ -140,7 +140,7 @@ class HealSparseMap(object):
                 cls._read_healsparse_file(filename, pixels=pixels)
             if 'WIDEMASK' in hdr and hdr['WIDEMASK']:
                 sparse_map = sparse_map.reshape((sparse_map.size // hdr['WWIDTH'],
-                                                 hdr['WWIDTH'])).astype(np.uint64)
+                                                 hdr['WWIDTH'])).astype(np.uint8)
             if header:
                 return (cls(cov_index_map=cov_index_map, sparse_map=sparse_map,
                             nside_sparse=nside_sparse, primary=primary, sentinel=sentinel),
@@ -181,8 +181,8 @@ class HealSparseMap(object):
 
         if wide_mask_maxbits is not None:
             test = np.zeros(1, dtype=dtype)
-            if test.dtype != np.uint64:
-                raise ValueError("Must use dtype=np.uint64 to use a wide_mask")
+            if test.dtype != np.uint8:
+                raise ValueError("Must use dtype=np.uint8 to use a wide_mask")
             if sentinel is not None:
                 if sentinel != 0:
                     raise ValueError("Sentinel must be 0 for wide_mask")
@@ -451,9 +451,7 @@ class HealSparseMap(object):
         if self._is_wide_mask:
             s_hdr['WIDEMASK'] = self._is_wide_mask
             s_hdr['WWIDTH'] = self._wide_mask_width
-            _write_filename(filename, c_hdr, s_hdr, self._cov_index_map, self._sparse_map.astype(np.int64))
-        else:
-            _write_filename(filename, c_hdr, s_hdr, self._cov_index_map, self._sparse_map)
+        _write_filename(filename, c_hdr, s_hdr, self._cov_index_map, self._sparse_map)
 
     def update_values_pix(self, pixels, values, nest=True):
         """

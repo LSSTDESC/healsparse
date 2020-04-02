@@ -3,7 +3,7 @@ import healpy as hp
 import warnings
 import numbers
 
-WIDE_NBIT = 64
+WIDE_NBIT = 8
 
 
 def reduce_array(x, reduction='mean', axis=2):
@@ -116,11 +116,11 @@ def _get_field_and_bitval(bit):
     -------
     field : `int`
        Field index for the shifted bit
-    bitval : `np.uint64`
+    bitval : `np.uint8`
        Shifted bit value in its field
     """
 
     field = bit // WIDE_NBIT
-    bitval = np.uint64(np.left_shift(1, bit - field*WIDE_NBIT))
+    bitval = np.uint8(np.left_shift(1, bit - field*WIDE_NBIT))
 
     return field, bitval
