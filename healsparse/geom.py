@@ -259,11 +259,8 @@ class Circle(GeomBase):
         )
 
     def __repr__(self):
-        if self.is_integer_value:
-            s = 'Circle(ra=%.16g, dec=%.16g, radius=%.16g, value=%d)'
-        else:
-            s = 'Circle(ra=%.16g, dec=%.16g, radius=%.16g, value=%f)'
-        return s % (self._ra, self._dec, self._radius, self._value)
+        s = 'Circle(ra=%.16g, dec=%.16g, radius=%.16g, value=%s)'
+        return s % (self._ra, self._dec, self._radius, repr(self._value))
 
 
 class Polygon(GeomBase):
@@ -348,8 +345,5 @@ class Polygon(GeomBase):
         ras = repr(self._ra)
         decs = repr(self._dec)
 
-        if self.is_integer_value:
-            s = 'Polygon(ra=%s, dec=%s, value=%d)'
-        else:
-            s = 'Polygon(ra=%s, dec=%s, value=%f)'
-        return s % (ras, decs, self._value)
+        s = 'Polygon(ra=%s, dec=%s, value=%s)'
+        return s % (ras, decs, repr(self._value))
