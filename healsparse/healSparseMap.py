@@ -871,7 +871,7 @@ class HealSparseMap(object):
            Maximum number of bits.  0 if not wide mask.
         """
         if self._is_wide_mask:
-            return self._wideMask_maxbits
+            return self._wide_mask_maxbits
         else:
             return 0
 

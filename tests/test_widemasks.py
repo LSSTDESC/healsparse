@@ -31,7 +31,7 @@ class WideMasksTestCase(unittest.TestCase):
                                                          np.uint8, wide_mask_maxbits=7)
 
         self.assertTrue(sparse_map.is_wide_mask_map)
-        self.assertEqual(sparse_map._wide_mask_maxbits, 8)
+        self.assertEqual(sparse_map.wide_mask_maxbits, 8)
         self.assertEqual(sparse_map._sparse_map.shape, (4, 1))
         self.assertEqual(sparse_map._sentinel, 0)
 
@@ -60,13 +60,13 @@ class WideMasksTestCase(unittest.TestCase):
         # This just makes sure that the size is correct
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
                                                          np.uint8, wide_mask_maxbits=8)
-        self.assertEqual(sparse_map._wide_mask_maxbits, 8)
+        self.assertEqual(sparse_map.wide_mask_maxbits, 8)
 
         # And now a double-wide to test
         # Note that 9 will create a 16 bit mask
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
                                                          np.uint8, wide_mask_maxbits=9)
-        self.assertEqual(sparse_map._wide_mask_maxbits, 16)
+        self.assertEqual(sparse_map.wide_mask_maxbits, 16)
 
         sparse_map.set_bits_pix(pixel, [12])
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [12]), True)
@@ -82,12 +82,12 @@ class WideMasksTestCase(unittest.TestCase):
         # This makes sure the inferred size is correct
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
                                                          np.uint8, wide_mask_maxbits=128)
-        self.assertEqual(sparse_map._wide_mask_maxbits, 128)
+        self.assertEqual(sparse_map.wide_mask_maxbits, 128)
 
         # And do a triple-wide
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
                                                          np.uint8, wide_mask_maxbits=20)
-        self.assertEqual(sparse_map._wide_mask_maxbits, 24)
+        self.assertEqual(sparse_map.wide_mask_maxbits, 24)
 
         sparse_map.set_bits_pix(pixel, [5, 10, 20])
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [5]), True)
@@ -121,7 +121,7 @@ class WideMasksTestCase(unittest.TestCase):
         sparse_map_in = healsparse.HealSparseMap.read(fname)
 
         self.assertTrue(sparse_map_in.is_wide_mask_map)
-        self.assertEqual(sparse_map_in._wide_mask_maxbits, 8)
+        self.assertEqual(sparse_map_in.wide_mask_maxbits, 8)
         self.assertEqual(sparse_map_in._sparse_map.shape[1], 1)
         self.assertEqual(sparse_map_in._wide_mask_width, 1)
         self.assertEqual(sparse_map_in._sentinel, 0)
@@ -148,7 +148,7 @@ class WideMasksTestCase(unittest.TestCase):
         sparse_map_in = healsparse.HealSparseMap.read(fname)
 
         self.assertTrue(sparse_map_in.is_wide_mask_map)
-        self.assertEqual(sparse_map_in._wide_mask_maxbits, 16)
+        self.assertEqual(sparse_map_in.wide_mask_maxbits, 16)
         self.assertEqual(sparse_map_in._sparse_map.shape[1], 2)
         self.assertEqual(sparse_map_in._wide_mask_width, 2)
         self.assertEqual(sparse_map_in._sentinel, 0)
@@ -310,7 +310,7 @@ class WideMasksTestCase(unittest.TestCase):
         smap = poly.get_map(nside_coverage=nside_coverage, nside_sparse=nside_sparse,
                             dtype=np.uint8)
         self.assertTrue(smap.is_wide_mask_map)
-        self.assertEqual(smap._wide_mask_maxbits, 16)
+        self.assertEqual(smap.wide_mask_maxbits, 16)
 
         ra = np.array([200.1, 200.15])
         dec = np.array([0.05, 0.015])
@@ -323,7 +323,7 @@ class WideMasksTestCase(unittest.TestCase):
         smap = poly.get_map(nside_coverage=nside_coverage, nside_sparse=nside_sparse,
                             dtype=np.uint8, wide_mask_maxbits=24)
         self.assertTrue(smap.is_wide_mask_map)
-        self.assertEqual(smap._wide_mask_maxbits, 24)
+        self.assertEqual(smap.wide_mask_maxbits, 24)
 
         vals = smap.get_values_pos(ra, dec, lonlat=True)
         testing.assert_array_equal(vals[:, 0], [2**4, 0])
