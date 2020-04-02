@@ -329,6 +329,15 @@ class WideMasksTestCase(unittest.TestCase):
         testing.assert_array_equal(vals[:, 0], [2**4, 0])
         testing.assert_array_equal(vals[:, 1], [2**(15 - 8), 0])
 
+        # And a map like another
+        smap2 = poly.get_map_like(smap)
+        self.assertTrue(smap2.is_wide_mask_map)
+        self.assertEqual(smap2.wide_mask_maxbits, 24)
+
+        vals = smap2.get_values_pos(ra, dec, lonlat=True)
+        testing.assert_array_equal(vals[:, 0], [2**4, 0])
+        testing.assert_array_equal(vals[:, 1], [2**(15 - 8), 0])
+
         # Test realizing two maps
         nside_sparse = 2**17
 

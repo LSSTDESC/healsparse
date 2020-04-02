@@ -193,9 +193,14 @@ class GeomBase(object):
         if sparseMap.is_rec_array:
             raise RuntimeError("Input SparseMap cannot be a rec array")
 
+        if sparseMap.is_wide_mask_map:
+            wide_mask_maxbits = sparseMap.wide_mask_maxbits
+        else:
+            wide_mask_maxbits = None
+
         return self.get_map(nside_coverage=sparseMap.nside_coverage,
                             nside_sparse=sparseMap.nside_sparse,
-                            dtype=sparseMap.dtype)
+                            dtype=sparseMap.dtype, wide_mask_maxbits=wide_mask_maxbits)
 
 
 class Circle(GeomBase):
