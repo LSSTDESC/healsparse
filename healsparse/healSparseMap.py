@@ -1367,29 +1367,67 @@ class HealSparseMap(object):
         if int_only:
             if not self.is_integer_map:
                 raise NotImplementedError("Can only apply %s to integer maps" % (name))
-        if self._is_wide_mask:
-            raise NotImplementedError("Cannot use %s with wide mask maps" % (name))
+        else:
+            # If not int_only then it can't be used with a wide mask.
+            if self._is_wide_mask:
+                raise NotImplementedError("Cannot use %s with wide mask maps" % (name))
 
         other_int = False
         other_float = False
+        other_bits = False
+
         if isinstance(other, numbers.Integral):
             other_int = True
         elif isinstance(other, numbers.Real):
             other_float = True
+        elif isinstance(other, (tuple, list)):
+            if not self._is_wide_mask:
+                raise NotImplementedError("Must use a wide mask to operate with a bit list")
+            other_bits = True
+            for elt in other:
+                if not isinstance(elt, numbers.Integral):
+                    raise NotImplementedError("Can only use an integer list of bits "
+                                              "with %s operation" % (name))
+            if np.max(other) >= self._wide_mask_maxbits:
+                raise ValueError("Bit position %d too large (>= %d)" % (np.max(other),
+                                                                        self._wide_mask_maxbits))
 
-        if not other_int and not other_float:
-            raise NotImplementedError("Can only use a constant with the %s operation" % (name))
+        if self._is_wide_mask:
+            if not other_bits:
+                raise NotImplementedError("Must use a bit list with the %s operation with "
+                                          "a wide mask" % (name))
+        else:
+            if not other_int and not other_float:
+                raise NotImplementedError("Can only use a constant with the %s operation" % (name))
+            if not other_int and int_only:
+                raise NotImplementedError("Can only use an integer constant with the %s operation" % (name))
 
-        if not other_int and int_only:
-            raise NotImplementedError("Can only use an integer constant with the %s operation" % (name))
+        if self._is_wide_mask:
+            valid_sparse_pixels = (self._sparse_map > self._sentinel).sum(axis=1, dtype=np.bool)
 
-        valid_sparse_pixels = (self._sparse_map > self._sentinel)
+            other_value = np.zeros(self._wide_mask_width, self._sparse_map.dtype)
+            for bit in other:
+                field, bitval = _get_field_and_bitval(bit)
+                other_value[field] |= bitval
+        else:
+            valid_sparse_pixels = (self._sparse_map > self._sentinel)
+
         if in_place:
-            func(self._sparse_map, other, out=self._sparse_map, where=valid_sparse_pixels)
+            if self._is_wide_mask:
+                for i in range(self._wide_mask_width):
+                    col = self._sparse_map[:, i]
+                    func(col, other_value[i], out=col, where=valid_sparse_pixels)
+            else:
+                func(self._sparse_map, other, out=self._sparse_map, where=valid_sparse_pixels)
             return self
         else:
             combinedSparseMap = self._sparse_map.copy()
-            func(combinedSparseMap, other, out=combinedSparseMap, where=valid_sparse_pixels)
+            if self._is_wide_mask:
+                for i in range(self._wide_mask_width):
+                    col = combinedSparseMap[:, i]
+                    func(col, other_value[i], out=col, where=valid_sparse_pixels)
+            else:
+                func(combinedSparseMap, other, out=combinedSparseMap, where=valid_sparse_pixels)
             return HealSparseMap(cov_index_map=self._cov_index_map, sparse_map=combinedSparseMap,
                                  nside_sparse=self._nside_sparse, sentinel=self._sentinel)
 

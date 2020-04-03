@@ -430,6 +430,60 @@ class WideMasksTestCase(unittest.TestCase):
                                ((mask_map.get_values_pix(valid_pixels)[:, 0] & 2**16) == 0))
         testing.assert_array_equal(masked_map.get_values_pix(valid_pixels[still_good]), 1)
 
+    def test_wide_mask_constoperations(self):
+        """
+        Test wide mask operations with constants
+        """
+        nside_coverage = 32
+        nside_map = 64
+
+        sparse_map1 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.uint8,
+                                                          wide_mask_maxbits=100)
+        pixel1 = np.arange(4000, 20000)
+        sparse_map1.set_bits_pix(pixel1, [5])
+
+        # Or to new map
+        sparse_map2 = sparse_map1 | [20]
+
+        self.assertEqual(pixel1.size, sparse_map2.valid_pixels.size)
+        testing.assert_array_equal(sparse_map2.check_bits_pix(pixel1, [5]), True)
+        testing.assert_array_equal(sparse_map2.check_bits_pix(pixel1, [20]), True)
+        testing.assert_array_equal(sparse_map2.check_bits_pix(pixel1, [30]), False)
+
+        # Or to the same map
+        sparse_map1 |= [20]
+
+        self.assertEqual(pixel1.size, sparse_map1.valid_pixels.size)
+        testing.assert_array_equal(sparse_map1.check_bits_pix(pixel1, [5]), True)
+        testing.assert_array_equal(sparse_map1.check_bits_pix(pixel1, [20]), True)
+        testing.assert_array_equal(sparse_map1.check_bits_pix(pixel1, [30]), False)
+
+        # And to a new map
+        sparse_map2 = sparse_map1 & [5]
+        testing.assert_array_equal(sparse_map2.check_bits_pix(pixel1, [5]), True)
+        testing.assert_array_equal(sparse_map2.check_bits_pix(pixel1, [20]), False)
+        testing.assert_array_equal(sparse_map2.check_bits_pix(pixel1, [30]), False)
+
+        # And to itself
+        sparse_map1 &= [5]
+        testing.assert_array_equal(sparse_map1.check_bits_pix(pixel1, [5]), True)
+        testing.assert_array_equal(sparse_map1.check_bits_pix(pixel1, [20]), False)
+        testing.assert_array_equal(sparse_map1.check_bits_pix(pixel1, [30]), False)
+
+        # Reset this
+        sparse_map1.set_bits_pix(pixel1, [5, 20])
+
+        # Test xor
+        sparse_map2 = sparse_map1 ^ [5, 30]
+        testing.assert_array_equal(sparse_map2.check_bits_pix(pixel1, [5]), False)
+        testing.assert_array_equal(sparse_map2.check_bits_pix(pixel1, [20]), True)
+        testing.assert_array_equal(sparse_map2.check_bits_pix(pixel1, [30]), True)
+
+        sparse_map1 ^= [5, 30]
+        testing.assert_array_equal(sparse_map1.check_bits_pix(pixel1, [5]), False)
+        testing.assert_array_equal(sparse_map1.check_bits_pix(pixel1, [20]), True)
+        testing.assert_array_equal(sparse_map1.check_bits_pix(pixel1, [30]), True)
+
     def setUp(self):
         self.test_dir = None
 
