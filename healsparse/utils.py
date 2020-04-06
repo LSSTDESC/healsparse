@@ -6,6 +6,7 @@ import numbers
 WIDE_NBIT = 8
 WIDE_MASK = np.uint8
 
+
 def reduce_array(x, reduction='mean', axis=2):
     """
     Auxiliary method to perform one of the following operations:
