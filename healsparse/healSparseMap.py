@@ -3,7 +3,7 @@ import numpy as np
 import healpy as hp
 import os
 import numbers
-from .utils import reduce_array, check_sentinel, _get_field_and_bitval, WIDE_NBIT
+from .utils import reduce_array, check_sentinel, _get_field_and_bitval, WIDE_NBIT, WIDE_MASK
 from .fits_shim import HealSparseFits, _make_header, _write_filename
 
 
@@ -76,7 +76,7 @@ class HealSparseMap(object):
 
             self._sentinel = check_sentinel(self._sparse_map[self._primary].dtype.type, sentinel)
         else:
-            if ((self._sparse_map.dtype.type == np.uint8) and len(self._sparse_map.shape) == 2):
+            if ((self._sparse_map.dtype.type == WIDE_MASK) and len(self._sparse_map.shape) == 2):
                 self._is_wide_mask = True
                 self._wide_mask_width = self._sparse_map.shape[1]
                 self._wide_mask_maxbits = WIDE_NBIT * self._wide_mask_width
@@ -140,7 +140,7 @@ class HealSparseMap(object):
                 cls._read_healsparse_file(filename, pixels=pixels)
             if 'WIDEMASK' in hdr and hdr['WIDEMASK']:
                 sparse_map = sparse_map.reshape((sparse_map.size // hdr['WWIDTH'],
-                                                 hdr['WWIDTH'])).astype(np.uint8)
+                                                 hdr['WWIDTH'])).astype(WIDE_MASK)
             if header:
                 return (cls(cov_index_map=cov_index_map, sparse_map=sparse_map,
                             nside_sparse=nside_sparse, primary=primary, sentinel=sentinel),
@@ -181,8 +181,8 @@ class HealSparseMap(object):
 
         if wide_mask_maxbits is not None:
             test = np.zeros(1, dtype=dtype)
-            if test.dtype != np.uint8:
-                raise ValueError("Must use dtype=np.uint8 to use a wide_mask")
+            if test.dtype != WIDE_MASK:
+                raise ValueError("Must use dtype=healsparse.WIDE_MASK to use a wide_mask")
             if sentinel is not None:
                 if sentinel != 0:
                     raise ValueError("Sentinel must be 0 for wide_mask")

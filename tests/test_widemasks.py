@@ -8,6 +8,7 @@ import os
 import shutil
 
 import healsparse
+from healsparse import WIDE_MASK
 
 
 class WideMasksTestCase(unittest.TestCase):
@@ -28,7 +29,7 @@ class WideMasksTestCase(unittest.TestCase):
 
         # Create empty maps to test bit width
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
-                                                         np.uint8, wide_mask_maxbits=7)
+                                                         WIDE_MASK, wide_mask_maxbits=7)
 
         self.assertTrue(sparse_map.is_wide_mask_map)
         self.assertEqual(sparse_map.wide_mask_maxbits, 8)
@@ -59,13 +60,13 @@ class WideMasksTestCase(unittest.TestCase):
 
         # This just makes sure that the size is correct
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
-                                                         np.uint8, wide_mask_maxbits=8)
+                                                         WIDE_MASK, wide_mask_maxbits=8)
         self.assertEqual(sparse_map.wide_mask_maxbits, 8)
 
         # And now a double-wide to test
         # Note that 9 will create a 16 bit mask
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
-                                                         np.uint8, wide_mask_maxbits=9)
+                                                         WIDE_MASK, wide_mask_maxbits=9)
         self.assertEqual(sparse_map.wide_mask_maxbits, 16)
 
         sparse_map.set_bits_pix(pixel, [12])
@@ -81,12 +82,12 @@ class WideMasksTestCase(unittest.TestCase):
 
         # This makes sure the inferred size is correct
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
-                                                         np.uint8, wide_mask_maxbits=128)
+                                                         WIDE_MASK, wide_mask_maxbits=128)
         self.assertEqual(sparse_map.wide_mask_maxbits, 128)
 
         # And do a triple-wide
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
-                                                         np.uint8, wide_mask_maxbits=20)
+                                                         WIDE_MASK, wide_mask_maxbits=20)
         self.assertEqual(sparse_map.wide_mask_maxbits, 24)
 
         sparse_map.set_bits_pix(pixel, [5, 10, 20])
@@ -112,7 +113,7 @@ class WideMasksTestCase(unittest.TestCase):
 
         # Test with single-wide
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
-                                                         np.uint8, wide_mask_maxbits=8)
+                                                         WIDE_MASK, wide_mask_maxbits=8)
         pixel = np.arange(4000, 20000)
         sparse_map.set_bits_pix(pixel, [5])
 
@@ -139,7 +140,7 @@ class WideMasksTestCase(unittest.TestCase):
 
         # Test with double-wide
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
-                                                         np.uint8, wide_mask_maxbits=16)
+                                                         WIDE_MASK, wide_mask_maxbits=16)
         pixel = np.arange(4000, 20000)
         sparse_map.set_bits_pix(pixel, [5, 10])
 
@@ -167,17 +168,17 @@ class WideMasksTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 64
 
-        sparse_map1 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.uint8,
+        sparse_map1 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, WIDE_MASK,
                                                           wide_mask_maxbits=100)
         pixel1 = np.arange(4000, 20000)
         pixel1 = np.delete(pixel1, 15000)
-        values1 = np.random.poisson(size=(pixel1.size, sparse_map1._wide_mask_width), lam=2).astype(np.uint8)
+        values1 = np.random.poisson(size=(pixel1.size, sparse_map1._wide_mask_width), lam=2).astype(WIDE_MASK)
         sparse_map1.update_values_pix(pixel1, values1)
 
-        sparse_map2 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.uint8,
+        sparse_map2 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, WIDE_MASK,
                                                           wide_mask_maxbits=100)
         pixel2 = np.arange(15000, 25000)
-        values2 = np.random.poisson(size=(pixel2.size, sparse_map2._wide_mask_width), lam=2).astype(np.uint8)
+        values2 = np.random.poisson(size=(pixel2.size, sparse_map2._wide_mask_width), lam=2).astype(WIDE_MASK)
         sparse_map2.update_values_pix(pixel2, values2)
 
         or_map_intersection = healsparse.or_intersection([sparse_map1, sparse_map2])
@@ -210,17 +211,17 @@ class WideMasksTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 64
 
-        sparse_map1 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.uint8,
+        sparse_map1 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, WIDE_MASK,
                                                           wide_mask_maxbits=16)
         pixel1 = np.arange(4000, 20000)
         pixel1 = np.delete(pixel1, 15000)
-        values1 = np.random.poisson(size=(pixel1.size, sparse_map1._wide_mask_width), lam=2).astype(np.uint8)
+        values1 = np.random.poisson(size=(pixel1.size, sparse_map1._wide_mask_width), lam=2).astype(WIDE_MASK)
         sparse_map1.update_values_pix(pixel1, values1)
 
-        sparse_map2 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.uint8,
+        sparse_map2 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, WIDE_MASK,
                                                           wide_mask_maxbits=16)
         pixel2 = np.arange(15000, 25000)
-        values2 = np.random.poisson(size=(pixel2.size, sparse_map2._wide_mask_width), lam=2).astype(np.uint8)
+        values2 = np.random.poisson(size=(pixel2.size, sparse_map2._wide_mask_width), lam=2).astype(WIDE_MASK)
         sparse_map2.update_values_pix(pixel2, values2)
 
         and_map_intersection = healsparse.and_intersection([sparse_map1, sparse_map2])
@@ -261,17 +262,17 @@ class WideMasksTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 64
 
-        sparse_map1 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.uint8,
+        sparse_map1 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, WIDE_MASK,
                                                           wide_mask_maxbits=100)
         pixel1 = np.arange(4000, 20000)
         pixel1 = np.delete(pixel1, 15000)
-        values1 = np.random.poisson(size=(pixel1.size, sparse_map1._wide_mask_width), lam=2).astype(np.uint8)
+        values1 = np.random.poisson(size=(pixel1.size, sparse_map1._wide_mask_width), lam=2).astype(WIDE_MASK)
         sparse_map1.update_values_pix(pixel1, values1)
 
-        sparse_map2 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.uint8,
+        sparse_map2 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, WIDE_MASK,
                                                           wide_mask_maxbits=100)
         pixel2 = np.arange(15000, 25000)
-        values2 = np.random.poisson(size=(pixel2.size, sparse_map2._wide_mask_width), lam=2).astype(np.uint8)
+        values2 = np.random.poisson(size=(pixel2.size, sparse_map2._wide_mask_width), lam=2).astype(WIDE_MASK)
         sparse_map2.update_values_pix(pixel2, values2)
 
         xor_map_intersection = healsparse.xor_intersection([sparse_map1, sparse_map2])
@@ -308,7 +309,7 @@ class WideMasksTestCase(unittest.TestCase):
 
         # Test making a map from polygon, infer the maxbits
         smap = poly.get_map(nside_coverage=nside_coverage, nside_sparse=nside_sparse,
-                            dtype=np.uint8)
+                            dtype=WIDE_MASK)
         self.assertTrue(smap.is_wide_mask_map)
         self.assertEqual(smap.wide_mask_maxbits, 16)
 
@@ -321,7 +322,7 @@ class WideMasksTestCase(unittest.TestCase):
 
         # Test making a map from polygon, specify the maxbits
         smap = poly.get_map(nside_coverage=nside_coverage, nside_sparse=nside_sparse,
-                            dtype=np.uint8, wide_mask_maxbits=24)
+                            dtype=WIDE_MASK, wide_mask_maxbits=24)
         self.assertTrue(smap.is_wide_mask_map)
         self.assertEqual(smap.wide_mask_maxbits, 24)
 
@@ -354,7 +355,7 @@ class WideMasksTestCase(unittest.TestCase):
                                          radius=radius2, value=value2)
 
         smap = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse,
-                                                   np.uint8, wide_mask_maxbits=16)
+                                                   WIDE_MASK, wide_mask_maxbits=16)
         healsparse.geom.realize_geom([circle1, circle2], smap)
 
         out_ra, out_dec = 190.0, 25.0
@@ -385,7 +386,7 @@ class WideMasksTestCase(unittest.TestCase):
                                       value=[70])
 
         mask_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse,
-                                                       np.uint8, sentinel=0, wide_mask_maxbits=70)
+                                                       WIDE_MASK, sentinel=0, wide_mask_maxbits=70)
         healsparse.geom.realize_geom(box, mask_map)
 
         # Create an integer value map, using a bigger box
@@ -437,7 +438,7 @@ class WideMasksTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 64
 
-        sparse_map1 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.uint8,
+        sparse_map1 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, WIDE_MASK,
                                                           wide_mask_maxbits=100)
         pixel1 = np.arange(4000, 20000)
         sparse_map1.set_bits_pix(pixel1, [5])

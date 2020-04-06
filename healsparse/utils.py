@@ -4,7 +4,7 @@ import warnings
 import numbers
 
 WIDE_NBIT = 8
-
+WIDE_MASK = np.uint8
 
 def reduce_array(x, reduction='mean', axis=2):
     """
@@ -116,11 +116,11 @@ def _get_field_and_bitval(bit):
     -------
     field : `int`
        Field index for the shifted bit
-    bitval : `np.uint8`
+    bitval : `healsparse.WIDE_MASK`
        Shifted bit value in its field
     """
 
     field = bit // WIDE_NBIT
-    bitval = np.uint8(np.left_shift(1, bit - field*WIDE_NBIT))
+    bitval = WIDE_MASK(np.left_shift(1, bit - field*WIDE_NBIT))
 
     return field, bitval
