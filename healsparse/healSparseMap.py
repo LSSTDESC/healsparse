@@ -134,10 +134,9 @@ class HealSparseMap(object):
 
             healpix_map = hp.read_map(filename, nest=True, verbose=False, dtype=dtype)
             if header:
-                return (cls(healpix_map=healpix_map, nside_coverage=nside_coverage, nest=True,
-                            metadata=hdr), hdr)
+                return (cls(healpix_map=healpix_map, nside_coverage=nside_coverage, nest=True), hdr)
             else:
-                return cls(healpix_map=healpix_map, nside_coverage=nside_coverage, nest=True, metadata=hdr)
+                return cls(healpix_map=healpix_map, nside_coverage=nside_coverage, nest=True)
         elif 'PIXTYPE' in hdr and hdr['PIXTYPE'].rstrip() == 'HEALSPARSE':
             # This is a sparse map type.  Just use fits for now.
             cov_index_map, sparse_map, nside_sparse, primary, sentinel = \
