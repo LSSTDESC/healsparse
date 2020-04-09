@@ -432,9 +432,10 @@ class HealSparseMap(object):
 
         return cov_index_map, sparse_map
 
-    def write(self, filename, clobber=False, header=None):
+    def write(self, filename, clobber=False):
         """
-        Write heal HealSparseMap to filename
+        Write heal HealSparseMap to filename.  Use the `metadata` property from
+        the map to persist additional information in the fits header.
 
         Parameters
         ----------
@@ -442,19 +443,16 @@ class HealSparseMap(object):
            Name of file to save
         clobber : `bool`, optional
            Clobber existing file?  Default is False.
-        header : `fitsio.FITSHDR`, `astropy.io.fits.Header` or `dict`, optional
-           Header to put in first extension with additional metadata.
-           Default is None.
         """
         if os.path.isfile(filename) and not clobber:
             raise RuntimeError("Filename %s exists and clobber is False." % (filename))
 
         # Note that we put the requested header information in each of the extensions.
-        c_hdr = _make_header(header, metadata=self.metadata)
+        c_hdr = _make_header(self.metadata)
         c_hdr['PIXTYPE'] = 'HEALSPARSE'
         c_hdr['NSIDE'] = self._nside_coverage
 
-        s_hdr = _make_header(header, metadata=self.metadata)
+        s_hdr = _make_header(self.metadata)
         s_hdr['PIXTYPE'] = 'HEALSPARSE'
         s_hdr['NSIDE'] = self._nside_sparse
         s_hdr['SENTINEL'] = self._sentinel

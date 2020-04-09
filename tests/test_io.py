@@ -170,13 +170,14 @@ class IoTestCase(unittest.TestCase):
         hdr = {}
         hdr['TESTING'] = 1.0
 
-        sparse_map.write(os.path.join(self.test_dir, 'sparsemap_with_header.fits'), header=hdr)
+        sparse_map.metadata = hdr
+        sparse_map.write(os.path.join(self.test_dir, 'sparsemap_with_header.fits'))
 
-        retMap, retHdr = healsparse.HealSparseMap.read(os.path.join(self.test_dir,
-                                                                    'sparsemap_with_header.fits'),
-                                                       header=True)
+        ret_map, ret_hdr = healsparse.HealSparseMap.read(os.path.join(self.test_dir,
+                                                                      'sparsemap_with_header.fits'),
+                                                         header=True)
 
-        self.assertEqual(hdr['TESTING'], retHdr['TESTING'])
+        self.assertEqual(hdr['TESTING'], ret_hdr['TESTING'])
 
     def test_writeread_highres(self):
         """
