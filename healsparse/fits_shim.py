@@ -182,23 +182,31 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map):
         fits.append(filename, sparse_map, header=s_hdr, overwrite=False)
 
 
-def _make_header(input_header=None):
+def _make_header(input_header, metadata=None):
     """
     Make a fits header.
 
     Parameters
     ----------
-    input_header : `dict`-like object, optional
-       Input header to copy.  Default is None.
+    input_header : `dict`-like object
+       Input header to copy.
+    metadata : `dict`-like object
+       Input metadata which can be overridden by input_header
 
     Returns
     -------
     header : `fitsio.FITSHDR` or `astropy.io.fits.Header`
     """
     if use_fitsio:
-        return fitsio.FITSHDR(input_header)
+        hdr = fitsio.FITSHDR(metadata)
     else:
-        if input_header is None:
-            return fits.Header()
+        if metadata is None:
+            hdr = fits.Header()
         else:
-            return fits.Header(input_header)
+            hdr = fits.Header(metadata)
+
+    if input_header is not None:
+        for key in input_header:
+            hdr[key] = input_header[key]
+
+    return hdr

@@ -14,7 +14,7 @@ class HealSparseMap(object):
 
     def __init__(self, cov_index_map=None, sparse_map=None, nside_sparse=None,
                  healpix_map=None, nside_coverage=None, primary=None, sentinel=None,
-                 nest=True):
+                 nest=True, metadata=None):
         """
         Instantiate a HealSparseMap.
 
@@ -41,6 +41,8 @@ class HealSparseMap(object):
            and minimum int for int types.
         nest : `bool`, optional
            If input healpix map is in nest format.  Default is True.
+        metadata : `dict`-like, optional
+           Map metadata that can be stored in FITS header format.
 
         Returns
         -------
@@ -69,6 +71,7 @@ class HealSparseMap(object):
         self._is_wide_mask = False
         self._wide_mask_width = 0
         self._primary = primary
+        self.metadata = metadata
         if self._sparse_map.dtype.fields is not None:
             self._is_rec_array = True
             if self._primary is None:
@@ -131,9 +134,10 @@ class HealSparseMap(object):
 
             healpix_map = hp.read_map(filename, nest=True, verbose=False, dtype=dtype)
             if header:
-                return (cls(healpix_map=healpix_map, nside_coverage=nside_coverage, nest=True), hdr)
+                return (cls(healpix_map=healpix_map, nside_coverage=nside_coverage, nest=True,
+                            metadata=hdr), hdr)
             else:
-                return cls(healpix_map=healpix_map, nside_coverage=nside_coverage, nest=True)
+                return cls(healpix_map=healpix_map, nside_coverage=nside_coverage, nest=True, metadata=hdr)
         elif 'PIXTYPE' in hdr and hdr['PIXTYPE'].rstrip() == 'HEALSPARSE':
             # This is a sparse map type.  Just use fits for now.
             cov_index_map, sparse_map, nside_sparse, primary, sentinel = \
@@ -143,17 +147,18 @@ class HealSparseMap(object):
                                                  hdr['WWIDTH'])).astype(WIDE_MASK)
             if header:
                 return (cls(cov_index_map=cov_index_map, sparse_map=sparse_map,
-                            nside_sparse=nside_sparse, primary=primary, sentinel=sentinel),
-                        hdr)
+                            nside_sparse=nside_sparse, primary=primary, sentinel=sentinel,
+                            metadata=hdr), hdr)
             else:
                 return cls(cov_index_map=cov_index_map, sparse_map=sparse_map,
-                           nside_sparse=nside_sparse, primary=primary, sentinel=sentinel)
+                           nside_sparse=nside_sparse, primary=primary, sentinel=sentinel,
+                           metadata=hdr)
         else:
             raise RuntimeError("Filename %s not in healpix or healsparse format." % (filename))
 
     @classmethod
     def make_empty(cls, nside_coverage, nside_sparse, dtype, primary=None, sentinel=None,
-                   wide_mask_maxbits=None):
+                   wide_mask_maxbits=None, metadata=None):
         """
         Make an empty map with nothing in it.
 
@@ -172,6 +177,8 @@ class HealSparseMap(object):
            and minimum int for int types.
         wide_mask_maxbits : `int`, optional
            Create a "wide bit mask" map, with this many bits.
+        metadata : `dict`-like, optional
+           Map metadata that can be stored in FITS header format.
 
         Returns
         -------
@@ -220,11 +227,12 @@ class HealSparseMap(object):
             sparse_map[:] = _sentinel
 
         return cls(cov_index_map=cov_index_map, sparse_map=sparse_map,
-                   nside_sparse=nside_sparse, primary=primary, sentinel=_sentinel)
+                   nside_sparse=nside_sparse, primary=primary, sentinel=_sentinel,
+                   metadata=metadata)
 
     @classmethod
     def make_empty_like(cls, sparsemap, nside_coverage=None, nside_sparse=None, dtype=None,
-                        primary=None, sentinel=None, wide_mask_maxbits=None):
+                        primary=None, sentinel=None, wide_mask_maxbits=None, metadata=None):
         """
         Make an empty map with the same parameters as an existing map.
 
@@ -244,6 +252,8 @@ class HealSparseMap(object):
            Sentinel value.  Default is sparsemap._sentinel
         wide_mask_maxbits : `int`, optional
            Create a "wide bit mask" map, with this many bits.
+        metadata : `dict`-like, optional
+           Map metadata that can be stored in FITS header format.
 
         Returns
         -------
@@ -263,9 +273,12 @@ class HealSparseMap(object):
         if wide_mask_maxbits is None:
             if sparsemap._is_wide_mask:
                 wide_mask_maxbits = sparsemap._wide_mask_maxbits
+        if metadata is None:
+            metadata = sparsemap._metadata
 
         return cls.make_empty(nside_coverage, nside_sparse, dtype, primary=primary,
-                              sentinel=sentinel, wide_mask_maxbits=wide_mask_maxbits)
+                              sentinel=sentinel, wide_mask_maxbits=wide_mask_maxbits,
+                              metadata=metadata)
 
     @staticmethod
     def _read_healsparse_file(filename, pixels=None):
@@ -438,11 +451,11 @@ class HealSparseMap(object):
             raise RuntimeError("Filename %s exists and clobber is False." % (filename))
 
         # Note that we put the requested header information in each of the extensions.
-        c_hdr = _make_header(header)
+        c_hdr = _make_header(header, metadata=self.metadata)
         c_hdr['PIXTYPE'] = 'HEALSPARSE'
         c_hdr['NSIDE'] = self._nside_coverage
 
-        s_hdr = _make_header(header)
+        s_hdr = _make_header(header, metadata=self.metadata)
         s_hdr['PIXTYPE'] = 'HEALSPARSE'
         s_hdr['NSIDE'] = self._nside_sparse
         s_hdr['SENTINEL'] = self._sentinel
@@ -886,6 +899,45 @@ class HealSparseMap(object):
         """
 
         return self._is_rec_array
+
+    @property
+    def metadata(self):
+        """
+        Return the metadata dict.
+
+        Returns
+        -------
+        metadata : `dict`
+        """
+        return self._metadata
+
+    @metadata.setter
+    def metadata(self, metadata):
+        """
+        Set the metadata dict.
+
+        This ensures that the keys conform to FITS standard (<=8 char string,
+        all caps.)
+
+        Parameters
+        ----------
+        metadata : `dict`
+        """
+        if metadata is None:
+            self._metadata = metadata
+        else:
+            if not isinstance(metadata, dict):
+                try:
+                    metadata = dict(metadata)
+                except ValueError:
+                    raise ValueError("Could not convert metadata to dict")
+            for key in metadata:
+                if not isinstance(key, str):
+                    raise ValueError("metadata key %s must be a string" % (str(key)))
+                if not key.isupper():
+                    raise ValueError("metadata key %s must be all upper case" % (key))
+
+            self._metadata = metadata
 
     def generate_healpix_map(self, nside=None, reduction='mean', key=None):
         """
