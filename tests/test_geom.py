@@ -267,8 +267,6 @@ class GeomTestCase(unittest.TestCase):
         nside = 2**17
 
         for dtype in [np.int16, np.uint16]:
-            dtype = np.int16
-
             radius1 = 0.075
             radius2 = 0.075
             ra1, dec1 = 200.0, 0.0
@@ -336,12 +334,52 @@ class GeomTestCase(unittest.TestCase):
         testing.assert_almost_equal(circle._radius, circle_rep._radius)
         testing.assert_array_equal(circle._value, circle_rep._value)
 
+        circle._value = 5.6
+        rep = repr(circle)
+        circle_rep = eval(rep)
+        testing.assert_array_equal(circle._value, circle_rep._value)
+
+        # And multi-bit version
+        circle = Circle(
+            ra=ra,
+            dec=dec,
+            radius=radius,
+            value=[5, 10],
+        )
+
+        rep = repr(circle)
+        circle_rep = eval(rep)
+
+        testing.assert_almost_equal(circle._ra, circle_rep._ra)
+        testing.assert_almost_equal(circle._dec, circle_rep._dec)
+        testing.assert_almost_equal(circle._radius, circle_rep._radius)
+        testing.assert_array_equal(circle._value, circle_rep._value)
+
         ra = [200.0, 200.2, 200.3, 200.2, 200.1]
         dec = [0.0, 0.1, 0.2, 0.25, 0.13]
         poly = Polygon(
             ra=ra,
             dec=dec,
             value=64,
+        )
+
+        rep = repr(poly)
+        poly_rep = eval(rep)
+
+        testing.assert_almost_equal(poly._ra, poly_rep._ra)
+        testing.assert_almost_equal(poly._dec, poly_rep._dec)
+        testing.assert_array_equal(poly._value, poly_rep._value)
+
+        poly._value = 5.6
+        rep = repr(poly)
+        poly_rep = eval(rep)
+        testing.assert_array_equal(poly._value, poly_rep._value)
+
+        # And multi-bit version
+        poly = Polygon(
+            ra=ra,
+            dec=dec,
+            value=[5, 10],
         )
 
         rep = repr(poly)

@@ -9,7 +9,7 @@ Python implementation of a sparse HEALPix map.
 
 - Numpy
 - [Healpy](https://github.com/healpy/healpy)
-- [fitsio](https://github.com/esheldon/fitsio)
+- [fitsio](https://github.com/esheldon/fitsio) or [astropy](https://www.astropy.org)
 
 ## Install:
 
@@ -29,4 +29,3 @@ non-DESC use; if you wish to use the code outside DESC please contact the
 developers.
 
 This code is under development and has not yet been released.
-

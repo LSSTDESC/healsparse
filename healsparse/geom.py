@@ -5,69 +5,6 @@ from .utils import is_integer_value
 import numbers
 
 
-def make_circles(*, ra, dec, radius, value):
-    """
-    make multiple Circles
-
-    Parameters
-    ----------
-    ra: array
-        RA in degrees
-    dec: array
-        DEC in degrees
-    radius: array
-        Radius in degrees
-    value: scalar or array
-        A scalar of array of values
-
-    Returns
-    -------
-    List of Circle objects
-
-    Examples
-    --------
-
-    # one circle
-    ra = 200.0
-    dec = 0.0
-    radius = 0.02
-    value = 1
-
-    circles = make_circles(ra, dec, radius, value)
-
-    # multiple circles
-    ra = [200, 200.1, 200.2]
-    dec = [0.0, 0.1, 0.2]
-    radius = [0.2]*len(ra)
-    value = [1]*len*(ra)
-    circles = make_circles(ra, dec, radius, value)
-    """
-    ra = np.array(ra, ndmin=1)
-    dec = np.array(dec, ndmin=1)
-    radius = np.array(radius, ndmin=1)
-    value = np.array(value, ndmin=1)
-
-    if ra.size != dec.size:
-        raise ValueError('ra/dec different sizes')
-    if radius.size != dec.size:
-        raise ValueError('ra/radius different sizes')
-    if value.size != dec.size and value.size != 1:
-        raise ValueError('value should be scalar or '
-                         'same size as ra')
-
-    circles = []
-    for i in range(ra.size):
-        if value.size == 1:
-            v = value[0]
-        else:
-            v = value[i]
-
-        circle = Circle(ra=ra[i], dec=dec[i], radius=radius[i], value=v)
-        circles.append(circle)
-
-    return circles
-
-
 def realize_geom(geom, smap, type='or'):
     """
     Realize geometry objects in a map
@@ -96,8 +33,16 @@ def realize_geom(geom, smap, type='or'):
     gdict = {}
     for g in geom:
         value = g.value
-        _check_int(value)
-        _check_int_size(value, smap.dtype)
+        if isinstance(value, (tuple, list, np.ndarray)):
+            value = tuple(value)
+            # This is a wide mask
+            if not smap.is_wide_mask_map:
+                raise ValueError("Can only use wide bit geometry values in a wide mask map")
+            for v in value:
+                _check_int(v)
+        else:
+            _check_int(value)
+            _check_int_size(value, smap.dtype)
 
         if value not in gdict:
             gdict[value] = [g]
@@ -122,9 +67,12 @@ def realize_geom(geom, smap, type='or'):
 
         pixels = np.unique(pixels)
 
-        values = smap.get_values_pix(pixels)
-        values |= value
-        smap.update_values_pix(pixels, values)
+        if smap.is_wide_mask_map:
+            smap.set_bits_pix(pixels, value)
+        else:
+            values = smap.get_values_pix(pixels)
+            values |= value
+            smap.update_values_pix(pixels, values)
 
 
 def _check_int(x):
@@ -172,7 +120,7 @@ class GeomBase(object):
         """
         raise NotImplementedError('implment get_pixels')
 
-    def get_map(self, *, nside_coverage, nside_sparse, dtype):
+    def get_map(self, *, nside_coverage, nside_sparse, dtype, wide_mask_maxbits=None):
         """
         get a healsparse map corresponding to this geometric primitive
 
@@ -184,6 +132,8 @@ class GeomBase(object):
             nside of sparse map
         dtype : `np.dtype`
             dtype of the output array
+        wide_mask_maxbits : `int`, optional
+            Create a "wide bit mask" map, with this many bits.
 
         Returns
         -------
@@ -196,14 +146,30 @@ class GeomBase(object):
         else:
             sentinel = hp.UNSEEN
 
+        if isinstance(self._value, (tuple, list, np.ndarray)):
+            # This is a wide mask
+            if wide_mask_maxbits is None:
+                wide_mask_maxbits = np.max(self._value)
+            else:
+                if wide_mask_maxbits < np.max(self._value):
+                    raise ValueError("wide_mask_maxbits (%d) is less than maximum bit value (%d)" %
+                                     (wide_mask_maxbits, np.max(self._value)))
+
         smap = HealSparseMap.make_empty(
             nside_coverage=nside_coverage,
             nside_sparse=nside_sparse,
             dtype=dtype,
             sentinel=sentinel,
+            wide_mask_maxbits=wide_mask_maxbits
         )
         pixels = self.get_pixels(nside=nside_sparse)
-        smap.update_values_pix(pixels, np.array([self._value], dtype=dtype))
+
+        if wide_mask_maxbits is None:
+            # This is a regular set
+            smap.update_values_pix(pixels, np.array([self._value], dtype=dtype))
+        else:
+            # This is a wide mask
+            smap.set_bits_pix(pixels, self._value)
 
         return smap
 
@@ -227,9 +193,14 @@ class GeomBase(object):
         if sparseMap.is_rec_array:
             raise RuntimeError("Input SparseMap cannot be a rec array")
 
+        if sparseMap.is_wide_mask_map:
+            wide_mask_maxbits = sparseMap.wide_mask_maxbits
+        else:
+            wide_mask_maxbits = None
+
         return self.get_map(nside_coverage=sparseMap.nside_coverage,
                             nside_sparse=sparseMap.nside_sparse,
-                            dtype=sparseMap.dtype)
+                            dtype=sparseMap.dtype, wide_mask_maxbits=wide_mask_maxbits)
 
 
 class Circle(GeomBase):
@@ -293,11 +264,8 @@ class Circle(GeomBase):
         )
 
     def __repr__(self):
-        if self.is_integer_value:
-            s = 'Circle(ra=%.16g, dec=%.16g, radius=%.16g, value=%d)'
-        else:
-            s = 'Circle(ra=%.16g, dec=%.16g, radius=%.16g, value=%f)'
-        return s % (self._ra, self._dec, self._radius, self._value)
+        s = 'Circle(ra=%.16g, dec=%.16g, radius=%.16g, value=%s)'
+        return s % (self._ra, self._dec, self._radius, repr(self._value))
 
 
 class Polygon(GeomBase):
@@ -382,280 +350,5 @@ class Polygon(GeomBase):
         ras = repr(self._ra)
         decs = repr(self._dec)
 
-        if self.is_integer_value:
-            s = 'Polygon(ra=%s, dec=%s, value=%d)'
-        else:
-            s = 'Polygon(ra=%s, dec=%s, value=%f)'
-        return s % (ras, decs, self._value)
-
-
-def test_circle(show=False):
-    ra, dec = 200.0, 0.0
-    radius = 30.0/3600.0
-    nside = 2**17
-    circle = Circle(
-        ra=ra,
-        dec=dec,
-        radius=radius,
-        value=2**4,
-    )
-    pixels = circle.get_pixels(nside=nside)
-    print('pixels:', pixels)
-
-    smap = circle.get_map(nside=nside, dtype=np.int16)
-    print(smap)
-
-    if show:
-        import biggles
-        pra, pdec = hp.pix2ang(nside, pixels, nest=True, lonlat=True)
-        plt = biggles.plot(
-            pra,
-            pdec,
-            type='filled circle',
-            xlabel='RA',
-            ylabel='DEC',
-            aspect_ratio=1,
-            visible=False,
-        )
-        plt.add(
-            biggles.Circle(ra, dec, radius, color='red'),
-        )
-        plt.show()
-
-        return plt
-    else:
-        return None
-
-
-def _make_circles(rng, ncircle, ra_range=None, dec_range=None):
-    if ra_range is None:
-        ra_range = 199.8, 200.2
-    if dec_range is None:
-        dec_range = -0.1, 0.1
-
-    ra = rng.uniform(low=ra_range[0], high=ra_range[1], size=ncircle)
-    dec = rng.uniform(low=dec_range[0], high=dec_range[1], size=ncircle)
-
-    radius = rng.uniform(low=30.0/3600.0, high=120.0/3600.0, size=ncircle)
-
-    possible = np.array([2, 4, 8, 16, 32], dtype=np.int16)
-    values = rng.choice(possible, size=ncircle)
-
-    circles = make_circles(
-        ra=ra,
-        dec=dec,
-        radius=radius,
-        value=values,
-    )
-
-    return circles, ra_range, dec_range
-
-
-def test_circles(show=False, show_mat=False):
-    """
-    show_mat uses the matplotlib based stuff which is
-    super slow
-    """
-    nside = 2**17
-    dtype = np.int16
-
-    rng = np.random.RandomState(31415)
-    ncircle = 20
-
-    circles, ra_range, dec_range = _make_circles(rng, ncircle)
-
-    smap = HealSparseMap.make_empty(
-        nside_coverage=32,
-        nside_sparse=nside,
-        dtype=dtype,
-        sentinel=0,
-    )
-    realize_geom(circles, smap)
-
-    test, = np.where(smap._sparseMap > 0)
-    print(test.size)
-
-    w, = np.where(smap._sparseMap != smap._sentinel)
-    print(w.size)
-
-    data = smap.get_values_pix(smap.valid_pixels)
-    print('_sparseMap:', smap._sparseMap)
-    print('data:', data)
-    w, = np.where(data != smap._sentinel)
-    print(w.size)
-
-    plt = None
-    if show:
-        import biggles
-        import pcolors
-
-        nrand = 100000
-        rra = rng.uniform(low=ra_range[0], high=ra_range[1], size=nrand)
-        rdec = rng.uniform(low=dec_range[0], high=dec_range[1], size=nrand)
-
-        vals = smap.getValueRaDec(rra, rdec)
-        uvals = np.unique(vals)
-        colors = list(reversed(pcolors.rainbow(uvals.size*2)))
-        print('unique vals:', uvals)
-
-        xrng = ra_range
-        yrng = dec_range
-        aspect = (yrng[1]-yrng[0])/(xrng[1]-xrng[0])
-        plt = biggles.FramedPlot(
-            xrange=xrng,
-            yrnage=yrng,
-            aspect_ratio=aspect,
-            xlabel='RA',
-            ylabel='DEC',
-        )
-
-        for i, val in enumerate(uvals):
-            if val == 0:
-                continue
-            w, = np.where(vals == val)
-            color = colors[i]
-            pts = biggles.Points(rra[w], rdec[w], type='dot', color=color)
-            plt.add(pts)
-
-        plt.show()
-
-    return plt
-
-
-def test_box(show=False):
-    ra = [200.0, 200.2, 200.2, 200.0]
-    dec = [0.0, 0.0, 0.1, 0.1]
-    nside = 2**15
-    poly = Polygon(
-        ra=ra,
-        dec=dec,
-        value=2**4,
-    )
-
-    smap = poly.get_map(nside=nside, dtype=np.int16)
-    print(smap)
-
-    if show:
-        import biggles
-        pixels = poly.get_pixels(nside=nside)
-        pra, pdec = hp.pix2ang(nside, pixels, nest=True, lonlat=True)
-        plt = biggles.plot(
-            pra,
-            pdec,
-            type='filled circle',
-            xlabel='RA',
-            ylabel='DEC',
-            aspect_ratio=0.5,
-            visible=False,
-        )
-        plt.add(
-            biggles.Box((ra[0], dec[0]), (ra[2], dec[2]), color='red'),
-        )
-        plt.show()
-
-
-def _make_poly():
-    # counter clockwise
-    ra = [200.0, 200.2, 200.3, 200.2, 200.1]
-    dec = [0.0, 0.1, 0.2, 0.25, 0.13]
-    poly = Polygon(
-        ra=ra,
-        dec=dec,
-        value=64,
-    )
-    return poly, ra, dec
-
-
-def test_polygon(show=False):
-
-    nside = 2**15
-    poly, ra, dec = _make_poly()
-    smap = poly.get_map(nside=nside, dtype=np.int16)
-    print(smap)
-
-    if show:
-        import biggles
-        pixels = poly.get_pixels(nside=nside)
-        pra, pdec = hp.pix2ang(nside, pixels, nest=True, lonlat=True)
-        plt = biggles.plot(
-            pra,
-            pdec,
-            type='filled circle',
-            xlabel='RA',
-            ylabel='DEC',
-            aspect_ratio=0.5,
-            visible=False,
-        )
-
-        rac = np.array(list(ra) + [ra[0]])
-        decc = np.array(list(dec) + [dec[0]])
-        plt.add(
-            biggles.Curve(rac, decc, color='red'),
-        )
-        plt.show()
-
-        return plt
-
-    else:
-        return None
-
-
-def test_mix(show=False):
-    nside = 2**17
-    dtype = np.int16
-    rng = np.random.RandomState(31415)
-    ncircle = 20
-
-    circles, ra_range, dec_range = _make_circles(rng, ncircle)
-    poly, ra, dec = _make_poly()
-
-    geoms = circles + [poly]
-    smap = HealSparseMap.make_empty(
-        nside_coverage=32,
-        nside_sparse=nside,
-        dtype=dtype,
-        sentinel=0,
-    )
-
-    realize_geom(geoms, smap)
-
-    if show:
-        import biggles
-        import pcolors
-
-        # new ranges
-        ra_range = 199.7, 200.35
-        dec_range = -0.2, 0.25
-
-        nrand = 100000
-        rra = rng.uniform(low=ra_range[0], high=ra_range[1], size=nrand)
-        rdec = rng.uniform(low=dec_range[0], high=dec_range[1], size=nrand)
-
-        vals = smap.getValueRaDec(rra, rdec)
-        uvals = np.unique(vals)
-        colors = list(reversed(pcolors.rainbow(uvals.size)))
-        print('unique vals:', uvals)
-
-        xrng = ra_range
-        yrng = dec_range
-
-        aspect = (yrng[1]-yrng[0])/(xrng[1]-xrng[0])
-        plt = biggles.FramedPlot(
-            xrange=xrng,
-            yrnage=yrng,
-            aspect_ratio=aspect,
-            xlabel='RA',
-            ylabel='DEC',
-        )
-
-        for i, val in enumerate(uvals):
-            if val == 0:
-                continue
-            w, = np.where(vals == val)
-            color = colors[i]
-            pts = biggles.Points(rra[w], rdec[w], type='dot', color=color)
-            plt.add(pts)
-
-        plt.show()
-
-        return plt
+        s = 'Polygon(ra=%s, dec=%s, value=%s)'
+        return s % (ras, decs, repr(self._value))

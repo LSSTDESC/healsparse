@@ -3,7 +3,7 @@ import numpy as np
 import healpy as hp
 import os
 import numbers
-from .utils import reduce_array, check_sentinel
+from .utils import reduce_array, check_sentinel, _get_field_and_bitval, WIDE_NBIT, WIDE_MASK
 from .fits_shim import HealSparseFits, _make_header, _write_filename
 
 
@@ -66,6 +66,8 @@ class HealSparseMap(object):
         self._nside_sparse = nside_sparse
 
         self._is_rec_array = False
+        self._is_wide_mask = False
+        self._wide_mask_width = 0
         self._primary = primary
         if self._sparse_map.dtype.fields is not None:
             self._is_rec_array = True
@@ -74,6 +76,10 @@ class HealSparseMap(object):
 
             self._sentinel = check_sentinel(self._sparse_map[self._primary].dtype.type, sentinel)
         else:
+            if ((self._sparse_map.dtype.type == WIDE_MASK) and len(self._sparse_map.shape) == 2):
+                self._is_wide_mask = True
+                self._wide_mask_width = self._sparse_map.shape[1]
+                self._wide_mask_maxbits = WIDE_NBIT * self._wide_mask_width
             self._sentinel = check_sentinel(self._sparse_map.dtype.type, sentinel)
 
         self._bit_shift = 2 * int(np.round(np.log(self._nside_sparse / self._nside_coverage) / np.log(2)))
@@ -132,6 +138,9 @@ class HealSparseMap(object):
             # This is a sparse map type.  Just use fits for now.
             cov_index_map, sparse_map, nside_sparse, primary, sentinel = \
                 cls._read_healsparse_file(filename, pixels=pixels)
+            if 'WIDEMASK' in hdr and hdr['WIDEMASK']:
+                sparse_map = sparse_map.reshape((sparse_map.size // hdr['WWIDTH'],
+                                                 hdr['WWIDTH'])).astype(WIDE_MASK)
             if header:
                 return (cls(cov_index_map=cov_index_map, sparse_map=sparse_map,
                             nside_sparse=nside_sparse, primary=primary, sentinel=sentinel),
@@ -143,7 +152,8 @@ class HealSparseMap(object):
             raise RuntimeError("Filename %s not in healpix or healsparse format." % (filename))
 
     @classmethod
-    def make_empty(cls, nside_coverage, nside_sparse, dtype, primary=None, sentinel=None):
+    def make_empty(cls, nside_coverage, nside_sparse, dtype, primary=None, sentinel=None,
+                   wide_mask_maxbits=None):
         """
         Make an empty map with nothing in it.
 
@@ -160,6 +170,8 @@ class HealSparseMap(object):
         sentinel : `int` or `float`, optional
            Sentinel value.  Default is `hp.UNSEEN` for floating-point types,
            and minimum int for int types.
+        wide_mask_maxbits : `int`, optional
+           Create a "wide bit mask" map, with this many bits.
 
         Returns
         -------
@@ -167,13 +179,25 @@ class HealSparseMap(object):
            HealSparseMap filled with sentinel values.
         """
 
+        if wide_mask_maxbits is not None:
+            test = np.zeros(1, dtype=dtype)
+            if test.dtype != WIDE_MASK:
+                raise ValueError("Must use dtype=healsparse.WIDE_MASK to use a wide_mask")
+            if sentinel is not None:
+                if sentinel != 0:
+                    raise ValueError("Sentinel must be 0 for wide_mask")
+            nbitfields = (wide_mask_maxbits - 1) // WIDE_NBIT + 1
+
         bit_shift = 2 * int(np.round(np.log(nside_sparse / nside_coverage) / np.log(2)))
         nfine_per_cov = 2**bit_shift
 
         cov_index_map = np.zeros(hp.nside2npix(nside_coverage), dtype=np.int64)
         cov_index_map[:] -= np.arange(hp.nside2npix(nside_coverage), dtype=np.int64) * nfine_per_cov
 
-        sparse_map = np.zeros(nfine_per_cov, dtype=dtype)
+        if wide_mask_maxbits is not None:
+            sparse_map = np.zeros((nfine_per_cov, nbitfields), dtype=dtype)
+        else:
+            sparse_map = np.zeros(nfine_per_cov, dtype=dtype)
         if sparse_map.dtype.fields is not None:
             if primary is None:
                 raise RuntimeError("Must specify 'primary' field when using a recarray for the sparse_map.")
@@ -200,7 +224,7 @@ class HealSparseMap(object):
 
     @classmethod
     def make_empty_like(cls, sparsemap, nside_coverage=None, nside_sparse=None, dtype=None,
-                        primary=None, sentinel=None):
+                        primary=None, sentinel=None, wide_mask_maxbits=None):
         """
         Make an empty map with the same parameters as an existing map.
 
@@ -218,6 +242,8 @@ class HealSparseMap(object):
            Primary key for recarray.  Default is sparsemap.primary
         sentinel : `int` or `float`, optional
            Sentinel value.  Default is sparsemap._sentinel
+        wide_mask_maxbits : `int`, optional
+           Create a "wide bit mask" map, with this many bits.
 
         Returns
         -------
@@ -234,8 +260,12 @@ class HealSparseMap(object):
             primary = sparsemap.primary
         if sentinel is None:
             sentinel = sparsemap._sentinel
+        if wide_mask_maxbits is None:
+            if sparsemap._is_wide_mask:
+                wide_mask_maxbits = sparsemap._wide_mask_maxbits
 
-        return cls.make_empty(nside_coverage, nside_sparse, dtype, primary=primary, sentinel=sentinel)
+        return cls.make_empty(nside_coverage, nside_sparse, dtype, primary=primary,
+                              sentinel=sentinel, wide_mask_maxbits=wide_mask_maxbits)
 
     @staticmethod
     def _read_healsparse_file(filename, pixels=None):
@@ -418,6 +448,9 @@ class HealSparseMap(object):
         s_hdr['SENTINEL'] = self._sentinel
         if self._is_rec_array:
             s_hdr['PRIMARY'] = self._primary
+        if self._is_wide_mask:
+            s_hdr['WIDEMASK'] = self._is_wide_mask
+            s_hdr['WWIDTH'] = self._wide_mask_width
         _write_filename(filename, c_hdr, s_hdr, self._cov_index_map, self._sparse_map)
 
     def update_values_pix(self, pixels, values, nest=True):
@@ -426,9 +459,9 @@ class HealSparseMap(object):
 
         Parameters
         ----------
-        pixels : `np.array`
+        pixels : `np.ndarray`
            Integer array of sparse_map pixel values
-        values : `np.array`
+        values : `np.ndarray`
            Value or Array of values.  Must be same type as sparse_map
         """
 
@@ -444,11 +477,17 @@ class HealSparseMap(object):
         if self._sparse_map.dtype != values.dtype:
             raise RuntimeError("Data-type mismatch between sparse_map and values")
 
-        if values.size == 1:
+        if self._is_wide_mask:
+            if len(values.shape) != 2:
+                raise RuntimeError("Values must be WideBits or equivalent array.")
+            if values.shape[1] != self._wide_mask_width:
+                raise RuntimeError("Values must be WideBits or equivalent array with matched width.")
+
+        if len(values) == 1:
             single_value = True
         else:
             single_value = False
-            if values.size != pixels.size:
+            if len(values) != pixels.size:
                 raise RuntimeError("Length of values must be the same as pixels, or length 1.")
 
         # Compute the coverage pixels
@@ -476,7 +515,11 @@ class HealSparseMap(object):
             nfine_per_cov = 2**self._bit_shift
 
             new_cov_pix = np.unique(ipnest_cov[out_cov])
-            sparse_append = np.zeros(new_cov_pix.size * nfine_per_cov, dtype=self._sparse_map.dtype)
+            if self._is_wide_mask:
+                sparse_append = np.zeros((new_cov_pix.size * nfine_per_cov, self._wide_mask_width),
+                                         dtype=self._sparse_map.dtype)
+            else:
+                sparse_append = np.zeros(new_cov_pix.size * nfine_per_cov, dtype=self._sparse_map.dtype)
             # Fill with the empty defaults (generally UNSEEN)
             sparse_append[:] = self._sparse_map[0]
 
@@ -488,7 +531,7 @@ class HealSparseMap(object):
                                                                  dtype=np.int64) * nfine_per_cov
             # Put in the appended pixels
             cov_index_map_temp[new_cov_pix] = (np.arange(new_cov_pix.size) * nfine_per_cov +
-                                               self._sparse_map.size)
+                                               len(self._sparse_map))
             # And put the offset back in
             cov_index_map_temp[:] -= np.arange(hp.nside2npix(self._nside_coverage),
                                                dtype=np.int64) * nfine_per_cov
@@ -496,14 +539,69 @@ class HealSparseMap(object):
             # Fill in the pixels to append
             if single_value:
                 sparse_append[_pix[out_cov] + cov_index_map_temp[ipnest_cov[out_cov]] -
-                              self._sparse_map.size] = values[0]
+                              len(self._sparse_map)] = values[0]
             else:
                 sparse_append[_pix[out_cov] + cov_index_map_temp[ipnest_cov[out_cov]] -
-                              self._sparse_map.size] = values[out_cov]
+                              len(self._sparse_map)] = values[out_cov]
 
             # And set the values in the map
             self._cov_index_map = cov_index_map_temp
-            self._sparse_map = np.append(self._sparse_map, sparse_append)
+            if self._is_wide_mask:
+                self._sparse_map = np.reshape(np.append(self._sparse_map,
+                                                        sparse_append),
+                                              (len(self._sparse_map) +
+                                               len(sparse_append),
+                                               self._wide_mask_width))
+            else:
+                self._sparse_map = np.append(self._sparse_map, sparse_append)
+
+    def set_bits_pix(self, pixels, bits, nest=True):
+        """
+        Set bits of a wide_mask map.
+
+        Parameters
+        ----------
+        pixels : `np.ndarray`
+           Integer array of sparse_map pixel values
+        bits : `list`
+           List of bits to set
+        """
+        if not self._is_wide_mask:
+            raise NotImplementedError("Can only use set_bits_pix on wide_mask map")
+
+        if np.max(bits) >= self._wide_mask_maxbits:
+            raise ValueError("Bit position %d too large (>= %d)" % (np.max(bits),
+                                                                    self._wide_mask_maxbits))
+        values = self.get_values_pix(pixels, nest=nest)
+        for bit in bits:
+            field, bitval = _get_field_and_bitval(bit)
+            values[:, field] |= bitval
+
+        self.update_values_pix(pixels, values, nest=nest)
+
+    def clear_bits_pix(self, pixels, bits, nest=True):
+        """
+        Clear bits of a wide_mask map.
+
+        Parameters
+        ----------
+        pixels : `np.ndarray`
+           Integer array of sparse_map pixel values
+        bits : `list`
+           List of bits to clear
+        """
+        if not self._is_wide_mask:
+            raise NotImplementedError("Can only use set_bits_pix on wide_mask map")
+
+        if np.max(bits) >= self._wide_mask_maxbits:
+            raise ValueError("Bit position %d too large (>= %d)" % (np.max(bits),
+                                                                    self._wide_mask_maxbits))
+        values = self.get_values_pix(pixels, nest=nest)
+        for bit in bits:
+            field, bitval = _get_field_and_bitval(bit)
+            values[:, field] &= ~bitval
+
+        self.update_values_pix(pixels, values, nest=nest)
 
     def get_values_pos(self, theta_or_ra, phi_or_dec, lonlat=False, valid_mask=False):
         """
@@ -515,7 +613,7 @@ class HealSparseMap(object):
         ----------
         theta_or_ra, phi_or_dec : float, array-like
            Angular coordinates of points on a sphere.
-        lonlat: `bool`, optional
+        lonlat : `bool`, optional
            If True, input angles are longitude and latitude in degrees.
            Otherwise, they are co-latitude and longitude in radians.
         valid_mask : `bool`, optional
@@ -523,7 +621,7 @@ class HealSparseMap(object):
 
         Returns
         -------
-        values : `np.array`
+        values : `np.ndarray`
            Array of values/validity from the map.
         """
         return self.get_values_pix(hp.ang2pix(self._nside_sparse, theta_or_ra, phi_or_dec,
@@ -555,16 +653,78 @@ class HealSparseMap(object):
 
         ipnest_cov = np.right_shift(_pix, self._bit_shift)
 
-        values = self._sparse_map[_pix + self._cov_index_map[ipnest_cov]]
+        if self._is_wide_mask:
+            values = self._sparse_map[_pix + self._cov_index_map[ipnest_cov], :]
+        else:
+            values = self._sparse_map[_pix + self._cov_index_map[ipnest_cov]]
 
         if valid_mask:
             if self._is_rec_array:
                 return (values[self._primary] > self._sentinel)
+            elif self._is_wide_mask:
+                return (values > 0).sum(axis=1, dtype=np.bool)
             else:
                 return (values > self._sentinel)
         else:
             # Just return the values
             return values
+
+    def check_bits_pos(self, theta_or_ra, phi_or_dec, bits, lonlat=False):
+        """
+        Check the bits at the map for an array of positions.  Positions may be
+        theta/phi co-latitude and longitude in radians, or longitude and
+        latitude in degrees.
+
+        Parameters
+        ----------
+        theta_or_ra, phi_or_dec : float, array-like
+           Angular coordinates of points on a sphere.
+        lonlat : `bool`, optional
+           If True, input angles are longitude and latitude in degrees.
+           Otherwise, they are co-latitude and longitude in radians.
+        bits : `list`
+           List of bits to check
+
+        Returns
+        -------
+        bit_flags : `np.ndarray`
+           Array of `np.bool` flags on whether any of the input bits were
+           set
+        """
+        return self.check_bits_pix(hp.ang2pix(self._nside_sparse,
+                                              theta_or_ra, phi_or_dec,
+                                              lonlat=lonlat, nest=True),
+                                   bits)
+
+    def check_bits_pix(self, pixels, bits, nest=True):
+        """
+        Check the bits at the map for a set of pixels.
+
+        Parameters
+        ----------
+        pixel : `np.array`
+           Integer array of healpix pixels.
+        nest : `bool`, optional
+           Are the pixels in nest scheme?  Default is True.
+        bits : `list`
+           List of bits to check
+
+        Returns
+        -------
+        bit_flags : `np.ndarray`
+           Array of `np.bool` flags on whether any of the input bits were
+           set
+        """
+        values = self.get_values_pix(pixels, nest=nest)
+        bit_flags = None
+        for bit in bits:
+            field, bitval = _get_field_and_bitval(bit)
+            if bit_flags is None:
+                bit_flags = ((values[:, field] & bitval) > 0)
+            else:
+                bit_flags |= ((values[:, field] & bitval) > 0)
+
+        return bit_flags
 
     @property
     def dtype(self):
@@ -678,6 +838,44 @@ class HealSparseMap(object):
         return issubclass(self._sparse_map.dtype.type, np.unsignedinteger)
 
     @property
+    def is_wide_mask_map(self):
+        """
+        Check that the map is a wide mask
+
+        Returns
+        -------
+        is_wide_mask_map : `bool`
+        """
+        return self._is_wide_mask
+
+    @property
+    def wide_mask_width(self):
+        """
+        Get the width of the wide mask
+
+        Returns
+        -------
+        wide_mask_width : `int`
+           Width of wide mask array.  0 if not wide mask.
+        """
+        return self._wide_mask_width
+
+    @property
+    def wide_mask_maxbits(self):
+        """
+        Get the maximum number of bits stored in the wide mask.
+
+        Returns
+        -------
+        wide_mask_maxbits : `int`
+           Maximum number of bits.  0 if not wide mask.
+        """
+        if self._is_wide_mask:
+            return self._wide_mask_maxbits
+        else:
+            return 0
+
+    @property
     def is_rec_array(self):
         """
         Check that the map is a recArray map.
@@ -725,6 +923,8 @@ class HealSparseMap(object):
                 # Note that this makes the code simpler but is memory inefficient
                 # We may need to revisit this later depending on use cases
                 single_map = self.get_single(key)
+        elif self._is_wide_mask:
+            raise NotImplementedError("Cannot make healpix map out of wide_mask")
         else:
             single_map = self
 
@@ -822,6 +1022,8 @@ class HealSparseMap(object):
         """
         if self._nside_sparse < nside_out:
             raise ValueError('nside_out should be smaller than nside for the sparse_map')
+        if self._is_wide_mask:
+            raise NotImplementedError('Cannot degrade a wide_mask map')
         # Count the number of filled pixels in the coverage mask
         npop_pix = np.count_nonzero(self.coverage_mask)
         # We need the new bit_shifts and we have to build a new CovIndexMap
@@ -871,7 +1073,7 @@ class HealSparseMap(object):
                              nside_coverage=self._nside_coverage,
                              nside_sparse=nside_out, primary=self._primary, sentinel=hp.UNSEEN)
 
-    def apply_mask(self, mask_map, mask_bits=None, in_place=True):
+    def apply_mask(self, mask_map, mask_bits=None, mask_bit_arr=None, in_place=True):
         """
         Apply an integer mask to the map.  All pixels in the integer
         mask that have any bits in mask_bits set will be zeroed in the
@@ -885,6 +1087,8 @@ class HealSparseMap(object):
         mask_bits : `int`, optional
            Bits to be treated as bad in the mask_map.
            Default is None (all non-zero pixels are masked)
+        mask_bit_arr : `list` or `np.ndarray`, optional
+           Array of bit values, used if mask_map is a wide_mask_map.
         in_place : `bool`, optional
            Apply operation in place.  Default is True
 
@@ -897,12 +1101,29 @@ class HealSparseMap(object):
         # Check that the mask_map is an integer map (and not a recArray)
         if not mask_map.is_integer_map:
             raise RuntimeError("Can only apply a mask_map that is an integer map.")
+        if mask_bits is not None and mask_map.is_wide_mask_map:
+            raise RuntimeError("Cannot use mask_bits with wide_mask_map")
 
         # operate on this map valid_pixels
         valid_pixels = self.valid_pixels
 
         if mask_bits is None:
-            bad_pixels, = np.where(mask_map.get_values_pix(valid_pixels) > 0)
+            if mask_map.is_wide_mask_map:
+                if mask_bit_arr is None:
+                    bad_pixels, = np.where(mask_map.get_values_pix(valid_pixels).sum(axis=1) > 0)
+                else:
+                    # loop over mask_bit_arr
+                    mask_values = mask_map.get_values_pix(valid_pixels)
+                    bad_pixel_flag = None
+                    for bit in mask_bit_arr:
+                        field, bitval = _get_field_and_bitval(bit)
+                        if bad_pixel_flag is None:
+                            bad_pixel_flag = ((mask_values[:, field] & bitval) > 0)
+                        else:
+                            bad_pixel_flag |= ((mask_values[:, field] & bitval) > 0)
+                    bad_pixels, = np.where(bad_pixel_flag)
+            else:
+                bad_pixels, = np.where(mask_map.get_values_pix(valid_pixels) > 0)
         else:
             bad_pixels, = np.where((mask_map.get_values_pix(valid_pixels) & mask_bits) > 0)
 
@@ -915,8 +1136,12 @@ class HealSparseMap(object):
                                     primary=self._primary,
                                     sentinel=self._sentinel)
 
-        new_values = np.zeros(bad_pixels.size,
-                              dtype=new_map._sparse_map.dtype)
+        if new_map.is_wide_mask_map:
+            new_values = np.zeros((bad_pixels.size, new_map._wide_mask_width),
+                                  dtype=new_map._sparse_map.dtype)
+        else:
+            new_values = np.zeros(bad_pixels.size,
+                                  dtype=new_map._sparse_map.dtype)
         if self.is_rec_array:
             new_values[new_map._primary] = new_map._sentinel
         else:
@@ -1142,27 +1367,67 @@ class HealSparseMap(object):
         if int_only:
             if not self.is_integer_map:
                 raise NotImplementedError("Can only apply %s to integer maps" % (name))
+        else:
+            # If not int_only then it can't be used with a wide mask.
+            if self._is_wide_mask:
+                raise NotImplementedError("Cannot use %s with wide mask maps" % (name))
 
         other_int = False
         other_float = False
+        other_bits = False
+
         if isinstance(other, numbers.Integral):
             other_int = True
         elif isinstance(other, numbers.Real):
             other_float = True
+        elif isinstance(other, (tuple, list)):
+            if not self._is_wide_mask:
+                raise NotImplementedError("Must use a wide mask to operate with a bit list")
+            other_bits = True
+            for elt in other:
+                if not isinstance(elt, numbers.Integral):
+                    raise NotImplementedError("Can only use an integer list of bits "
+                                              "with %s operation" % (name))
+            if np.max(other) >= self._wide_mask_maxbits:
+                raise ValueError("Bit position %d too large (>= %d)" % (np.max(other),
+                                                                        self._wide_mask_maxbits))
 
-        if not other_int and not other_float:
-            raise NotImplementedError("Can only use a constant with the %s operation" % (name))
+        if self._is_wide_mask:
+            if not other_bits:
+                raise NotImplementedError("Must use a bit list with the %s operation with "
+                                          "a wide mask" % (name))
+        else:
+            if not other_int and not other_float:
+                raise NotImplementedError("Can only use a constant with the %s operation" % (name))
+            if not other_int and int_only:
+                raise NotImplementedError("Can only use an integer constant with the %s operation" % (name))
 
-        if not other_int and int_only:
-            raise NotImplementedError("Can only use an integer constant with the %s operation" % (name))
+        if self._is_wide_mask:
+            valid_sparse_pixels = (self._sparse_map > self._sentinel).sum(axis=1, dtype=np.bool)
 
-        valid_sparse_pixels = (self._sparse_map > self._sentinel)
+            other_value = np.zeros(self._wide_mask_width, self._sparse_map.dtype)
+            for bit in other:
+                field, bitval = _get_field_and_bitval(bit)
+                other_value[field] |= bitval
+        else:
+            valid_sparse_pixels = (self._sparse_map > self._sentinel)
+
         if in_place:
-            func(self._sparse_map, other, out=self._sparse_map, where=valid_sparse_pixels)
+            if self._is_wide_mask:
+                for i in range(self._wide_mask_width):
+                    col = self._sparse_map[:, i]
+                    func(col, other_value[i], out=col, where=valid_sparse_pixels)
+            else:
+                func(self._sparse_map, other, out=self._sparse_map, where=valid_sparse_pixels)
             return self
         else:
             combinedSparseMap = self._sparse_map.copy()
-            func(combinedSparseMap, other, out=combinedSparseMap, where=valid_sparse_pixels)
+            if self._is_wide_mask:
+                for i in range(self._wide_mask_width):
+                    col = combinedSparseMap[:, i]
+                    func(col, other_value[i], out=col, where=valid_sparse_pixels)
+            else:
+                func(combinedSparseMap, other, out=combinedSparseMap, where=valid_sparse_pixels)
             return HealSparseMap(cov_index_map=self._cov_index_map, sparse_map=combinedSparseMap,
                                  nside_sparse=self._nside_sparse, sentinel=self._sentinel)
 
@@ -1183,6 +1448,8 @@ class HealSparseMap(object):
         if self._is_rec_array:
             descr += ', record array type.\n'
             descr += self._sparse_map.dtype.descr.__str__()
+        elif self._is_wide_mask:
+            descr += ', %d bit wide mask' % (self._wide_mask_maxbits)
         else:
             descr += ', ' + self._sparse_map.dtype.name
         return descr

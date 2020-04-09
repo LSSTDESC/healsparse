@@ -378,9 +378,13 @@ def _apply_operation(map_list, func, filler_value, union=False, int_only=False):
             bit_shift = m._bit_shift
             dtype = m._sparse_map.dtype
             sentinel = m._sentinel
+            is_wide_mask = m._is_wide_mask
+            wide_mask_width = m._wide_mask_width
         else:
             if (nside_coverage != m._nside_coverage or nside_sparse != m._nside_sparse):
                 raise RuntimeError("Cannot apply %s to maps with different coverage or map nsides" % (name))
+            if (is_wide_mask != m._is_wide_mask or wide_mask_width != m._wide_mask_width):
+                raise RuntimeError("Can only apply %s to wide_mask maps with same width" % (name))
 
     combined_cov_mask = map_list[0].coverage_mask
 
@@ -397,20 +401,23 @@ def _apply_operation(map_list, func, filler_value, union=False, int_only=False):
 
     if cov_pix.size == 0:
         # No coverage ... the result is an empty map
-        return HealSparseMap.make_empty(nside_coverage, nside_sparse, dtype)
+        return HealSparseMap.make_empty_like(map_list[0])
 
     # Initialize the combined map, we know the size
     nfine_per_cov = 2**bit_shift
     cov_index_map = np.zeros(hp.nside2npix(nside_coverage), dtype=np.int64)
     cov_index_map[cov_pix] = np.arange(1, cov_pix.size + 1) * nfine_per_cov
     cov_index_map[:] -= np.arange(hp.nside2npix(nside_coverage), dtype=np.int64) * nfine_per_cov
-    combined_sparse_map = np.zeros((cov_pix.size + 1) * nfine_per_cov, dtype=dtype) + filler_value
+    if is_wide_mask:
+        combined_sparse_map = np.zeros(((cov_pix.size + 1) * nfine_per_cov,
+                                        wide_mask_width), dtype=dtype) + filler_value
+    else:
+        combined_sparse_map = np.zeros((cov_pix.size + 1) * nfine_per_cov, dtype=dtype) + filler_value
 
     if union:
-        combined_sparse_map_touched = np.zeros_like(combined_sparse_map, dtype=np.bool)
+        combined_sparse_map_touched = np.zeros(len(combined_sparse_map), dtype=np.bool)
     else:
-        combined_sparse_map_ntouch = np.zeros_like(combined_sparse_map, dtype=np.int32)
-
+        combined_sparse_map_ntouch = np.zeros(len(combined_sparse_map), dtype=np.int32)
     for m in map_list:
         m_valid_pixels = m.valid_pixels
 
@@ -418,8 +425,16 @@ def _apply_operation(map_list, func, filler_value, union=False, int_only=False):
 
         combined_pixel_index = m_valid_pixels + cov_index_map[ipnest_cov]
 
-        combined_sparse_map[combined_pixel_index] = func(combined_sparse_map[combined_pixel_index],
-                                                         m.get_values_pix(m_valid_pixels))
+        if is_wide_mask:
+            values = m.get_values_pix(m_valid_pixels)
+            for i in range(wide_mask_width):
+                combined_sparse_map[combined_pixel_index, i] = func(
+                    combined_sparse_map[combined_pixel_index, i],
+                    values[:, i])
+        else:
+            combined_sparse_map[combined_pixel_index] = func(
+                combined_sparse_map[combined_pixel_index],
+                m.get_values_pix(m_valid_pixels))
         if union:
             combined_sparse_map_touched[combined_pixel_index] = True
         else:
@@ -434,6 +449,9 @@ def _apply_operation(map_list, func, filler_value, union=False, int_only=False):
         # In intersection, all pixels that weren't touched all the time
         # should be set to the sentinel
         combined_sparse_map[combined_sparse_map_ntouch != len(map_list)] = sentinel
+
+    # And set the overflow bins to the sentinel
+    combined_sparse_map[0: nfine_per_cov] = sentinel
 
     return HealSparseMap(cov_index_map=cov_index_map, sparse_map=combined_sparse_map,
                          nside_sparse=nside_sparse, sentinel=sentinel)

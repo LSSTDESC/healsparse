@@ -3,6 +3,9 @@ import healpy as hp
 import warnings
 import numbers
 
+WIDE_NBIT = 8
+WIDE_MASK = np.uint8
+
 
 def reduce_array(x, reduction='mean', axis=2):
     """
@@ -99,3 +102,26 @@ def is_integer_value(value):
         return True
     else:
         return False
+
+
+def _get_field_and_bitval(bit):
+    """
+    Get the associated field and shifted bit value for a wide mask
+
+    Parameters
+    ----------
+    bit : `int`
+       Bit position
+
+    Returns
+    -------
+    field : `int`
+       Field index for the shifted bit
+    bitval : `healsparse.WIDE_MASK`
+       Shifted bit value in its field
+    """
+
+    field = bit // WIDE_NBIT
+    bitval = WIDE_MASK(np.left_shift(1, bit - field*WIDE_NBIT))
+
+    return field, bitval
