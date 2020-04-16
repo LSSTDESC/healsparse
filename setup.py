@@ -12,5 +12,5 @@ setup(
     author='Eli Rykoff and others',
     author_email='erykoff@stanford.edu',
     url='https://github.com/lsstdesc/healsparse',
-    install_requires=['numpy', 'healpy'],
+    install_requires=['numpy', 'healpy', 'astropy'],
 )
