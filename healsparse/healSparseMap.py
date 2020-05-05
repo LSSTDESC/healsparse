@@ -4,6 +4,7 @@ import healpy as hp
 import os
 import numbers
 from .utils import reduce_array, check_sentinel, _get_field_and_bitval, WIDE_NBIT, WIDE_MASK
+from .utils import is_integer_value
 from .fits_shim import HealSparseFits, _make_header, _write_filename
 
 
@@ -969,9 +970,10 @@ class HealSparseMap(object):
             if key is None:
                 raise ValueError('key should be specified for HealSparseMaps including `recarray`')
             else:
-                # Note that this makes the code simpler but is memory inefficient
-                # We may need to revisit this later depending on use cases
-                single_map = self.get_single(key)
+                # This is memory inefficient in that we are copying the memory
+                # to ensure that we get a unique healpix map.  To not get a copy,
+                # you can do map['column'][:]
+                single_map = self.get_single(key, copy=True)
         elif self._is_wide_mask:
             raise NotImplementedError("Cannot make healpix map out of wide_mask")
         else:
@@ -1202,16 +1204,65 @@ class HealSparseMap(object):
 
     def __getitem__(self, key):
         """
-        Get a single healpix map out of a recarray map, using the default sentinel
-        values.
+        Get part of a healpix map.
         """
+        if isinstance(key, str):
+            if not self._is_rec_array:
+                raise IndexError("HealSparseMap is not a recarray map, cannot use string index.")
+            return self.get_single(key, sentinel=None)
+        elif isinstance(key, int):
+            # Get a single pixel
+            # Return a single (non-array) value
+            return self.get_values_pix(np.array([key]))[0]
+        elif isinstance(key, slice):
+            # Get a slice of pixels
+            start = key.start if key.start is not None else 0
+            stop = key.stop if key.stop is not None else hp.nside2npix(self._nside_sparse)
+            step = key.step if key.step is not None else 1
+            return self.get_values_pix(np.arange(start, stop, step))
+        elif isinstance(key, np.ndarray):
+            # Make sure that it's integers
+            if not is_integer_value(key[0]):
+                raise IndexError("Numpy array indices must be integers for __getitem__")
+            return self.get_values_pix(key)
+        elif isinstance(key, list):
+            # Make sure that it's integers
+            arr = np.array(key)
+            if not is_integer_value(arr[0]):
+                raise IndexError("List array indices must be integers for __getitem__")
+            return self.get_values_pix(arr)
+        else:
+            raise IndexError("Illegal index type (%s) for __getitem__ in HealSparseMap." %
+                             (key.__class__))
 
-        if not self._is_rec_array:
-            raise TypeError("HealSparseMap is not a recarray map")
+    def __setitem__(self, key, value):
+        """
+        Set part of a healpix map
+        """
+        if isinstance(key, int):
+            # Set a single pixel
+            return self.update_values_pix(np.array([key]), np.array([value]))
+        elif isinstance(key, slice):
+            # Set a slice of pixels
+            start = key.start if key.start is not None else 0
+            stop = key.stop if key.stop is not None else hp.nside2npix(self._nside_sparse)
+            step = key.step if key.step is not None else 1
+            return self.update_values_pix(np.arange(start, stop, step),
+                                          value)
+        elif isinstance(key, np.ndarray):
+            if not is_integer_value(key[0]):
+                raise IndexError("Numpy array indices must be integers for __setitem__")
+            return self.update_values_pix(key, value)
+        elif isinstance(key, list):
+            arr = np.array(key)
+            if not is_integer_value(arr[0]):
+                raise IndexError("List/Tuple array indices must be integers for __setitem__")
+            return self.update_values_pix(arr, value)
+        else:
+            raise IndexError("Illegal index type (%s) for __setitem__ in HealSparseMap." %
+                             (key.__class__))
 
-        return self.get_single(key, sentinel=None)
-
-    def get_single(self, key, sentinel=None):
+    def get_single(self, key, sentinel=None, copy=False):
         """
         Get a single healpix map out of a recarray map, with the ability to
         override a sentinel value.
@@ -1227,7 +1278,11 @@ class HealSparseMap(object):
         if not self._is_rec_array:
             raise TypeError("HealSparseMap is not a recarray map")
 
-        if key == self._primary and sentinel is None:
+        # This will not copy memory, which allows in-recarray assignment
+        # Problems can happen with mixed type recarrays, unfortunately.
+        # However, undefined behavior will happen with in-place operations
+        # over invalid pixels no matter what.
+        if not copy:
             # This is easy, and no replacements need to happen
             return HealSparseMap(cov_index_map=self._cov_index_map,
                                  sparse_map=self._sparse_map[key],
