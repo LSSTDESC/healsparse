@@ -28,7 +28,7 @@ class CoverageMapTestCase(unittest.TestCase):
         # Build the "original" coverage map
 
         cov_map_orig = np.zeros(hp.nside2npix(nside_coverage), dtype=np.double)
-        idx_cov = np.right_shift(np.arange(0, non_masked_px*nfine), sparse_map._bit_shift)
+        idx_cov = np.right_shift(np.arange(0, non_masked_px*nfine), sparse_map._cov_map.bit_shift)
         unique_idx_cov = np.unique(idx_cov)
         idx_counts = np.bincount(idx_cov, minlength=hp.nside2npix(nside_coverage)).astype(float)
 

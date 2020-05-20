@@ -17,7 +17,7 @@ class UpdateValuesTestCase(unittest.TestCase):
 
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype)
 
-        nfine_per_cov = 2**sparse_map._bit_shift
+        nfine_per_cov = 2**sparse_map._cov_map.bit_shift
 
         test_pix = np.arange(nfine_per_cov) + nfine_per_cov * 10
         test_values = np.zeros(nfine_per_cov)
@@ -49,7 +49,7 @@ class UpdateValuesTestCase(unittest.TestCase):
 
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype)
 
-        nfine_per_cov = 2**sparse_map._bit_shift
+        nfine_per_cov = 2**sparse_map._cov_map.bit_shift
 
         test_pix = np.arange(nfine_per_cov) + nfine_per_cov * 16
         test_values = np.zeros(nfine_per_cov)

@@ -27,7 +27,7 @@ class CoverageMaskTestCase(unittest.TestCase):
         # Build the "original" coverage mask
 
         cov_mask_orig = np.zeros(hp.nside2npix(nside_coverage), dtype=np.bool)
-        idx_cov = np.unique(np.right_shift(np.arange(0, non_masked_px*nfine), sparse_map._bit_shift))
+        idx_cov = np.unique(np.right_shift(np.arange(0, non_masked_px*nfine), sparse_map._cov_map.bit_shift))
         cov_mask_orig[idx_cov] = 1
 
         # Get the built coverage mask

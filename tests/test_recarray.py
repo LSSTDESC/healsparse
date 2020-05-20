@@ -69,7 +69,7 @@ class RecArrayTestCase(unittest.TestCase):
         self.assertEqual(cov_mask.sum(), 2)
 
         # Test lookup of values in these two pixels
-        ipnest_cov = np.right_shift(ipnest_test, sparse_map_small._bit_shift)
+        ipnest_cov = np.right_shift(ipnest_test, sparse_map_small._cov_map.bit_shift)
         outside_small, = np.where(ipnest_cov > 1)
         # column1 is the "primary" column and will return UNSEEN
         test_values1b = hpmapCol1[ipnest_test].copy()
@@ -136,7 +136,7 @@ class RecArrayTestCase(unittest.TestCase):
             os.path.join(self.test_dir, 'healsparse_map_recarray_outoforder.fits'),
             pixels=[0, 1, 3179])
 
-        ipnest_cov = np.right_shift(ipnest, sparse_map_small._bit_shift)
+        ipnest_cov = np.right_shift(ipnest, sparse_map_small._cov_map.bit_shift)
         test_values_small_col1 = test_map_col1[ipnest]
         test_values_small_col2 = test_map_col2[ipnest]
         outside_small, = np.where((ipnest_cov != 0) & (ipnest_cov != 1) & (ipnest_cov != 3179))

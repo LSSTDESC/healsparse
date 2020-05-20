@@ -1,4 +1,5 @@
 from .healSparseMap import HealSparseMap
+from .healSparseCoverage import HealSparseCoverage
 from .healSparseRandoms import make_uniform_randoms, make_uniform_randoms_fast
 from .operations import sum_union, sum_intersection
 from .operations import product_union, product_intersection

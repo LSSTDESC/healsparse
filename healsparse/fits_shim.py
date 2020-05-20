@@ -84,10 +84,6 @@ class HealSparseFits(object):
             else:
                 return self.fits_object[extension].get_rec_dtype()[0]
         else:
-            # if issubclass(extension, int):
-            #     hdu = self.fits_object[extension]
-            # else:
-            #     hdu = self.fits_object[(extension, 1)]
             hdu = self.fits_object[extension]
             if hdu.is_image:
                 return _image_bitpix2npy[hdu._bitpix]

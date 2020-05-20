@@ -4,6 +4,7 @@ import numpy as np
 import healpy as hp
 
 from .healSparseMap import HealSparseMap
+from .healSparseCoverage import HealSparseCoverage
 
 
 def sum_union(map_list):
@@ -373,15 +374,14 @@ def _apply_operation(map_list, func, filler_value, union=False, int_only=False):
                 raise ValueError("Can only apply %s to integer maps" % (name))
 
         if nside_coverage is None:
-            nside_coverage = m._nside_coverage
+            nside_coverage = m.nside_coverage
             nside_sparse = m._nside_sparse
-            bit_shift = m._bit_shift
             dtype = m._sparse_map.dtype
             sentinel = m._sentinel
             is_wide_mask = m._is_wide_mask
             wide_mask_width = m._wide_mask_width
         else:
-            if (nside_coverage != m._nside_coverage or nside_sparse != m._nside_sparse):
+            if (nside_coverage != m.nside_coverage or nside_sparse != m._nside_sparse):
                 raise RuntimeError("Cannot apply %s to maps with different coverage or map nsides" % (name))
             if (is_wide_mask != m._is_wide_mask or wide_mask_width != m._wide_mask_width):
                 raise RuntimeError("Can only apply %s to wide_mask maps with same width" % (name))
@@ -404,15 +404,14 @@ def _apply_operation(map_list, func, filler_value, union=False, int_only=False):
         return HealSparseMap.make_empty_like(map_list[0])
 
     # Initialize the combined map, we know the size
-    nfine_per_cov = 2**bit_shift
-    cov_index_map = np.zeros(hp.nside2npix(nside_coverage), dtype=np.int64)
-    cov_index_map[cov_pix] = np.arange(1, cov_pix.size + 1) * nfine_per_cov
-    cov_index_map[:] -= np.arange(hp.nside2npix(nside_coverage), dtype=np.int64) * nfine_per_cov
+    cov_map = HealSparseCoverage.make_from_pixels(nside_coverage,
+                                                  nside_sparse,
+                                                  cov_pix)
     if is_wide_mask:
-        combined_sparse_map = np.zeros(((cov_pix.size + 1) * nfine_per_cov,
+        combined_sparse_map = np.zeros(((cov_pix.size + 1)*cov_map.nfine_per_cov,
                                         wide_mask_width), dtype=dtype) + filler_value
     else:
-        combined_sparse_map = np.zeros((cov_pix.size + 1) * nfine_per_cov, dtype=dtype) + filler_value
+        combined_sparse_map = np.zeros((cov_pix.size + 1)*cov_map.nfine_per_cov, dtype=dtype) + filler_value
 
     if union:
         combined_sparse_map_touched = np.zeros(len(combined_sparse_map), dtype=np.bool)
@@ -421,9 +420,9 @@ def _apply_operation(map_list, func, filler_value, union=False, int_only=False):
     for m in map_list:
         m_valid_pixels = m.valid_pixels
 
-        ipnest_cov = np.right_shift(m_valid_pixels, m._bit_shift)
+        ipnest_cov = cov_map.cov_pixels(m_valid_pixels)
 
-        combined_pixel_index = m_valid_pixels + cov_index_map[ipnest_cov]
+        combined_pixel_index = m_valid_pixels + cov_map[ipnest_cov]
 
         if is_wide_mask:
             values = m.get_values_pix(m_valid_pixels)
@@ -451,7 +450,7 @@ def _apply_operation(map_list, func, filler_value, union=False, int_only=False):
         combined_sparse_map[combined_sparse_map_ntouch != len(map_list)] = sentinel
 
     # And set the overflow bins to the sentinel
-    combined_sparse_map[0: nfine_per_cov] = sentinel
+    combined_sparse_map[0: cov_map.nfine_per_cov] = sentinel
 
-    return HealSparseMap(cov_index_map=cov_index_map, sparse_map=combined_sparse_map,
+    return HealSparseMap(cov_map=cov_map, sparse_map=combined_sparse_map,
                          nside_sparse=nside_sparse, sentinel=sentinel)
