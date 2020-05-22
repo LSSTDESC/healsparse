@@ -191,6 +191,17 @@ class HealSparseCoverage(object):
         return self._nside_coverage
 
     @property
+    def nside_sparse(self):
+        """
+        Get the nside of the associated sparse map
+
+        Returns
+        -------
+        nside_sparse : `int`
+        """
+        return self._nside_sparse
+
+    @property
     def bit_shift(self):
         """
         Get the bit_shift for the coverage map
