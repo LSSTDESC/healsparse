@@ -346,6 +346,11 @@ class HealSparseMap(object):
                     # This is a table extension
                     primary = s_hdr['PRIMARY'].rstrip()
 
+                if 'WIDEMASK' in s_hdr and s_hdr['WIDEMASK']:
+                    wmult = s_hdr['WWIDTH']
+                else:
+                    wmult = 1
+
                 # This is the map without the offset
                 cov_index_map_temp = cov_map[:] + np.arange(hp.nside2npix(nside_coverage),
                                                             dtype=np.int64)*cov_map.nfine_per_cov
@@ -360,19 +365,20 @@ class HealSparseMap(object):
 
                 # It is not 100% sure this is the most efficient way to read in,
                 # but it does work.
-                sparse_map = np.zeros((sub.size + 1)*cov_map.nfine_per_cov,
+                sparse_map = np.zeros((sub.size + 1)*cov_map.nfine_per_cov*wmult,
                                       dtype=fits.get_ext_dtype('SPARSE'))
                 # Read in the overflow bin
-                sparse_map[0: cov_map.nfine_per_cov] = fits.read_ext_data('SPARSE',
-                                                                          row_range=[0,
-                                                                                     cov_map.nfine_per_cov])
+                row_range = [0, cov_map.nfine_per_cov*wmult]
+                sparse_map[0: cov_map.nfine_per_cov*wmult] = \
+                    fits.read_ext_data('SPARSE',
+                                       row_range=row_range)
                 # And read in the pixels
                 for i, pix in enumerate(cov_pix[sub]):
-                    row_range = [cov_index_map_temp[pix],
-                                 cov_index_map_temp[pix] + cov_map.nfine_per_cov]
-                    sparse_map[(i + 1)*cov_map.nfine_per_cov:
-                               (i + 2)*cov_map.nfine_per_cov] = fits.read_ext_data('SPARSE',
-                                                                                   row_range=row_range)
+                    row_range = [cov_index_map_temp[pix]*wmult,
+                                 (cov_index_map_temp[pix] + cov_map.nfine_per_cov)*wmult]
+                    sparse_map[(i + 1)*cov_map.nfine_per_cov*wmult:
+                               (i + 2)*cov_map.nfine_per_cov*wmult] = fits.read_ext_data('SPARSE',
+                                                                                         row_range=row_range)
 
                 # Set the coverage index map for the pixels that we read in
                 cov_map = HealSparseCoverage.make_from_pixels(nside_coverage,
@@ -457,7 +463,9 @@ class HealSparseMap(object):
         if self._is_wide_mask:
             s_hdr['WIDEMASK'] = self._is_wide_mask
             s_hdr['WWIDTH'] = self._wide_mask_width
-        _write_filename(filename, c_hdr, s_hdr, self._cov_map[:], self._sparse_map)
+            _write_filename(filename, c_hdr, s_hdr, self._cov_map[:], self._sparse_map.flatten())
+        else:
+            _write_filename(filename, c_hdr, s_hdr, self._cov_map[:], self._sparse_map)
 
     def update_values_pix(self, pixels, values, nest=True):
         """

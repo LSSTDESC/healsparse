@@ -117,7 +117,7 @@ class WideMasksTestCase(unittest.TestCase):
         pixel = np.arange(4000, 20000)
         sparse_map.set_bits_pix(pixel, [5])
 
-        fname = os.path.join(self.test_dir, 'healsparse_map.fits')
+        fname = os.path.join(self.test_dir, 'healsparse_map.hs')
         sparse_map.write(fname, clobber=True)
         sparse_map_in = healsparse.HealSparseMap.read(fname)
 
@@ -138,13 +138,29 @@ class WideMasksTestCase(unittest.TestCase):
         comp_arr[b] = True
         testing.assert_array_equal(sparse_map_in.check_bits_pos(ra, dec, [5], lonlat=True), comp_arr)
 
+        # And read a partial map
+        sparse_map_in_partial = healsparse.HealSparseMap.read(fname, pixels=[1000, 1002])
+
+        self.assertTrue(sparse_map_in_partial.is_wide_mask_map)
+        self.assertEqual(sparse_map_in_partial.wide_mask_maxbits, 8)
+        self.assertEqual(sparse_map_in_partial._sparse_map.shape[1], 1)
+        self.assertEqual(sparse_map_in_partial._wide_mask_width, 1)
+        self.assertEqual(sparse_map_in_partial._sentinel, 0)
+
+        cov_pixels = sparse_map._cov_map.cov_pixels(pixel)
+        pixel_sub = pixel[(cov_pixels == 1000) | (cov_pixels == 1002)]
+
+        testing.assert_array_equal(sparse_map_in_partial.check_bits_pix(pixel_sub, [5]), True)
+        testing.assert_array_equal(sparse_map_in_partial.check_bits_pix(pixel_sub, [7]), False)
+        testing.assert_array_equal(sparse_map_in_partial.check_bits_pix(pixel_sub, [5, 7]), True)
+
         # Test with double-wide
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
                                                          WIDE_MASK, wide_mask_maxbits=16)
         pixel = np.arange(4000, 20000)
         sparse_map.set_bits_pix(pixel, [5, 10])
 
-        fname = os.path.join(self.test_dir, 'healsparse_map.fits')
+        fname = os.path.join(self.test_dir, 'healsparse_map.hs')
         sparse_map.write(fname, clobber=True)
         sparse_map_in = healsparse.HealSparseMap.read(fname)
 
@@ -158,6 +174,23 @@ class WideMasksTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [10]), True)
         testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [4]), False)
         testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [12]), False)
+
+        # And read a partial double-wide map
+        sparse_map_in_partial = healsparse.HealSparseMap.read(fname, pixels=[1000, 1002])
+
+        self.assertTrue(sparse_map_in_partial.is_wide_mask_map)
+        self.assertEqual(sparse_map_in_partial.wide_mask_maxbits, 16)
+        self.assertEqual(sparse_map_in_partial._sparse_map.shape[1], 2)
+        self.assertEqual(sparse_map_in_partial._wide_mask_width, 2)
+        self.assertEqual(sparse_map_in_partial._sentinel, 0)
+
+        cov_pixels = sparse_map._cov_map.cov_pixels(pixel)
+        pixel_sub = pixel[(cov_pixels == 1000) | (cov_pixels == 1002)]
+
+        testing.assert_array_equal(sparse_map_in_partial.check_bits_pix(pixel_sub, [5]), True)
+        testing.assert_array_equal(sparse_map_in_partial.check_bits_pix(pixel_sub, [10]), True)
+        testing.assert_array_equal(sparse_map_in_partial.check_bits_pix(pixel_sub, [4]), False)
+        testing.assert_array_equal(sparse_map_in_partial.check_bits_pix(pixel_sub, [12]), False)
 
     def test_wide_mask_or(self):
         """
