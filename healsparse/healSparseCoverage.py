@@ -52,6 +52,9 @@ class HealSparseCoverage(object):
 
         s_hdr = fits.read_ext_header('SPARSE')
 
+        if isinstance(filename_or_fits, str):
+            fits.close()
+
         return cls(cov_index_map, s_hdr['NSIDE'])
 
     @classmethod

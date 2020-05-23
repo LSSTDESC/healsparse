@@ -488,7 +488,7 @@ class HealSparseMap(object):
         else:
             _pix = pixels
 
-        if self._sparse_map.dtype != values.dtype:
+        if self._sparse_map.dtype.type != values.dtype.type:
             raise RuntimeError("Data-type mismatch between sparse_map and values")
 
         if self._is_wide_mask:

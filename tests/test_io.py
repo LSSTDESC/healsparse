@@ -42,27 +42,30 @@ class IoTestCase(unittest.TestCase):
         # Save it with healpy in ring
 
         full_map_ring = hp.reorder(full_map, n2r=True)
-        hp.write_map(os.path.join(self.test_dir, 'healpix_map_ring.hs'), full_map_ring, dtype=np.float64)
+        hp.write_map(os.path.join(self.test_dir, 'healpix_map_ring.fits'), full_map_ring, dtype=np.float64)
 
         # Read it with healsparse
         # TODO Test that we raise an exception when nside_coverage isn't set
 
-        sparse_map = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healpix_map_ring.hs'),
+        sparse_map = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healpix_map_ring.fits'),
                                                    nside_coverage=nside_coverage)
 
         # Check that we can do a basic lookup
         testing.assert_almost_equal(sparse_map.get_values_pix(ipnest), test_values)
 
         # Save map to healpy in nest
-        hp.write_map(os.path.join(self.test_dir, 'healpix_map_nest.hs'), full_map,
+        hp.write_map(os.path.join(self.test_dir, 'healpix_map_nest.fits'), full_map,
                      dtype=np.float64, nest=True)
 
         # Read it with healsparse
-        sparse_map = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healpix_map_nest.hs'),
+        sparse_map = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healpix_map_nest.fits'),
                                                    nside_coverage=nside_coverage)
 
         # Check that we can do a basic lookup
         testing.assert_almost_equal(sparse_map.get_values_pix(ipnest), test_values)
+
+        # Test that we can do a basic set
+        sparse_map[30000: 30005] = np.zeros(5, dtype=np.float64)
 
         # Write it to healsparse format
         sparse_map.write(os.path.join(self.test_dir, 'healsparse_map.hs'))
@@ -72,6 +75,9 @@ class IoTestCase(unittest.TestCase):
 
         # Check that we can do a basic lookup
         testing.assert_almost_equal(sparse_map.get_values_pix(ipnest), test_values)
+
+        # Check that we can do a basic set
+        sparse_map[30000: 30005] = np.zeros(5, dtype=np.float64)
 
         # Try to read in healsparse format, non-unique pixels
         self.assertRaises(RuntimeError, healsparse.HealSparseMap.read,

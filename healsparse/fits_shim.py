@@ -10,6 +10,7 @@ except ImportError:
     except ImportError:
         raise ImportError("Must be able to import either fitsio or astropy.io.fits")
 
+
 _image_bitpix2npy = {
     8: 'u1',
     10: 'i1',

@@ -50,7 +50,7 @@ class FitsShimTestCase(unittest.TestCase):
                 dtype = np.dtype([('a', 'f4'),
                                   ('b', 'i4')])
             else:
-                dtype = np.dtype(np.int8)
+                dtype = np.dtype(healsparse.WIDE_MASK)
 
             data1 = np.zeros(10, dtype=dtype)
 
@@ -91,7 +91,7 @@ class FitsShimTestCase(unittest.TestCase):
                 dtype = np.dtype([('a', 'f4'),
                                   ('b', 'i4')])
             else:
-                dtype = np.dtype(np.int8)
+                dtype = np.dtype(healsparse.WIDE_MASK)
 
             data1 = np.ones(10, dtype=dtype)
 
@@ -155,7 +155,7 @@ class FitsShimTestCase(unittest.TestCase):
                     dtype = np.dtype([('a', 'f4'),
                                       ('b', 'i4')])
                 else:
-                    dtype = np.int8
+                    dtype = healsparse.WIDE_MASK
 
                 data1 = np.zeros(10, dtype=dtype)
 
@@ -189,17 +189,19 @@ class FitsShimTestCase(unittest.TestCase):
         Write a testfile.
         """
         if healsparse.fits_shim.use_fitsio:
+            print(filename, os.path.isfile(filename))
             healsparse.fits_shim.fitsio.write(filename, data0,
                                               header=header, extname='COV')
             healsparse.fits_shim.fitsio.write(filename, data1,
                                               header=header, extname='SPARSE')
         else:
-            header['EXTNAME'] = 'COV'
+            _header = healsparse.fits_shim._make_header(header)
+            _header['EXTNAME'] = 'COV'
             healsparse.fits_shim.fits.writeto(filename, data0,
-                                              header=header)
-            header['EXTNAME'] = 'SPARSE'
-            healsparse.fits_shim.fits.writeto(filename, data1,
-                                              header=header, overwrite=False)
+                                              header=_header)
+            _header['EXTNAME'] = 'SPARSE'
+            healsparse.fits_shim.fits.append(filename, data1,
+                                             header=_header, overwrite=False)
 
     def setUp(self):
         self.test_dir = None

@@ -95,7 +95,6 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
 
     # We need to create a stub of a sparse map (the overflow), with the correct dtype
     with HealSparseFits(file_list[0]) as fits:
-        hdr = fits.read_ext_header(1)
         s_hdr = fits.read_ext_header('SPARSE')
 
         if 'SENTINEL' in s_hdr:
@@ -127,8 +126,7 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
 
         stub_map = HealSparseMap(cov_map=cov_map,
                                  sparse_map=sparse_stub, nside_sparse=nside_sparse,
-                                 primary=primary, sentinel=sentinel,
-                                 metadata=hdr)
+                                 primary=primary, sentinel=sentinel)
 
         # And write this out to a temporary filename
         outfile_temp = outfile + '.incomplete'
@@ -142,8 +140,7 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
         # When building in memory, we just need a blank map
         sparse_map = HealSparseMap.make_empty(nside_coverage_out, nside_sparse,
                                               sparse_stub.dtype, primary=primary,
-                                              sentinel=sentinel, wide_mask_maxbits=wide_mask_maxbits,
-                                              metadata=hdr)
+                                              sentinel=sentinel, wide_mask_maxbits=wide_mask_maxbits)
 
     total_data = 0
     # And prepare to append, coverage pixel by coverage pixel!
@@ -155,8 +152,7 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
             # We need a temporary sparse_map
             sparse_map = HealSparseMap.make_empty(nside_coverage_out, nside_sparse,
                                                   sparse_stub.dtype, primary=primary,
-                                                  sentinel=sentinel, wide_mask_maxbits=wide_mask_maxbits,
-                                                  metadata=hdr)
+                                                  sentinel=sentinel, wide_mask_maxbits=wide_mask_maxbits)
 
         # Read in each of these files and set to the sparse_map.  This will either
         # be the full map (in_memory) or the temp map (not in_memory)
