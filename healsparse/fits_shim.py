@@ -10,6 +10,7 @@ except ImportError:
     except ImportError:
         raise ImportError("Must be able to import either fitsio or astropy.io.fits")
 
+
 _image_bitpix2npy = {
     8: 'u1',
     10: 'i1',
@@ -26,7 +27,7 @@ class HealSparseFits(object):
     """
     Wrapper class to handle fitsio or astropy.io.fits
     """
-    def __init__(self, filename, **kwargs):
+    def __init__(self, filename, mode='r'):
         """
         Instantiate a HealSparseFits object
 
@@ -34,17 +35,25 @@ class HealSparseFits(object):
         ----------
         filename : `str`
            Name of file to open
+        mode : `str`
+           'r' or 'rw'
 
         Returns
         -------
         fits_object : `healsparse.HealSparseFits`
         """
         self._filename = filename
+        self._mode = mode
 
         if use_fitsio:
-            self.fits_object = fitsio.FITS(filename)
+            self.fits_object = fitsio.FITS(filename, mode=mode)
         else:
-            self.fits_object = fits.open(filename, memmap=True, lazy_load_hdus=True)
+            if mode == 'r':
+                fits_mode = 'readonly'
+            else:
+                raise RuntimeError('Readonly is only useful mode supported for astropy.io.fits')
+            self.fits_object = fits.open(filename, memmap=True, lazy_load_hdus=True,
+                                         mode=fits_mode)
 
     def read_ext_header(self, extension):
         """
@@ -84,10 +93,6 @@ class HealSparseFits(object):
             else:
                 return self.fits_object[extension].get_rec_dtype()[0]
         else:
-            # if issubclass(extension, int):
-            #     hdu = self.fits_object[extension]
-            # else:
-            #     hdu = self.fits_object[(extension, 1)]
             hdu = self.fits_object[extension]
             if hdu.is_image:
                 return _image_bitpix2npy[hdu._bitpix]
@@ -135,15 +140,43 @@ class HealSparseFits(object):
         -------
         is_image : `bool`
         """
+        hdu = self.fits_object[extension]
         if use_fitsio:
-            hdu = self.fits_object[extension]
             if hdu.get_exttype() == 'IMAGE_HDU':
                 return True
             else:
                 return False
         else:
-            hdu = self.fits_object[extension]
             return hdu.is_image
+
+    def append_extension(self, extension, data):
+        """
+        Append data to extension.
+
+        Parameters
+        ----------
+        extension : `int` or `str`
+           Extension name or number
+        data : `np.ndarray`
+           Data to append
+        """
+        if self._mode != 'rw':
+            raise RuntimeError("Appending only allowed in rw mode")
+
+        hdu = self.fits_object[extension]
+        if use_fitsio:
+            if hasattr(hdu, 'append'):
+                # A recarray that we can append to
+                hdu.append(data)
+            else:
+                # An image that we cannot append to
+                firstrow = (hdu.get_dims()[0], )
+                hdu.write(data, start=firstrow)
+        else:
+            raise RuntimeError("Appending is not supported by astropy.io.fits")
+
+    def close(self):
+        self.fits_object.close()
 
     def __enter__(self):
         return self

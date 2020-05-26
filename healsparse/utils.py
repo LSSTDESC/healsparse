@@ -125,3 +125,22 @@ def _get_field_and_bitval(bit):
     bitval = WIDE_MASK(np.left_shift(1, bit - field*WIDE_NBIT))
 
     return field, bitval
+
+
+def _compute_bitshift(nside_coarse, nside_fine):
+    """
+    Compute the nest bit shift between a coarse and fine map.
+
+    Parameters
+    ----------
+    nside_coarse : `int`
+       nside of the coarse map
+    nside_fine : `int`
+       nside of the fine map
+
+    Returns
+    -------
+    bit_shift : `int`
+       Number of bits to shift to convert nest pixels
+    """
+    return 2 * int(np.round(np.log(nside_fine / nside_coarse) / np.log(2)))
