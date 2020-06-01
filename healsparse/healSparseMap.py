@@ -509,8 +509,8 @@ class HealSparseMap(object):
 
         # Check which pixels are in the coverage map
         cov_mask = self.coverage_mask
-        in_cov, = np.where(cov_mask[ipnest_cov])
-        out_cov, = np.where(~cov_mask[ipnest_cov])
+        in_cov = cov_mask[ipnest_cov]
+        out_cov = ~cov_mask[ipnest_cov]
 
         # Replace values for those pixels in the coverage map
         if single_value:
@@ -519,14 +519,17 @@ class HealSparseMap(object):
             self._sparse_map[_pix[in_cov] + self._cov_map[ipnest_cov[in_cov]]] = values[in_cov]
 
         # Update the coverage map for the rest of the pixels (if necessary)
-        if out_cov.size > 0:
+        if out_cov.sum() > 0:
             # This requires data copying. (Even numpy appending does)
             # I don't want to overthink this and prematurely optimize, but
             # I want it to be able to work when the map isn't being held
             # in memory.  So that will require an append and non-contiguous
             # pixels, which I *think* should be fine.
 
-            new_cov_pix = np.unique(ipnest_cov[out_cov])
+            # Faster trick for getting unique values
+            new_cov_temp = np.zeros(cov_mask.size, dtype=np.int8)
+            new_cov_temp[ipnest_cov[out_cov]] = 1
+            new_cov_pix, = np.where(new_cov_temp > 0)
             if self._is_wide_mask:
                 sparse_append = np.zeros((new_cov_pix.size*self._cov_map.nfine_per_cov,
                                           self._wide_mask_width),
