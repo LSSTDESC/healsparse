@@ -77,8 +77,7 @@ class HealSparseCoverage(object):
         bit_shift = _compute_bitshift(nside_coverage, nside_sparse)
         nfine_per_cov = 2**bit_shift
 
-        cov_index_map = np.zeros(hp.nside2npix(nside_coverage), dtype=np.int64)
-        cov_index_map[:] -= np.arange(hp.nside2npix(nside_coverage), dtype=np.int64)*nfine_per_cov
+        cov_index_map = -1*np.arange(hp.nside2npix(nside_coverage), dtype=np.int64)*nfine_per_cov
 
         return cls(cov_index_map, nside_sparse)
 

@@ -179,22 +179,26 @@ class GetSetTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 128
 
-        dtype = [('col1', 'f8'), ('col2', 'f8')]
+        dtype = [('col1', 'f8'), ('col2', 'f8'), ('col3', 'i4')]
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype, primary='col1')
         pixel = np.arange(5000)
         values = np.zeros_like(pixel, dtype=dtype)
         values['col1'] = np.random.random(size=pixel.size)
         values['col2'] = np.random.random(size=pixel.size)
+        values['col3'] = np.ones(pixel.size, dtype=np.int32)
         sparse_map.update_values_pix(pixel, values)
 
         value = np.zeros(1, dtype=dtype)
         value['col1'] = 1.0
         value['col2'] = 1.0
+        value['col3'] = 10
         sparse_map[1000] = value
         testing.assert_almost_equal(sparse_map['col1'][1000], 1.0)
         testing.assert_almost_equal(sparse_map['col2'][1000], 1.0)
+        self.assertEqual(sparse_map['col3'][1000], 10)
         testing.assert_almost_equal(sparse_map[1000]['col1'], 1.0)
         testing.assert_almost_equal(sparse_map[1000]['col2'], 1.0)
+        self.assertEqual(sparse_map[1000]['col3'], 10)
 
         self.assertRaises(IndexError, sparse_map.__setitem__, 'col1', 1.0)
 
@@ -208,13 +212,25 @@ class GetSetTestCase(unittest.TestCase):
         testing.assert_almost_equal(sparse_map['col2'][100], 100.0)
         testing.assert_almost_equal(sparse_map[100]['col2'], 100.0)
 
+        sparse_map['col3'][100] = 100
+        self.assertEqual(sparse_map['col3'][100], 100)
+        self.assertEqual(sparse_map[100]['col3'], 100)
+
         sparse_map['col1'][100: 200] = np.zeros(100)
-        testing.assert_almost_equal(sparse_map['col1'][100: 200], 0.0)
-        testing.assert_almost_equal(sparse_map[100: 200]['col1'], 0.0)
+        testing.assert_array_almost_equal(sparse_map['col1'][100: 200], 0.0)
+        testing.assert_array_almost_equal(sparse_map[100: 200]['col1'], 0.0)
 
         sparse_map['col2'][100: 200] = np.zeros(100)
-        testing.assert_almost_equal(sparse_map['col2'][100: 200], 0.0)
-        testing.assert_almost_equal(sparse_map[100: 200]['col2'], 0.0)
+        testing.assert_array_almost_equal(sparse_map['col2'][100: 200], 0.0)
+        testing.assert_array_almost_equal(sparse_map[100: 200]['col2'], 0.0)
+
+        sparse_map['col3'][100: 200] = np.zeros(100, dtype=np.int32)
+        testing.assert_array_equal(sparse_map['col3'][100: 200], 0)
+        testing.assert_array_equal(sparse_map[100: 200]['col3'], 0)
+
+        # Finally, assert that we cannot set new pixels
+        self.assertRaises(RuntimeError, sparse_map['col1'].__setitem__,
+                          10000, 10.0)
 
     def test_setitem_slice(self):
         """

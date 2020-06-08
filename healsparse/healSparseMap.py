@@ -6,7 +6,7 @@ import numbers
 
 from .healSparseCoverage import HealSparseCoverage
 from .utils import reduce_array, check_sentinel, _get_field_and_bitval, WIDE_NBIT, WIDE_MASK
-from .utils import is_integer_value
+from .utils import is_integer_value, _compute_bitshift
 from .fits_shim import HealSparseFits, _make_header, _write_filename
 
 
@@ -17,7 +17,7 @@ class HealSparseMap(object):
 
     def __init__(self, cov_map=None, cov_index_map=None, sparse_map=None, nside_sparse=None,
                  healpix_map=None, nside_coverage=None, primary=None, sentinel=None,
-                 nest=True, metadata=None):
+                 nest=True, metadata=None, _is_view=False):
         """
         Instantiate a HealSparseMap.
 
@@ -48,6 +48,9 @@ class HealSparseMap(object):
            If input healpix map is in nest format.  Default is True.
         metadata : `dict`-like, optional
            Map metadata that can be stored in FITS header format.
+        _is_view : `bool`, optional
+           This healSparse map is a view into another healsparse map.
+           Not all features will be available.  (Internal usage)
 
         Returns
         -------
@@ -83,6 +86,7 @@ class HealSparseMap(object):
         self._wide_mask_width = 0
         self._primary = primary
         self.metadata = metadata
+        self._is_view = _is_view
         if self._sparse_map.dtype.fields is not None:
             self._is_rec_array = True
             if self._primary is None:
@@ -463,7 +467,7 @@ class HealSparseMap(object):
         if self._is_wide_mask:
             s_hdr['WIDEMASK'] = self._is_wide_mask
             s_hdr['WWIDTH'] = self._wide_mask_width
-            _write_filename(filename, c_hdr, s_hdr, self._cov_map[:], self._sparse_map.flatten())
+            _write_filename(filename, c_hdr, s_hdr, self._cov_map[:], self._sparse_map.ravel())
         else:
             _write_filename(filename, c_hdr, s_hdr, self._cov_map[:], self._sparse_map)
 
@@ -479,30 +483,56 @@ class HealSparseMap(object):
            Value or Array of values.  Must be same type as sparse_map
         """
 
+        # If _not_ recarray, we can use a single int/float
+        is_single_value = False
+        _values = values
+        if not self._is_rec_array:
+            if self._is_wide_mask:
+                # Special for wide_mask
+                if not isinstance(values, np.ndarray):
+                    raise ValueError("Wide mask must be set with a numpy ndarray")
+                if len(values) == self._wide_mask_width:
+                    is_single_value = True
+            else:
+                # Non wide_mask
+                if isinstance(values, numbers.Integral):
+                    if not self.is_integer_map:
+                        raise ValueError("Cannot set non-integer map with an integer")
+                    is_single_value = True
+                    _values = np.array([values], dtype=self.dtype)
+                elif isinstance(values, numbers.Real):
+                    if self.is_integer_map:
+                        raise ValueError("Cannot set non-floating point map with a floating point.")
+                    is_single_value = True
+                    _values = np.array([values], dtype=self.dtype)
+        if isinstance(values, np.ndarray) and len(values) == 1:
+            is_single_value = True
+
         # First, check if these are the same type
-        if not isinstance(values, np.ndarray):
-            raise RuntimeError("Values are not a numpy ndarray")
+        if not is_single_value and not isinstance(_values, np.ndarray):
+            raise ValueError("Values are not a numpy ndarray")
 
         if not nest:
             _pix = hp.ring2nest(self._nside_sparse, pixels)
         else:
             _pix = pixels
 
-        if self._sparse_map.dtype.type != values.dtype.type:
-            raise RuntimeError("Data-type mismatch between sparse_map and values")
+        # Check numpy data type for everything but wide_mask single value
+        if not self._is_wide_mask or (self._is_wide_mask and not is_single_value):
+            if self._is_rec_array:
+                if self._sparse_map.dtype != _values.dtype:
+                    raise ValueError("Data-type mismatch between sparse_map and values")
+            elif self._sparse_map.dtype.type != _values.dtype.type:
+                raise ValueError("Data-type mismatch between sparse_map and values")
 
-        if self._is_wide_mask:
-            if len(values.shape) != 2:
-                raise RuntimeError("Values must be WideBits or equivalent array.")
-            if values.shape[1] != self._wide_mask_width:
-                raise RuntimeError("Values must be WideBits or equivalent array with matched width.")
+        # Check array lengths
+        if not is_single_value and len(_values) != pixels.size:
+            raise ValueError("Length of values must be same length as pixels (or length 1)")
 
-        if len(values) == 1:
-            single_value = True
-        else:
-            single_value = False
-            if len(values) != pixels.size:
-                raise RuntimeError("Length of values must be the same as pixels, or length 1.")
+        if self._is_view:
+            # Check that we are not setting new pixels
+            if np.any(self.get_values_pix(_pix) <= self._sentinel):
+                raise RuntimeError("This API cannot be used to set new pixels in the map.")
 
         # Compute the coverage pixels
         ipnest_cov = self._cov_map.cov_pixels(_pix)
@@ -513,10 +543,10 @@ class HealSparseMap(object):
         out_cov = ~cov_mask[ipnest_cov]
 
         # Replace values for those pixels in the coverage map
-        if single_value:
-            self._sparse_map[_pix[in_cov] + self._cov_map[ipnest_cov[in_cov]]] = values[0]
+        if is_single_value:
+            self._sparse_map[_pix[in_cov] + self._cov_map[ipnest_cov[in_cov]]] = _values[0]
         else:
-            self._sparse_map[_pix[in_cov] + self._cov_map[ipnest_cov[in_cov]]] = values[in_cov]
+            self._sparse_map[_pix[in_cov] + self._cov_map[ipnest_cov[in_cov]]] = _values[in_cov]
 
         # Update the coverage map for the rest of the pixels (if necessary)
         if out_cov.sum() > 0:
@@ -546,12 +576,12 @@ class HealSparseMap(object):
             new_cov_map = self._cov_map.append_pixels(len(self._sparse_map), new_cov_pix, check=False)
 
             # Fill in the pixels to append
-            if single_value:
+            if is_single_value:
                 sparse_append[_pix[out_cov] + new_cov_map[ipnest_cov[out_cov]] -
-                              len(self._sparse_map)] = values[0]
+                              len(self._sparse_map)] = _values[0]
             else:
                 sparse_append[_pix[out_cov] + new_cov_map[ipnest_cov[out_cov]] -
-                              len(self._sparse_map)] = values[out_cov]
+                              len(self._sparse_map)] = _values[out_cov]
 
             # And set the values in the map
             self._cov_map = new_cov_map
@@ -1072,7 +1102,7 @@ class HealSparseMap(object):
         # Count the number of filled pixels in the coverage mask
         npop_pix = np.count_nonzero(self.coverage_mask)
         # We need the new bit_shifts and we have to build a new CovIndexMap
-        bit_shift = 2 * int(np.round(np.log(nside_out / self.nside_coverage) / np.log(2)))
+        bit_shift = _compute_bitshift(self.nside_coverage, nside_out)
         nfine_per_cov = 2**bit_shift
         # Work with RecArray (we have to change the resolution to all maps...)
         if self._is_rec_array:
@@ -1236,7 +1266,7 @@ class HealSparseMap(object):
         """
         if isinstance(key, int):
             # Set a single pixel
-            return self.update_values_pix(np.array([key]), np.array([value]))
+            return self.update_values_pix(np.array([key]), value)
         elif isinstance(key, slice):
             # Set a slice of pixels
             start = key.start if key.start is not None else 0
@@ -1273,17 +1303,23 @@ class HealSparseMap(object):
         if not self._is_rec_array:
             raise TypeError("HealSparseMap is not a recarray map")
 
-        # This will not copy memory, which allows in-recarray assignment
-        # Problems can happen with mixed type recarrays, unfortunately.
-        # However, undefined behavior will happen with in-place operations
-        # over invalid pixels no matter what.
+        # If we are the primary key, use the sentinel as set.  Otherwise,
+        # use the default sentinel unless otherwise overridden.
+        if key == self._primary:
+            _sentinel = check_sentinel(self._sparse_map[key].dtype.type, self._sentinel)
+        else:
+            _sentinel = check_sentinel(self._sparse_map[key].dtype.type, sentinel)
+
         if not copy:
-            # This is easy, and no replacements need to happen
+            # This will not copy memory which allows in-recarray assignment.
+            # Problems can potentially happen with mixed type recarrays depending
+            # on how they were constructed (though using make_empty should be safe).
+            # However, these linked maps cannot be used to add new pixels which
+            # is why there is the _is_view flag.
             return HealSparseMap(cov_map=self._cov_map,
                                  sparse_map=self._sparse_map[key],
-                                 nside_sparse=self._nside_sparse, sentinel=self._sentinel)
-
-        _sentinel = check_sentinel(self._sparse_map[key].dtype.type, sentinel)
+                                 nside_sparse=self._nside_sparse, sentinel=_sentinel,
+                                 _is_view=True)
 
         new_sparse_map = np.zeros_like(self._sparse_map[key]) + _sentinel
 
