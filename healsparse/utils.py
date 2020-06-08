@@ -143,4 +143,4 @@ def _compute_bitshift(nside_coarse, nside_fine):
     bit_shift : `int`
        Number of bits to shift to convert nest pixels
     """
-    return 2 * int(np.round(np.log(nside_fine / nside_coarse) / np.log(2)))
+    return 2*int(np.round(np.log2(nside_fine / nside_coarse)))

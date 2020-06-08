@@ -33,7 +33,7 @@ class BuildMapsTestCase(unittest.TestCase):
         pixel = np.arange(4000, 20000)
         values = np.ones_like(pixel, dtype=np.float32)
 
-        self.assertRaises(RuntimeError, sparse_map.update_values_pix, pixel, values)
+        self.assertRaises(ValueError, sparse_map.update_values_pix, pixel, values)
 
         # Append a bunch of pixels
         values = np.ones_like(pixel, dtype=np.float64)

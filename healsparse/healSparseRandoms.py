@@ -3,6 +3,8 @@ import numpy as np
 import healpy as hp
 import copy
 
+from .utils import _compute_bitshift
+
 
 def make_uniform_randoms_fast(sparse_map, n_random, nside_randoms=2**23, rng=None):
     """
@@ -37,7 +39,7 @@ def make_uniform_randoms_fast(sparse_map, n_random, nside_randoms=2**23, rng=Non
     ipnest_coarse = rng.choice(valid_pixels, size=n_random, replace=True)
 
     # What is the bitshift from the sparse_map nside to nside_randoms?
-    bit_shift = 2 * int(np.round(np.log(nside_randoms / sparse_map.nside_sparse) / np.log(2)))
+    bit_shift = _compute_bitshift(sparse_map.nside_sparse, nside_randoms)
 
     # The sub-pixels are random from bit_shift
     sub_pixels = rng.randint(0, high=2**bit_shift - 1, size=n_random)

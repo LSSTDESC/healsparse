@@ -6,7 +6,7 @@ import numbers
 
 from .healSparseCoverage import HealSparseCoverage
 from .utils import reduce_array, check_sentinel, _get_field_and_bitval, WIDE_NBIT, WIDE_MASK
-from .utils import is_integer_value
+from .utils import is_integer_value, _compute_bitshift
 from .fits_shim import HealSparseFits, _make_header, _write_filename
 
 
@@ -479,30 +479,51 @@ class HealSparseMap(object):
            Value or Array of values.  Must be same type as sparse_map
         """
 
+        # If _not_ recarray, we can use a single int/float
+        is_single_value = False
+        _values = values
+        if not self._is_rec_array:
+            if self._is_wide_mask:
+                # Special for wide_mask
+                if not isinstance(values, np.ndarray):
+                    raise ValueError("Wide mask must be set with a numpy ndarray")
+                if len(values) == self._wide_mask_width:
+                    is_single_value = True
+            else:
+                # Non wide_mask
+                if isinstance(values, numbers.Integral):
+                    if not self.is_integer_map:
+                        raise ValueError("Cannot set non-integer map with an integer")
+                    is_single_value = True
+                    _values = np.array([values], dtype=self.dtype)
+                elif isinstance(values, numbers.Real):
+                    if self.is_integer_map:
+                        raise ValueError("Cannot set non-floating point map with a floating point.")
+                    is_single_value = True
+                    _values = np.array([values], dtype=self.dtype)
+        if isinstance(values, np.ndarray) and len(values) == 1:
+            is_single_value = True
+
         # First, check if these are the same type
-        if not isinstance(values, np.ndarray):
-            raise RuntimeError("Values are not a numpy ndarray")
+        if not is_single_value and not isinstance(_values, np.ndarray):
+            raise ValueError("Values are not a numpy ndarray")
 
         if not nest:
             _pix = hp.ring2nest(self._nside_sparse, pixels)
         else:
             _pix = pixels
 
-        if self._sparse_map.dtype.type != values.dtype.type:
-            raise RuntimeError("Data-type mismatch between sparse_map and values")
+        # Check numpy data type for everything but wide_mask single value
+        if not self._is_wide_mask or (self._is_wide_mask and not is_single_value):
+            if self._is_rec_array:
+                if self._sparse_map.dtype != _values.dtype:
+                    raise ValueError("Data-type mismatch between sparse_map and values")
+            elif self._sparse_map.dtype.type != _values.dtype.type:
+                raise ValueError("Data-type mismatch between sparse_map and values")
 
-        if self._is_wide_mask:
-            if len(values.shape) != 2:
-                raise RuntimeError("Values must be WideBits or equivalent array.")
-            if values.shape[1] != self._wide_mask_width:
-                raise RuntimeError("Values must be WideBits or equivalent array with matched width.")
-
-        if len(values) == 1:
-            single_value = True
-        else:
-            single_value = False
-            if len(values) != pixels.size:
-                raise RuntimeError("Length of values must be the same as pixels, or length 1.")
+        # Check array lengths
+        if not is_single_value and len(_values) != pixels.size:
+            raise ValueError("Length of values must be same length as pixels (or length 1)")
 
         # Compute the coverage pixels
         ipnest_cov = self._cov_map.cov_pixels(_pix)
@@ -513,10 +534,10 @@ class HealSparseMap(object):
         out_cov = ~cov_mask[ipnest_cov]
 
         # Replace values for those pixels in the coverage map
-        if single_value:
-            self._sparse_map[_pix[in_cov] + self._cov_map[ipnest_cov[in_cov]]] = values[0]
+        if is_single_value:
+            self._sparse_map[_pix[in_cov] + self._cov_map[ipnest_cov[in_cov]]] = _values[0]
         else:
-            self._sparse_map[_pix[in_cov] + self._cov_map[ipnest_cov[in_cov]]] = values[in_cov]
+            self._sparse_map[_pix[in_cov] + self._cov_map[ipnest_cov[in_cov]]] = _values[in_cov]
 
         # Update the coverage map for the rest of the pixels (if necessary)
         if out_cov.sum() > 0:
@@ -546,12 +567,12 @@ class HealSparseMap(object):
             new_cov_map = self._cov_map.append_pixels(len(self._sparse_map), new_cov_pix, check=False)
 
             # Fill in the pixels to append
-            if single_value:
+            if is_single_value:
                 sparse_append[_pix[out_cov] + new_cov_map[ipnest_cov[out_cov]] -
-                              len(self._sparse_map)] = values[0]
+                              len(self._sparse_map)] = _values[0]
             else:
                 sparse_append[_pix[out_cov] + new_cov_map[ipnest_cov[out_cov]] -
-                              len(self._sparse_map)] = values[out_cov]
+                              len(self._sparse_map)] = _values[out_cov]
 
             # And set the values in the map
             self._cov_map = new_cov_map
@@ -1072,7 +1093,7 @@ class HealSparseMap(object):
         # Count the number of filled pixels in the coverage mask
         npop_pix = np.count_nonzero(self.coverage_mask)
         # We need the new bit_shifts and we have to build a new CovIndexMap
-        bit_shift = 2 * int(np.round(np.log(nside_out / self.nside_coverage) / np.log(2)))
+        bit_shift = _compute_bitshift(self.nside_coverage, nside_out)
         nfine_per_cov = 2**bit_shift
         # Work with RecArray (we have to change the resolution to all maps...)
         if self._is_rec_array:
