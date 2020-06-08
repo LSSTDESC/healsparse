@@ -29,15 +29,15 @@ def reduce_array(x, reduction='mean', axis=2):
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore', category=RuntimeWarning)
         if reduction == 'mean':
-            ret = np.nanmean(x, axis=2).flatten()
+            ret = np.nanmean(x, axis=2).ravel()
         elif reduction == 'median':
-            ret = np.nanmedian(x, axis=2).flatten()
+            ret = np.nanmedian(x, axis=2).ravel()
         elif reduction == 'std':
-            ret = np.nanstd(x, axis=2).flatten()
+            ret = np.nanstd(x, axis=2).ravel()
         elif reduction == 'max':
-            ret = np.nanmax(x, axis=2).flatten()
+            ret = np.nanmax(x, axis=2).ravel()
         elif reduction == 'min':
-            ret = np.nanmin(x, axis=2).flatten()
+            ret = np.nanmin(x, axis=2).ravel()
         else:
             raise ValueError('Reduction method %s not recognized.' % reduction)
 

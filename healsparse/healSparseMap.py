@@ -467,7 +467,7 @@ class HealSparseMap(object):
         if self._is_wide_mask:
             s_hdr['WIDEMASK'] = self._is_wide_mask
             s_hdr['WWIDTH'] = self._wide_mask_width
-            _write_filename(filename, c_hdr, s_hdr, self._cov_map[:], self._sparse_map.flatten())
+            _write_filename(filename, c_hdr, s_hdr, self._cov_map[:], self._sparse_map.ravel())
         else:
             _write_filename(filename, c_hdr, s_hdr, self._cov_map[:], self._sparse_map)
 
