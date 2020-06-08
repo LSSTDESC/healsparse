@@ -1257,7 +1257,7 @@ class HealSparseMap(object):
         """
         if isinstance(key, int):
             # Set a single pixel
-            return self.update_values_pix(np.array([key]), np.array([value]))
+            return self.update_values_pix(np.array([key]), value)
         elif isinstance(key, slice):
             # Set a slice of pixels
             start = key.start if key.start is not None else 0
