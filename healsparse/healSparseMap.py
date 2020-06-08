@@ -17,7 +17,7 @@ class HealSparseMap(object):
 
     def __init__(self, cov_map=None, cov_index_map=None, sparse_map=None, nside_sparse=None,
                  healpix_map=None, nside_coverage=None, primary=None, sentinel=None,
-                 nest=True, metadata=None, _no_newpix=False):
+                 nest=True, metadata=None, _is_view=False):
         """
         Instantiate a HealSparseMap.
 
@@ -48,8 +48,9 @@ class HealSparseMap(object):
            If input healpix map is in nest format.  Default is True.
         metadata : `dict`-like, optional
            Map metadata that can be stored in FITS header format.
-        _no_newpix : `bool`, optional
-           Flag that this map cannot set new pixels.  (Internal usage)
+        _is_view : `bool`, optional
+           This healSparse map is a view into another healsparse map.
+           Not all features will be available.  (Internal usage)
 
         Returns
         -------
@@ -85,7 +86,7 @@ class HealSparseMap(object):
         self._wide_mask_width = 0
         self._primary = primary
         self.metadata = metadata
-        self._no_newpix = _no_newpix
+        self._is_view = _is_view
         if self._sparse_map.dtype.fields is not None:
             self._is_rec_array = True
             if self._primary is None:
@@ -528,7 +529,7 @@ class HealSparseMap(object):
         if not is_single_value and len(_values) != pixels.size:
             raise ValueError("Length of values must be same length as pixels (or length 1)")
 
-        if self._no_newpix:
+        if self._is_view:
             # Check that we are not setting new pixels
             if np.any(self.get_values_pix(_pix) <= self._sentinel):
                 raise RuntimeError("This API cannot be used to set new pixels in the map.")
@@ -1314,11 +1315,11 @@ class HealSparseMap(object):
             # Problems can potentially happen with mixed type recarrays depending
             # on how they were constructed (though using make_empty should be safe).
             # However, these linked maps cannot be used to add new pixels which
-            # is why there is the _no_newpix flag.
+            # is why there is the _is_view flag.
             return HealSparseMap(cov_map=self._cov_map,
                                  sparse_map=self._sparse_map[key],
                                  nside_sparse=self._nside_sparse, sentinel=_sentinel,
-                                 _no_newpix=True)
+                                 _is_view=True)
 
         new_sparse_map = np.zeros_like(self._sparse_map[key]) + _sentinel
 
