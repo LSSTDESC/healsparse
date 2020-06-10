@@ -7,7 +7,7 @@ Basic HealSparse Interface
 Getting Started
 ---------------
 
-To conserve memory, `HealSparse` uses a dual-map approach, where a low-resolution full-sky "coverage map" is combined with a high resolution map containing the pixel data where it is available.  The resolution of the coverage map is controlled by the :code:`nside_coverage` parameter, and the resolution of the high-resolution map is controlled by the :code:`nside_sparse` parameter.  Behind the scenes, `HealSparse` uses clever indexing to allow the user to treat these as contiguous maps with minimal overhead.  All `HealSparse` maps use `HealPix` nest indexing behind the scenes, should be treated as nest-indexed maps.
+To conserve memory, `HealSparse` uses a dual-map approach, where a low-resolution full-sky "coverage map" is combined with a high resolution map containing the pixel data where it is available.  The resolution of the coverage map is controlled by the :code:`nside_coverage` parameter, and the resolution of the high-resolution map is controlled by the :code:`nside_sparse` parameter.  Behind the scenes, `HealSparse` uses clever indexing to allow the user to treat these as contiguous maps with minimal overhead.  **All HealSparse maps use HEALPix nest indexing behind the scenes, should be treated as nest-indexed maps.**
 
 There are 3 basic ways to make a :code:`HealSparseMap`.  First, one can read in an existing `HEALPix` map; second, one can read in an existing :code:`HealSparseMap`; and third, one can create a new map.
 
@@ -16,7 +16,7 @@ There are 3 basic ways to make a :code:`HealSparseMap`.  First, one can read in 
     import numpy as np
     import healsparse
 
-    # To read a healpix map, the nside_coverage must be specified
+    # To read a HEALPix map, the nside_coverage must be specified
     map1 = healsparse.HealSparseMap.read('healpix_map.fits', nside_coverage=32)
 
     # To read a healsparse map, no additional keywords are necessary
@@ -127,7 +127,7 @@ can only be used to change pixel values.
 Wide Masks
 ----------
 
-`HealSparse` has support for "wide" bit masks with an arbitrary number of bits that are referred to by bit position rather than value.  This is useful, for example, when constructing a coadd coverage map where every pixel can uniquely identify the set of input exposures that contributed at the location of that pixel.  In the case of >64 input exposures you can no longer use a simple 64-bit integer bit mask.  Wide mask bits are always specified by giving a list of integer positions rather than values (e.g., use :code:`10` instead of :code:`1024 = 2**10`).
+`HealSparse` has support for "wide" bit masks with an arbitrary number of bits that are referred to by bit position rather than value.  This is useful, for example, when constructing a coadd coverage map where every pixel can uniquely identify the set of input exposures that contributed at the location of that pixel.  In the case of >64 input exposures you can no longer use a simple 64-bit integer bit mask.  Wide mask bits are always specified by giving a list of integer positions rather than values (e.g., use :code:`10` to set the 10th bit instead of :code:`1024 = 2**10`).
 
 .. code-block :: python
 

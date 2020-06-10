@@ -13,7 +13,7 @@ The :code:`cat_healsparse_files()` routine takes in a list of filename, and an o
 
 By default, for speed, the code will not check that the input :code:`HealSparseMap` files are non-overlapping (that is, that they do not share :code:`valid_pixels`; they may share coverage in the coverage map).  This can be checked.
 
-Also, by default, the combination is not done in-memory.  This default is recommended if :code:`fitsio` is available.  If only :code:`astropy.io.fits` is avaiable for FITS interfacing, then the concatenation must be done in memory.
+If :code:`fitsio` is available (recommended), the combination is not done in-memory.  This behavior can be modified by the user by setting :code:`in_memory` to :code:`True`.  However, if only :code:`astropy.io.fits` is available for FITS interfacing, the concatenation can only be done in-memory (and the :code:`in_memory` value should be overridden.
 
 .. code-block :: python
 
