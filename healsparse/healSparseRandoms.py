@@ -23,9 +23,9 @@ def make_uniform_randoms_fast(sparse_map, n_random, nside_randoms=2**23, rng=Non
 
     Returns
     -------
-    ra_array: `np.array`
+    ra_array: `np.ndarray`
        Float array of RAs (degrees)
-    dec_array: `np.array`
+    dec_array: `np.ndarray`
        Float array of declinations (degrees)
     """
 
@@ -66,9 +66,9 @@ def make_uniform_randoms(sparse_map, n_random, rng=None):
 
     Returns
     -------
-    ra_array: `np.array`
+    ra_array: `np.ndarray`
        Float array of RAs (degrees)
-    dec_array: `np.array`
+    dec_array: `np.ndarray`
        Float array of declinations (degrees)
     """
 

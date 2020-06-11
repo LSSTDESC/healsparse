@@ -304,7 +304,7 @@ class HealSparseMap(object):
         -------
         cov_map : `HealSparseCoverage`
            Coverage map with index values
-        sparse_map : `np.array`
+        sparse_map : `np.ndarray`
            Sparse map with map dtype
         nside_sparse : `int`
            Nside of the coverage map
@@ -398,7 +398,7 @@ class HealSparseMap(object):
 
         Parameters
         ----------
-        healpix_map : `np.array`
+        healpix_map : `np.ndarray`
            Numpy array that describes a healpix map.
         nside_coverage : `int`
            Nside for the coverage map to construct
@@ -412,7 +412,7 @@ class HealSparseMap(object):
         -------
         cov_map : `HealSparseCoverage`
            Coverage map with pixel indices
-        sparse_map : `np.array`
+        sparse_map : `np.ndarray`
            Sparse map of input values.
         """
         if not nest:
@@ -650,7 +650,9 @@ class HealSparseMap(object):
 
         Parameters
         ----------
-        theta_or_ra, phi_or_dec : float, array-like
+        theta_or_ra : `float`, array-like
+           Angular coordinates of points on a sphere.
+        phi_or_dec : `float`, array-like
            Angular coordinates of points on a sphere.
         lonlat : `bool`, optional
            If True, input angles are longitude and latitude in degrees.
@@ -673,7 +675,7 @@ class HealSparseMap(object):
 
         Parameters
         ----------
-        pixel : `np.array`
+        pixel : `np.ndarray`
            Integer array of healpix pixels.
         nest : `bool`, optional
            Are the pixels in nest scheme?  Default is True.
@@ -682,7 +684,7 @@ class HealSparseMap(object):
 
         Returns
         -------
-        values : `np.array`
+        values : `np.ndarray`
            Array of values/validity from the map.
         """
         if not nest:
@@ -716,7 +718,9 @@ class HealSparseMap(object):
 
         Parameters
         ----------
-        theta_or_ra, phi_or_dec : float, array-like
+        theta_or_ra : `float`, array-like
+           Angular coordinates of points on a sphere.
+        phi_or_dec : `float`, array-like
            Angular coordinates of points on a sphere.
         lonlat : `bool`, optional
            If True, input angles are longitude and latitude in degrees.
@@ -741,7 +745,7 @@ class HealSparseMap(object):
 
         Parameters
         ----------
-        pixel : `np.array`
+        pixel : `np.ndarray`
            Integer array of healpix pixels.
         nest : `bool`, optional
            Are the pixels in nest scheme?  Default is True.
@@ -780,7 +784,7 @@ class HealSparseMap(object):
 
         Returns
         -------
-        cov_map : `np.array`
+        cov_map : `np.ndarray`
            Float array of fractional coverage of each pixel
         """
 
@@ -967,8 +971,8 @@ class HealSparseMap(object):
 
         if nside is specified, then reduce to that nside
 
-        Args:
-        -----
+        Parameters
+        ----------
         nside : `int`
             Output nside resolution parameter (should be a multiple of 2). If
             not specified the output resolution will be equal to the parent's
@@ -981,9 +985,9 @@ class HealSparseMap(object):
             If the parent HealSparseMap contains recarrays, key selects the
             field that will be transformed into a HEALPix map.
 
-        Returns :
-        --------
-        hp_map : `np.array`
+        Returns
+        -------
+        hp_map : `np.ndarray`
             Output HEALPix map with the requested resolution.
         """
         # If no nside is passed, we generate a map with the same resolution as the original
@@ -1031,7 +1035,7 @@ class HealSparseMap(object):
 
         Returns
         -------
-        valid_pixels : `np.array`
+        valid_pixels : `np.ndarray`
         """
 
         # Get the coarse pixels that are in the map
