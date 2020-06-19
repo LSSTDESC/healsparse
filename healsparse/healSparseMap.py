@@ -550,49 +550,31 @@ class HealSparseMap(object):
 
         # Update the coverage map for the rest of the pixels (if necessary)
         if out_cov.sum() > 0:
-            # This requires data copying. (Even numpy appending does)
-            # I don't want to overthink this and prematurely optimize, but
-            # I want it to be able to work when the map isn't being held
-            # in memory.  So that will require an append and non-contiguous
-            # pixels, which I *think* should be fine.
+            # New version to minimize data copying
 
             # Faster trick for getting unique values
             new_cov_temp = np.zeros(cov_mask.size, dtype=np.int8)
             new_cov_temp[ipnest_cov[out_cov]] = 1
             new_cov_pix, = np.where(new_cov_temp > 0)
-            if self._is_wide_mask:
-                sparse_append = np.zeros((new_cov_pix.size*self._cov_map.nfine_per_cov,
-                                          self._wide_mask_width),
-                                         dtype=self._sparse_map.dtype)
-            else:
-                sparse_append = np.zeros(new_cov_pix.size*self._cov_map.nfine_per_cov,
-                                         dtype=self._sparse_map.dtype)
-            # Fill with the empty defaults (generally UNSEEN)
-            sparse_append[:] = self._sparse_map[0]
-
-            # Update cov_index_map
-            # These are pixels that are at the end of the previous sparsemap
 
             new_cov_map = self._cov_map.append_pixels(len(self._sparse_map), new_cov_pix, check=False)
-
-            # Fill in the pixels to append
-            if is_single_value:
-                sparse_append[_pix[out_cov] + new_cov_map[ipnest_cov[out_cov]] -
-                              len(self._sparse_map)] = _values[0]
-            else:
-                sparse_append[_pix[out_cov] + new_cov_map[ipnest_cov[out_cov]] -
-                              len(self._sparse_map)] = _values[out_cov]
-
-            # And set the values in the map
             self._cov_map = new_cov_map
+
+            oldsize = len(self._sparse_map)
+            newsize = oldsize + new_cov_pix.size*self._cov_map.nfine_per_cov
+
             if self._is_wide_mask:
-                self._sparse_map = np.reshape(np.append(self._sparse_map,
-                                                        sparse_append),
-                                              (len(self._sparse_map) +
-                                               len(sparse_append),
-                                               self._wide_mask_width))
+                self._sparse_map.resize((newsize, self._wide_mask_width), refcheck=False)
             else:
-                self._sparse_map = np.append(self._sparse_map, sparse_append)
+                self._sparse_map.resize(newsize, refcheck=False)
+
+            self._sparse_map[oldsize:] = self._sparse_map[0]
+            if is_single_value:
+                self._sparse_map[oldsize:][_pix[out_cov] + new_cov_map[ipnest_cov[out_cov]] -
+                                           len(self._sparse_map)] = _values[0]
+            else:
+                self._sparse_map[oldsize:][_pix[out_cov] + new_cov_map[ipnest_cov[out_cov]] -
+                                           len(self._sparse_map)] = _values[out_cov]
 
     def set_bits_pix(self, pixels, bits, nest=True):
         """
