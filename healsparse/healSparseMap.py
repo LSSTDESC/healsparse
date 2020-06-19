@@ -214,7 +214,7 @@ class HealSparseMap(object):
             # One pixel is the overflow pixel of a truly empty map
             npix = 1
         else:
-            # cov_pixels = np.atleast_1d(cov_pixels)
+            cov_pixels = np.atleast_1d(cov_pixels)
             cov_map = HealSparseCoverage.make_from_pixels(nside_coverage, nside_sparse,
                                                           cov_pixels)
             # We need to allocate the overflow pixel
@@ -513,7 +513,7 @@ class HealSparseMap(object):
         # Fill with blank values
         self._sparse_map[oldsize:] = self._sparse_map[0]
 
-    def update_values_pix(self, pixels, values, nest=True):
+    def update_values_pix(self, pixels, values, nest=True, operation='replace'):
         """
         Update the values in the sparsemap for a list of pixels.
 
@@ -523,7 +523,16 @@ class HealSparseMap(object):
            Integer array of sparse_map pixel values
         values : `np.ndarray`
            Value or Array of values.  Must be same type as sparse_map
+        operation : `str`, optional
+           Operation to use to update values.  May be 'replace' (default),
+           'or', or 'and' (for bit masks)
         """
+
+        if operation != 'replace':
+            if operation != 'or' and operation != 'and':
+                raise ValueError("Only replace, or, and and are supported operations")
+            if not self.is_integer_map or self._sentinel != 0:
+                raise ValueError("Can only use and/or with integer map with 0 sentinel")
 
         # If _not_ recarray, we can use a single int/float
         is_single_value = False
@@ -535,6 +544,8 @@ class HealSparseMap(object):
                     raise ValueError("Wide mask must be set with a numpy ndarray")
                 if len(values) == self._wide_mask_width:
                     is_single_value = True
+                    # Reshape so we can use the 0th entry below
+                    _values = _values.reshape((1, self._wide_mask_width))
             else:
                 # Non wide_mask
                 if isinstance(values, numbers.Integral):
@@ -586,9 +597,19 @@ class HealSparseMap(object):
 
         # Replace values for those pixels in the coverage map
         if is_single_value:
-            self._sparse_map[_pix[in_cov] + self._cov_map[ipnest_cov[in_cov]]] = _values[0]
+            if operation == 'replace':
+                self._sparse_map[_pix[in_cov] + self._cov_map[ipnest_cov[in_cov]]] = _values[0]
+            elif operation == 'or':
+                self._sparse_map[_pix[in_cov] + self._cov_map[ipnest_cov[in_cov]]] |= _values[0]
+            elif operation == 'and':
+                self._sparse_map[_pix[in_cov] + self._cov_map[ipnest_cov[in_cov]]] &= _values[0]
         else:
-            self._sparse_map[_pix[in_cov] + self._cov_map[ipnest_cov[in_cov]]] = _values[in_cov]
+            if operation == 'replace':
+                self._sparse_map[_pix[in_cov] + self._cov_map[ipnest_cov[in_cov]]] = _values[in_cov]
+            elif operation == 'or':
+                self._sparse_map[_pix[in_cov] + self._cov_map[ipnest_cov[in_cov]]] |= _values[in_cov]
+            elif operation == 'and':
+                self._sparse_map[_pix[in_cov] + self._cov_map[ipnest_cov[in_cov]]] &= _values[in_cov]
 
         # Update the coverage map for the rest of the pixels (if necessary)
         if out_cov.sum() > 0:
@@ -604,11 +625,25 @@ class HealSparseMap(object):
             self._reserve_cov_pix(new_cov_pix)
 
             if is_single_value:
-                self._sparse_map[oldsize:][_pix[out_cov] + self._cov_map[ipnest_cov[out_cov]] -
-                                           len(self._sparse_map)] = _values[0]
+                if operation == 'replace':
+                    self._sparse_map[oldsize:][_pix[out_cov] + self._cov_map[ipnest_cov[out_cov]] -
+                                               oldsize] = _values[0]
+                elif operation == 'or':
+                    self._sparse_map[oldsize:][_pix[out_cov] + self._cov_map[ipnest_cov[out_cov]] -
+                                               oldsize] |= _values[0]
+                elif operation == 'and':
+                    self._sparse_map[oldsize:][_pix[out_cov] + self._cov_map[ipnest_cov[out_cov]] -
+                                               oldsize] &= _values[0]
             else:
-                self._sparse_map[oldsize:][_pix[out_cov] + self._cov_map[ipnest_cov[out_cov]] -
-                                           len(self._sparse_map)] = _values[out_cov]
+                if operation == 'replace':
+                    self._sparse_map[oldsize:][_pix[out_cov] + self._cov_map[ipnest_cov[out_cov]] -
+                                               oldsize] = _values[out_cov]
+                elif operation == 'or':
+                    self._sparse_map[oldsize:][_pix[out_cov] + self._cov_map[ipnest_cov[out_cov]] -
+                                               oldsize] |= _values[out_cov]
+                elif operation == 'and':
+                    self._sparse_map[oldsize:][_pix[out_cov] + self._cov_map[ipnest_cov[out_cov]] -
+                                               oldsize] &= _values[out_cov]
 
     def set_bits_pix(self, pixels, bits, nest=True):
         """
@@ -627,12 +662,13 @@ class HealSparseMap(object):
         if np.max(bits) >= self._wide_mask_maxbits:
             raise ValueError("Bit position %d too large (>= %d)" % (np.max(bits),
                                                                     self._wide_mask_maxbits))
-        values = self.get_values_pix(pixels, nest=nest)
+
+        value = self._sparse_map[0].copy()
         for bit in bits:
             field, bitval = _get_field_and_bitval(bit)
-            values[:, field] |= bitval
+            value[field] |= bitval
 
-        self.update_values_pix(pixels, values, nest=nest)
+        self.update_values_pix(pixels, value, nest=nest, operation='or')
 
     def clear_bits_pix(self, pixels, bits, nest=True):
         """
@@ -651,12 +687,13 @@ class HealSparseMap(object):
         if np.max(bits) >= self._wide_mask_maxbits:
             raise ValueError("Bit position %d too large (>= %d)" % (np.max(bits),
                                                                     self._wide_mask_maxbits))
-        values = self.get_values_pix(pixels, nest=nest)
+
+        value = self._sparse_map[0].copy()
         for bit in bits:
             field, bitval = _get_field_and_bitval(bit)
-            values[:, field] &= ~bitval
+            value[field] |= ~bitval
 
-        self.update_values_pix(pixels, values, nest=nest)
+        self.update_values_pix(pixels, value, nest=nest, operation='and')
 
     def get_values_pos(self, theta_or_ra, phi_or_dec, lonlat=False, valid_mask=False):
         """
