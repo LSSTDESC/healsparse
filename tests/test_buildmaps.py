@@ -68,6 +68,15 @@ class BuildMapsTestCase(unittest.TestCase):
         self.assertEqual(sparse_map2.dtype, sparse_map.dtype)
         self.assertEqual(sparse_map2._sentinel, sparse_map._sentinel)
 
+        sparse_map2b = healsparse.HealSparseMap.make_empty_like(sparse_map, cov_pixels=[0, 2])
+        self.assertEqual(sparse_map2b.nside_coverage, sparse_map.nside_coverage)
+        self.assertEqual(sparse_map2b.nside_sparse, sparse_map.nside_sparse)
+        self.assertEqual(sparse_map2b.dtype, sparse_map.dtype)
+        self.assertEqual(sparse_map2b._sentinel, sparse_map._sentinel)
+        self.assertEqual(len(sparse_map2b._sparse_map),
+                         sparse_map2._cov_map.nfine_per_cov*3)
+        testing.assert_array_equal(sparse_map2b._sparse_map, sparse_map._sentinel)
+
         sparse_map2 = healsparse.HealSparseMap.make_empty_like(sparse_map, nside_coverage=16)
         self.assertEqual(sparse_map2.nside_coverage, 16)
         self.assertEqual(sparse_map2.nside_sparse, sparse_map.nside_sparse)
@@ -159,6 +168,16 @@ class BuildMapsTestCase(unittest.TestCase):
         self.assertEqual(sparse_map2.nside_sparse, sparse_map.nside_sparse)
         self.assertEqual(sparse_map2.dtype, sparse_map.dtype)
         self.assertEqual(sparse_map2._sentinel, sparse_map._sentinel)
+
+        sparse_map2b = healsparse.HealSparseMap.make_empty_like(sparse_map, cov_pixels=[0, 2])
+        self.assertEqual(sparse_map2b.nside_coverage, sparse_map.nside_coverage)
+        self.assertEqual(sparse_map2b.nside_sparse, sparse_map.nside_sparse)
+        self.assertEqual(sparse_map2b.dtype, sparse_map.dtype)
+        self.assertEqual(sparse_map2b._sentinel, sparse_map._sentinel)
+        self.assertEqual(len(sparse_map2b._sparse_map),
+                         sparse_map2._cov_map.nfine_per_cov*3)
+        testing.assert_array_equal(sparse_map2b._sparse_map['col1'], sparse_map._sentinel)
+        testing.assert_array_equal(sparse_map2b._sparse_map['col2'], hp.UNSEEN)
 
 
 if __name__ == '__main__':

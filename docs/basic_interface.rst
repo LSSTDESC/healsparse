@@ -199,3 +199,15 @@ It is also possible to read the coverage map of a :code:`HealSparseMap` on its o
 
     cov_map = healsparse.HealSparseCoverage.read('output_file.hs')
     cov_mask = cov_map.coverage_mask
+
+
+In some cases, you may me building a map and you already know the coverage when it will be finished.  In this case, it can be faster to initialize the memory at the beginning.  In this case, you can add :code:`cov_pixels` to the :code:`make_empty` call.  Be aware this may make the map larger than your actual coverage.
+
+.. code-block :: python
+
+    import healsparse
+
+    nside_coverage = 32
+    nside_sparse = 4096
+    map4 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse, np.float32,
+                                               cov_pixels=[5, 10, 20, 21])

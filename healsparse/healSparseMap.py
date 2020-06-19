@@ -170,7 +170,7 @@ class HealSparseMap(object):
 
     @classmethod
     def make_empty(cls, nside_coverage, nside_sparse, dtype, primary=None, sentinel=None,
-                   wide_mask_maxbits=None, metadata=None):
+                   wide_mask_maxbits=None, metadata=None, cov_pixels=None):
         """
         Make an empty map with nothing in it.
 
@@ -191,48 +191,61 @@ class HealSparseMap(object):
            Create a "wide bit mask" map, with this many bits.
         metadata : `dict`-like, optional
            Map metadata that can be stored in FITS header format.
+        cov_pixels : `np.ndarray` or `list`
+           List of integer coverage pixels to pre-allocate
 
         Returns
         -------
         healSparseMap : `HealSparseMap`
            HealSparseMap filled with sentinel values.
         """
+        test_arr = np.zeros(1, dtype=dtype)
 
         if wide_mask_maxbits is not None:
-            test = np.zeros(1, dtype=dtype)
-            if test.dtype != WIDE_MASK:
+            if test_arr.dtype != WIDE_MASK:
                 raise ValueError("Must use dtype=healsparse.WIDE_MASK to use a wide_mask")
             if sentinel is not None:
                 if sentinel != 0:
                     raise ValueError("Sentinel must be 0 for wide_mask")
             nbitfields = (wide_mask_maxbits - 1) // WIDE_NBIT + 1
 
-        cov_map = HealSparseCoverage.make_empty(nside_coverage, nside_sparse)
+        if cov_pixels is None:
+            cov_map = HealSparseCoverage.make_empty(nside_coverage, nside_sparse)
+            # One pixel is the overflow pixel of a truly empty map
+            npix = 1
+        else:
+            # cov_pixels = np.atleast_1d(cov_pixels)
+            cov_map = HealSparseCoverage.make_from_pixels(nside_coverage, nside_sparse,
+                                                          cov_pixels)
+            # We need to allocate the overflow pixel
+            npix = cov_pixels.size + 1
 
         if wide_mask_maxbits is not None:
-            sparse_map = np.zeros((cov_map.nfine_per_cov, nbitfields), dtype=dtype)
+            # The sentinel is always zero
+            _sentinel = 0
+            sparse_map = np.zeros((cov_map.nfine_per_cov*npix, nbitfields), dtype=dtype)
+        elif test_arr.dtype.fields is None:
+            # Non-recarray
+            _sentinel = check_sentinel(test_arr.dtype.type, sentinel)
+            sparse_map = np.full(cov_map.nfine_per_cov*npix, _sentinel, dtype=dtype)
         else:
-            sparse_map = np.zeros(cov_map.nfine_per_cov, dtype=dtype)
-        if sparse_map.dtype.fields is not None:
+            # Recarray type
             if primary is None:
                 raise RuntimeError("Must specify 'primary' field when using a recarray for the sparse_map.")
 
             primary_found = False
-            for name in sparse_map.dtype.names:
+            for name in test_arr.dtype.names:
                 if name == primary:
-                    _sentinel = check_sentinel(sparse_map[name].dtype.type, sentinel)
-                    sparse_map[name][:] = _sentinel
+                    _sentinel = check_sentinel(test_arr[name].dtype.type, sentinel)
+                    test_arr[name] = _sentinel
                     primary_found = True
                 else:
-                    sparse_map[name][:] = check_sentinel(sparse_map[name].dtype.type, None)
+                    test_arr[name] = check_sentinel(test_arr[name].dtype.type, None)
 
             if not primary_found:
                 raise RuntimeError("Primary field not found in input dtype of recarray.")
 
-        else:
-            # fill with sentinel value
-            _sentinel = check_sentinel(sparse_map.dtype.type, sentinel)
-            sparse_map[:] = _sentinel
+            sparse_map = np.full(cov_map.nfine_per_cov*npix, test_arr, dtype=dtype)
 
         return cls(cov_map=cov_map, sparse_map=sparse_map,
                    nside_sparse=nside_sparse, primary=primary, sentinel=_sentinel,
@@ -240,7 +253,8 @@ class HealSparseMap(object):
 
     @classmethod
     def make_empty_like(cls, sparsemap, nside_coverage=None, nside_sparse=None, dtype=None,
-                        primary=None, sentinel=None, wide_mask_maxbits=None, metadata=None):
+                        primary=None, sentinel=None, wide_mask_maxbits=None, metadata=None,
+                        cov_pixels=None):
         """
         Make an empty map with the same parameters as an existing map.
 
@@ -262,6 +276,8 @@ class HealSparseMap(object):
            Create a "wide bit mask" map, with this many bits.
         metadata : `dict`-like, optional
            Map metadata that can be stored in FITS header format.
+        cov_pixels : `np.ndarray` or `list`
+           List of integer coverage pixels to pre-allocate
 
         Returns
         -------
@@ -286,7 +302,7 @@ class HealSparseMap(object):
 
         return cls.make_empty(nside_coverage, nside_sparse, dtype, primary=primary,
                               sentinel=sentinel, wide_mask_maxbits=wide_mask_maxbits,
-                              metadata=metadata)
+                              metadata=metadata, cov_pixels=cov_pixels)
 
     @staticmethod
     def _read_healsparse_file(filename, pixels=None):
@@ -432,8 +448,8 @@ class HealSparseMap(object):
 
         cov_map.initialize_pixels(cov_pix)
 
-        sparse_map = np.zeros((cov_pix.size + 1)*cov_map.nfine_per_cov,
-                              dtype=healpix_map.dtype) + sentinel
+        sparse_map = np.full((cov_pix.size + 1)*cov_map.nfine_per_cov,
+                             sentinel, dtype=healpix_map.dtype)
         sparse_map[ipnest + cov_map[ipnest_cov]] = healpix_map[ipnest]
 
         return cov_map, sparse_map
@@ -470,6 +486,32 @@ class HealSparseMap(object):
             _write_filename(filename, c_hdr, s_hdr, self._cov_map[:], self._sparse_map.ravel())
         else:
             _write_filename(filename, c_hdr, s_hdr, self._cov_map[:], self._sparse_map)
+
+    def _reserve_cov_pix(self, new_cov_pix):
+        """
+        Reserve new coverage pixels.  This routine does no checking, it should
+        be done by the caller.
+
+        Parameters
+        ----------
+        new_cov_pix : `np.ndarray`
+           Integer array of new coverage pixels
+        """
+
+        new_cov_map = self._cov_map.append_pixels(len(self._sparse_map), new_cov_pix, check=False)
+        self._cov_map = new_cov_map
+
+        # Use resizing
+        oldsize = len(self._sparse_map)
+        newsize = oldsize + new_cov_pix.size*self._cov_map.nfine_per_cov
+
+        if self._is_wide_mask:
+            self._sparse_map.resize((newsize, self._wide_mask_width), refcheck=False)
+        else:
+            self._sparse_map.resize(newsize, refcheck=False)
+
+        # Fill with blank values
+        self._sparse_map[oldsize:] = self._sparse_map[0]
 
     def update_values_pix(self, pixels, values, nest=True):
         """
@@ -557,23 +599,15 @@ class HealSparseMap(object):
             new_cov_temp[ipnest_cov[out_cov]] = 1
             new_cov_pix, = np.where(new_cov_temp > 0)
 
-            new_cov_map = self._cov_map.append_pixels(len(self._sparse_map), new_cov_pix, check=False)
-            self._cov_map = new_cov_map
-
+            # Reserve the memory here
             oldsize = len(self._sparse_map)
-            newsize = oldsize + new_cov_pix.size*self._cov_map.nfine_per_cov
+            self._reserve_cov_pix(new_cov_pix)
 
-            if self._is_wide_mask:
-                self._sparse_map.resize((newsize, self._wide_mask_width), refcheck=False)
-            else:
-                self._sparse_map.resize(newsize, refcheck=False)
-
-            self._sparse_map[oldsize:] = self._sparse_map[0]
             if is_single_value:
-                self._sparse_map[oldsize:][_pix[out_cov] + new_cov_map[ipnest_cov[out_cov]] -
+                self._sparse_map[oldsize:][_pix[out_cov] + self._cov_map[ipnest_cov[out_cov]] -
                                            len(self._sparse_map)] = _values[0]
             else:
-                self._sparse_map[oldsize:][_pix[out_cov] + new_cov_map[ipnest_cov[out_cov]] -
+                self._sparse_map[oldsize:][_pix[out_cov] + self._cov_map[ipnest_cov[out_cov]] -
                                            len(self._sparse_map)] = _values[out_cov]
 
     def set_bits_pix(self, pixels, bits, nest=True):
@@ -1003,7 +1037,7 @@ class HealSparseMap(object):
             dtypeOut = single_map._sparse_map.dtype
 
         # Create an empty HEALPix map, filled with UNSEEN values
-        hp_map = np.zeros(hp.nside2npix(nside), dtype=dtypeOut) + hp.UNSEEN
+        hp_map = np.full(hp.nside2npix(nside), hp.UNSEEN, dtype=dtypeOut)
 
         valid_pixels = single_map.valid_pixels
         hp_map[valid_pixels] = single_map.get_values_pix(valid_pixels)
@@ -1307,7 +1341,7 @@ class HealSparseMap(object):
                                  nside_sparse=self._nside_sparse, sentinel=_sentinel,
                                  _is_view=True)
 
-        new_sparse_map = np.zeros_like(self._sparse_map[key]) + _sentinel
+        new_sparse_map = np.full_like(self._sparse_map[key], _sentinel)
 
         valid_indices = (self._sparse_map[self._primary] > self._sentinel)
         new_sparse_map[valid_indices] = self._sparse_map[key][valid_indices]
