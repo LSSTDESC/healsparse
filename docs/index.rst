@@ -29,6 +29,7 @@ The code is hosted in GitHub_.  Please use the `issue tracker <https://github.co
    basic_interface
    operations
    geometry
+   randoms
    concatenation
    filespec
 

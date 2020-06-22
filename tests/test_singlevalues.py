@@ -114,9 +114,11 @@ class SingleValuesTestCase(unittest.TestCase):
         """
         m = healsparse.HealSparseMap.make_empty(32, 512, healsparse.WIDE_MASK, wide_mask_maxbits=16)
 
-        m.update_values_pix(np.arange(100), np.ones(2, dtype=np.int8))
+        val = np.ones(2, dtype=np.int8)
+        val[1] = 2
+        m.update_values_pix(np.arange(100), val)
         testing.assert_array_equal(m[0: 100][:, 0], np.ones(100, dtype=np.int8))
-        testing.assert_array_equal(m[0: 100][:, 1], np.ones(100, dtype=np.int8))
+        testing.assert_array_equal(m[0: 100][:, 1], np.full(100, 2, dtype=np.int8))
 
         self.assertRaises(ValueError, m.update_values_pix, np.arange(100), 1)
         self.assertRaises(ValueError, m.update_values_pix, np.arange(100),
