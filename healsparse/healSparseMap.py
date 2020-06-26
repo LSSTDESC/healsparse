@@ -1090,22 +1090,14 @@ class HealSparseMap(object):
         -------
         valid_pixels : `np.ndarray`
         """
+        if self._is_rec_array:
+            valid_pixel_inds, = np.where(self._sparse_map[self._primary] > self._sentinel)
+        elif self._is_wide_mask:
+            valid_pixel_inds, = np.where(self._sparse_map.sum(axis=1, dtype=np.bool))
+        else:
+            valid_pixel_inds, = np.where(self._sparse_map > self._sentinel)
 
-        # Get the coarse pixels that are in the map
-        valid_coverage, = np.where(self.coverage_mask)
-        nfine_per_cov = 2**self._cov_map.bit_shift
-
-        # For each coarse pixel, this is the starting point for the pixel number
-        pixBase = np.left_shift(valid_coverage, self._cov_map.bit_shift)
-
-        # Tile/repeat to expand into the full pixel numbers
-        # Note that these are all the pixels that are defined in the sparse map,
-        # but not all of them are valid
-        valid_pixels = (np.tile(np.arange(nfine_per_cov), valid_coverage.size) +
-                        np.repeat(pixBase, nfine_per_cov))
-
-        # And return only the valid subset
-        return valid_pixels[self.get_values_pix(valid_pixels, valid_mask=True)]
+        return valid_pixel_inds - self._cov_map[self._cov_map.cov_pixels_from_index(valid_pixel_inds)]
 
     def valid_pixels_pos(self, lonlat=False, return_pixels=False):
         """

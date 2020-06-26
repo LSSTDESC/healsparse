@@ -26,6 +26,7 @@ class HealSparseCoverage(object):
         self._cov_index_map = cov_index_map
         self._bit_shift = _compute_bitshift(self._nside_coverage, self._nside_sparse)
         self._nfine_per_cov = 2**self._bit_shift
+        self._compute_block_to_cov_index()
 
     @classmethod
     def read(cls, filename_or_fits):
@@ -115,6 +116,7 @@ class HealSparseCoverage(object):
            Array of coverage pixels
         """
         self._cov_index_map[cov_pix] += np.arange(1, len(cov_pix) + 1)*self.nfine_per_cov
+        self._compute_block_to_cov_index()
 
     def append_pixels(self, sparse_map_size, new_cov_pix, check=True, copy=True):
         """
@@ -147,6 +149,7 @@ class HealSparseCoverage(object):
                                         dtype=np.int64)*self.nfine_per_cov
 
         new_cov_map._cov_index_map[:] = cov_index_map_temp
+        new_cov_map._compute_block_to_cov_index()
 
         return new_cov_map
 
@@ -165,6 +168,22 @@ class HealSparseCoverage(object):
            Coverage pixel numbers (nest format)
         """
         return np.right_shift(sparse_pixels, self._bit_shift)
+
+    def cov_pixels_from_index(self, index):
+        """
+        Get the coverage pixels from the sparse map index.
+
+        Parameters
+        ----------
+        index : `np.ndarray`
+           Array of indices in sparse map
+
+        Returns
+        -------
+        cov_pixels : `np.ndarray`
+           Coverage pixel numbers (nest format)
+        """
+        return self._block_to_cov_index[(index // self.nfine_per_cov) - 1]
 
     @property
     def coverage_mask(self):
@@ -226,6 +245,20 @@ class HealSparseCoverage(object):
            Number of fine (sparse) pixels per coverage pixel
         """
         return self._nfine_per_cov
+
+    def _compute_block_to_cov_index(self):
+        """
+        Compute the mapping from block number to cov_index
+        """
+        offset_map = (self._cov_index_map[:] +
+                      np.arange(hp.nside2npix(self._nside_coverage)) *
+                      self._nfine_per_cov)
+        cov_mask = (offset_map >= self.nfine_per_cov)
+        cov_pixels, = np.where(cov_mask)
+
+        block_number = (offset_map[cov_pixels] // self.nfine_per_cov) - 1
+        st = np.argsort(block_number)
+        self._block_to_cov_index = cov_pixels[st]
 
     def copy(self):
         return self.__copy__()
