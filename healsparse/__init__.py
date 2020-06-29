@@ -1,3 +1,5 @@
+from ._version import __version__
+
 from .healSparseMap import HealSparseMap
 from .healSparseCoverage import HealSparseCoverage
 from .healSparseRandoms import make_uniform_randoms, make_uniform_randoms_fast
