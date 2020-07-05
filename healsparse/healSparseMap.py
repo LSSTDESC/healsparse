@@ -695,7 +695,7 @@ class HealSparseMap(object):
 
         self.update_values_pix(pixels, value, nest=nest, operation='and')
 
-    def get_values_pos(self, theta_or_ra, phi_or_dec, lonlat=False, valid_mask=False):
+    def get_values_pos(self, theta_or_ra, phi_or_dec, lonlat=True, valid_mask=False):
         """
         Get the map value for the position.  Positions may be theta/phi
         co-latitude and longitude in radians, or longitude and latitude in
@@ -763,7 +763,7 @@ class HealSparseMap(object):
             # Just return the values
             return values
 
-    def check_bits_pos(self, theta_or_ra, phi_or_dec, bits, lonlat=False):
+    def check_bits_pos(self, theta_or_ra, phi_or_dec, bits, lonlat=True):
         """
         Check the bits at the map for an array of positions.  Positions may be
         theta/phi co-latitude and longitude in radians, or longitude and
@@ -1099,7 +1099,7 @@ class HealSparseMap(object):
 
         return valid_pixel_inds - self._cov_map[self._cov_map.cov_pixels_from_index(valid_pixel_inds)]
 
-    def valid_pixels_pos(self, lonlat=False, return_pixels=False):
+    def valid_pixels_pos(self, lonlat=True, return_pixels=False):
         """
         Get an array with the position of valid pixels in the sparse map.
 
