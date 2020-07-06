@@ -99,6 +99,30 @@ class GenerateHealpixMapTestCase(unittest.TestCase):
 
         testing.assert_almost_equal(hpmap[ok], sparse_map.get_values_pix(ok).astype(np.float64))
 
+    def test_generate_healpix_map_ring(self):
+        """
+        Test the generation of a healpixmap in ring type
+        """
+        random.seed(seed=12345)
+
+        nside_coverage = 32
+        nside_map = 64
+
+        n_rand = 1000
+        ra = np.random.random(n_rand) * 360.0
+        dec = np.random.random(n_rand) * 180.0 - 90.0
+        value = np.random.random(n_rand)
+
+        # Create a HEALPix map
+        healpix_map = np.zeros(hp.nside2npix(nside_map), dtype=np.float) + hp.UNSEEN
+        idx = hp.ang2pix(nside_map, np.pi/2 - np.radians(dec), np.radians(ra), nest=True)
+        healpix_map[idx] = value
+        # Create a HealSparseMap
+        sparse_map = healsparse.HealSparseMap(nside_coverage=nside_coverage, healpix_map=healpix_map)
+        hp_out_ring = sparse_map.generate_healpix_map(nside=nside_map, nest=False)
+        healpix_map_ring = hp.reorder(healpix_map, n2r=True)
+        testing.assert_almost_equal(healpix_map_ring, hp_out_ring)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1023,7 +1023,7 @@ class HealSparseMap(object):
 
             self._metadata = metadata
 
-    def generate_healpix_map(self, nside=None, reduction='mean', key=None):
+    def generate_healpix_map(self, nside=None, reduction='mean', key=None, nest=True):
         """
         Generate the associated healpix map
 
@@ -1042,6 +1042,8 @@ class HealSparseMap(object):
         key : `str`
             If the parent HealSparseMap contains recarrays, key selects the
             field that will be transformed into a HEALPix map.
+        nest : `bool`, optional
+            Output healpix map should be in nest format?
 
         Returns
         -------
@@ -1082,7 +1084,9 @@ class HealSparseMap(object):
         hp_map = np.full(hp.nside2npix(nside), hp.UNSEEN, dtype=dtypeOut)
 
         valid_pixels = single_map.valid_pixels
-        hp_map[valid_pixels] = single_map.get_values_pix(valid_pixels)
+        if not nest:
+            valid_pixels = hp.nest2ring(nside, valid_pixels)
+        hp_map[valid_pixels] = single_map.get_values_pix(valid_pixels, nest=nest)
 
         return hp_map
 
