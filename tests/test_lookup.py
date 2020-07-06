@@ -48,7 +48,7 @@ class LookupTestCase(unittest.TestCase):
         testing.assert_almost_equal(comp_values, test_values)
 
         # Test the theta/phi lookup
-        comp_values = sparse_map.get_values_pos(theta, phi)
+        comp_values = sparse_map.get_values_pos(theta, phi, lonlat=False)
         testing.assert_almost_equal(comp_values, test_values)
 
         # Test the ra/dec lookup

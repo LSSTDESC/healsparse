@@ -71,6 +71,11 @@ class HealSparseMap(object):
             # this is a healpix_map input
             if sentinel is None:
                 sentinel = hp.UNSEEN
+            if is_integer_value(healpix_map[0]) and not is_integer_value(sentinel):
+                raise ValueError("The sentinel must be set to an integer value with an integer healpix_map")
+            elif not is_integer_value(healpix_map[0]) and is_integer_value(sentinel):
+                raise ValueError("The sentinel must be set to an float value with an float healpix_map")
+
             self._cov_map, self._sparse_map = self.convert_healpix_map(healpix_map,
                                                                        nside_coverage=nside_coverage,
                                                                        nest=nest,
@@ -695,7 +700,7 @@ class HealSparseMap(object):
 
         self.update_values_pix(pixels, value, nest=nest, operation='and')
 
-    def get_values_pos(self, theta_or_ra, phi_or_dec, lonlat=False, valid_mask=False):
+    def get_values_pos(self, theta_or_ra, phi_or_dec, lonlat=True, valid_mask=False):
         """
         Get the map value for the position.  Positions may be theta/phi
         co-latitude and longitude in radians, or longitude and latitude in
@@ -763,7 +768,7 @@ class HealSparseMap(object):
             # Just return the values
             return values
 
-    def check_bits_pos(self, theta_or_ra, phi_or_dec, bits, lonlat=False):
+    def check_bits_pos(self, theta_or_ra, phi_or_dec, bits, lonlat=True):
         """
         Check the bits at the map for an array of positions.  Positions may be
         theta/phi co-latitude and longitude in radians, or longitude and
@@ -1018,7 +1023,7 @@ class HealSparseMap(object):
 
             self._metadata = metadata
 
-    def generate_healpix_map(self, nside=None, reduction='mean', key=None):
+    def generate_healpix_map(self, nside=None, reduction='mean', key=None, nest=True):
         """
         Generate the associated healpix map
 
@@ -1037,6 +1042,8 @@ class HealSparseMap(object):
         key : `str`
             If the parent HealSparseMap contains recarrays, key selects the
             field that will be transformed into a HEALPix map.
+        nest : `bool`, optional
+            Output healpix map should be in nest format?
 
         Returns
         -------
@@ -1077,7 +1084,9 @@ class HealSparseMap(object):
         hp_map = np.full(hp.nside2npix(nside), hp.UNSEEN, dtype=dtypeOut)
 
         valid_pixels = single_map.valid_pixels
-        hp_map[valid_pixels] = single_map.get_values_pix(valid_pixels)
+        if not nest:
+            valid_pixels = hp.nest2ring(nside, valid_pixels)
+        hp_map[valid_pixels] = single_map.get_values_pix(valid_pixels, nest=nest)
 
         return hp_map
 
@@ -1099,7 +1108,7 @@ class HealSparseMap(object):
 
         return valid_pixel_inds - self._cov_map[self._cov_map.cov_pixels_from_index(valid_pixel_inds)]
 
-    def valid_pixels_pos(self, lonlat=False, return_pixels=False):
+    def valid_pixels_pos(self, lonlat=True, return_pixels=False):
         """
         Get an array with the position of valid pixels in the sparse map.
 
@@ -1195,7 +1204,6 @@ class HealSparseMap(object):
                                                           np.where(self.coverage_mask)[0])
 
         return HealSparseMap(cov_map=new_cov_map, sparse_map=new_sparse_map,
-                             nside_coverage=self.nside_coverage,
                              nside_sparse=nside_out, primary=self._primary, sentinel=hp.UNSEEN)
 
     def apply_mask(self, mask_map, mask_bits=None, mask_bit_arr=None, in_place=True):
@@ -1377,6 +1385,38 @@ class HealSparseMap(object):
 
         return HealSparseMap(cov_map=self._cov_map, sparse_map=new_sparse_map,
                              nside_sparse=self._nside_sparse, sentinel=_sentinel)
+
+    def astype(self, dtype, sentinel=None):
+        """
+        Convert sparse map to a different numpy datatype, including sentinel
+        values.  If sentinel is not specified the default for the converted
+        datatype is used (`healpy.UNSEEN` for float, and -MAXINT for ints).
+
+        Parameters
+        ----------
+        dtype : `numpy.dtype`
+            Valid numpy dtype for a single array.
+        sentinel : `int` or `float`, optional
+            Converted map sentinel value.
+
+        Returns
+        -------
+        sparse_map : `HealSparseMap`
+            New map with new data type.
+        """
+        if self._is_rec_array:
+            raise RuntimeError("Cannot convert datatype of a recarray map.")
+        elif self._is_wide_mask:
+            raise RuntimeError("Cannot convert datatype of a wide mask.")
+
+        new_sparse_map = self._sparse_map.astype(dtype)
+        _sentinel = check_sentinel(new_sparse_map.dtype.type, sentinel)
+
+        invalid_pix = (self._sparse_map <= self._sentinel)
+        new_sparse_map[invalid_pix] = _sentinel
+
+        return HealSparseMap(cov_map=self._cov_map, sparse_map=new_sparse_map,
+                             nside_sparse=self.nside_sparse, sentinel=_sentinel)
 
     def __add__(self, other):
         """
