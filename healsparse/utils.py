@@ -67,7 +67,7 @@ def check_sentinel(type, sentinel):
         if sentinel is None:
             return hp.UNSEEN
         # If input is a float, we're okay.  Otherwise, Raise.
-        if isinstance(sentinel, numbers.Real):
+        if isinstance(sentinel, numbers.Real) and not is_integer_value(sentinel):
             return sentinel
         else:
             raise ValueError("Sentinel not of floating type")

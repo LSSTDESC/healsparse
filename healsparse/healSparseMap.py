@@ -1204,7 +1204,6 @@ class HealSparseMap(object):
                                                           np.where(self.coverage_mask)[0])
 
         return HealSparseMap(cov_map=new_cov_map, sparse_map=new_sparse_map,
-                             nside_coverage=self.nside_coverage,
                              nside_sparse=nside_out, primary=self._primary, sentinel=hp.UNSEEN)
 
     def apply_mask(self, mask_map, mask_bits=None, mask_bit_arr=None, in_place=True):
@@ -1386,6 +1385,38 @@ class HealSparseMap(object):
 
         return HealSparseMap(cov_map=self._cov_map, sparse_map=new_sparse_map,
                              nside_sparse=self._nside_sparse, sentinel=_sentinel)
+
+    def astype(self, dtype, sentinel=None):
+        """
+        Convert sparse map to a different numpy datatype, including sentinel
+        values.  If sentinel is not specified the default for the converted
+        datatype is used (`healpy.UNSEEN` for float, and -MAXINT for ints).
+
+        Parameters
+        ----------
+        dtype : `numpy.dtype`
+            Valid numpy dtype for a single array.
+        sentinel : `int` or `float`, optional
+            Converted map sentinel value.
+
+        Returns
+        -------
+        sparse_map : `HealSparseMap`
+            New map with new data type.
+        """
+        if self._is_rec_array:
+            raise RuntimeError("Cannot convert datatype of a recarray map.")
+        elif self._is_wide_mask:
+            raise RuntimeError("Cannot convert datatype of a wide mask.")
+
+        new_sparse_map = self._sparse_map.astype(dtype)
+        _sentinel = check_sentinel(new_sparse_map.dtype.type, sentinel)
+
+        invalid_pix = (self._sparse_map <= self._sentinel)
+        new_sparse_map[invalid_pix] = _sentinel
+
+        return HealSparseMap(cov_map=self._cov_map, sparse_map=new_sparse_map,
+                             nside_sparse=self.nside_sparse, sentinel=_sentinel)
 
     def __add__(self, other):
         """
