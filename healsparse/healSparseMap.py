@@ -71,6 +71,11 @@ class HealSparseMap(object):
             # this is a healpix_map input
             if sentinel is None:
                 sentinel = hp.UNSEEN
+            if is_integer_value(healpix_map[0]) and not is_integer_value(sentinel):
+                raise ValueError("The sentinel must be set to an integer value with an integer healpix_map")
+            elif not is_integer_value(healpix_map[0]) and is_integer_value(sentinel):
+                raise ValueError("The sentinel must be set to an float value with an float healpix_map")
+
             self._cov_map, self._sparse_map = self.convert_healpix_map(healpix_map,
                                                                        nside_coverage=nside_coverage,
                                                                        nest=nest,
