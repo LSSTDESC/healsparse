@@ -185,7 +185,8 @@ class HealSparseFits(object):
         self.fits_object.close()
 
 
-def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map):
+def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map,
+                    compress=False, compress_tilesize=None):
     """
     Write to a filename, using fitsio or astropy.io.fits.
 
@@ -204,15 +205,44 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map):
        Coverage index map
     sparse_map : `np.ndarray`
        Sparse map
+    compress : `bool`, optional
+       Write with FITS compression?
     """
     if use_fitsio:
+        # The cov_index cannot be compressed because it is 64-bit int.
         fitsio.write(filename, cov_index_map, header=c_hdr, extname='COV', clobber=True)
-        fitsio.write(filename, sparse_map, header=s_hdr, extname='SPARSE')
+
+        if compress:
+            fitsio.write(filename, sparse_map, header=s_hdr, extname='SPARSE',
+                         compress='GZIP_2', tile_dims=(compress_tilesize, ))
+        else:
+            fitsio.write(filename, sparse_map, header=s_hdr, extname='SPARSE')
     else:
         c_hdr['EXTNAME'] = 'COV'
-        fits.writeto(filename, cov_index_map, header=c_hdr, overwrite=True)
         s_hdr['EXTNAME'] = 'SPARSE'
-        fits.append(filename, sparse_map, header=s_hdr, overwrite=False)
+
+        hdu_list = fits.HDUList()
+
+        hdu = fits.PrimaryHDU(data=cov_index_map, header=fits.Header())
+        for n in c_hdr:
+            hdu.header[n] = c_hdr[n]
+        hdu_list.append(hdu)
+
+        if compress:
+            hdu = fits.CompImageHDU(data=sparse_map, header=fits.Header(),
+                                    compression_type='GZIP_2',
+                                    tile_size=(compress_tilesize, ))
+        else:
+            if sparse_map.dtype.fields is not None:
+                hdu = fits.BinTableHDU(data=sparse_map, header=fits.Header())
+            else:
+                hdu = fits.ImageHDU(data=sparse_map, header=fits.Header())
+
+        for n in s_hdr:
+            hdu.header[n] = s_hdr[n]
+        hdu_list.append(hdu)
+
+        hdu_list.writeto(filename, overwrite=True)
 
 
 def _make_header(metadata):
