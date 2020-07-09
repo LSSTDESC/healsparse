@@ -459,7 +459,7 @@ class HealSparseMap(object):
 
         return cov_map, sparse_map
 
-    def write(self, filename, clobber=False):
+    def write(self, filename, clobber=False, nocompress=False):
         """
         Write heal HealSparseMap to filename.  Use the `metadata` property from
         the map to persist additional information in the fits header.
@@ -470,6 +470,9 @@ class HealSparseMap(object):
            Name of file to save
         clobber : `bool`, optional
            Clobber existing file?  Default is False.
+        nocompress : `bool`, optional
+           If this is False, then integer maps will be compressed losslessly.
+           Note that `np.int64` maps cannot be compressed in the FITS standard.
         """
         if os.path.isfile(filename) and not clobber:
             raise RuntimeError("Filename %s exists and clobber is False." % (filename))
@@ -488,8 +491,19 @@ class HealSparseMap(object):
         if self._is_wide_mask:
             s_hdr['WIDEMASK'] = self._is_wide_mask
             s_hdr['WWIDTH'] = self._wide_mask_width
-            _write_filename(filename, c_hdr, s_hdr, self._cov_map[:], self._sparse_map.ravel())
+            # Wide masks can be compressed.
+            _write_filename(filename, c_hdr, s_hdr, self._cov_map[:], self._sparse_map.ravel(),
+                            compress=not nocompress,
+                            compress_tilesize=self._wide_mask_width*self._cov_map.nfine_per_cov)
+        elif ((self.is_integer_map and self._sparse_map[0].dtype.itemsize < 8) or
+              (not self.is_integer_map and not self._is_rec_array)):
+            # Integer maps < 64 bit (8 byte) can be compressed, as can
+            # floating point maps
+            _write_filename(filename, c_hdr, s_hdr, self._cov_map[:], self._sparse_map,
+                            compress=not nocompress,
+                            compress_tilesize=self._cov_map.nfine_per_cov)
         else:
+            # All other maps are not compressed.
             _write_filename(filename, c_hdr, s_hdr, self._cov_map[:], self._sparse_map)
 
     def _reserve_cov_pix(self, new_cov_pix):

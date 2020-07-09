@@ -1,14 +1,15 @@
 import numpy as np
+import mmap
+from .utils import is_integer_value
+# We need this for compression before a newer version of fitsio arrives
+import astropy.io.fits as fits
 
 use_fitsio = False
 try:
     import fitsio
     use_fitsio = True
 except ImportError:
-    try:
-        import astropy.io.fits as fits
-    except ImportError:
-        raise ImportError("Must be able to import either fitsio or astropy.io.fits")
+    pass
 
 
 _image_bitpix2npy = {
@@ -185,7 +186,8 @@ class HealSparseFits(object):
         self.fits_object.close()
 
 
-def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map):
+def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map,
+                    compress=False, compress_tilesize=None):
     """
     Write to a filename, using fitsio or astropy.io.fits.
 
@@ -204,15 +206,56 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map):
        Coverage index map
     sparse_map : `np.ndarray`
        Sparse map
+    compress : `bool`, optional
+       Write with FITS compression?
     """
-    if use_fitsio:
-        fitsio.write(filename, cov_index_map, header=c_hdr, extname='COV', clobber=True)
-        fitsio.write(filename, sparse_map, header=s_hdr, extname='SPARSE')
+    # Currently, all writing is done with astropy.io.fits because it supports
+    # lossless compression of floating point data.  Unfortunately, the header
+    # is wrong so we have a header patch below.
+
+    c_hdr['EXTNAME'] = 'COV'
+    s_hdr['EXTNAME'] = 'SPARSE'
+
+    hdu_list = fits.HDUList()
+
+    hdu = fits.PrimaryHDU(data=cov_index_map, header=fits.Header())
+    for n in c_hdr:
+        hdu.header[n] = c_hdr[n]
+    hdu_list.append(hdu)
+
+    if compress:
+        hdu = fits.CompImageHDU(data=sparse_map, header=fits.Header(),
+                                compression_type='GZIP_2',
+                                tile_size=(compress_tilesize, ),
+                                quantize_level=0.0)
     else:
-        c_hdr['EXTNAME'] = 'COV'
-        fits.writeto(filename, cov_index_map, header=c_hdr, overwrite=True)
-        s_hdr['EXTNAME'] = 'SPARSE'
-        fits.append(filename, sparse_map, header=s_hdr, overwrite=False)
+        if sparse_map.dtype.fields is not None:
+            hdu = fits.BinTableHDU(data=sparse_map, header=fits.Header())
+        else:
+            hdu = fits.ImageHDU(data=sparse_map, header=fits.Header())
+
+    for n in s_hdr:
+        hdu.header[n] = s_hdr[n]
+    hdu_list.append(hdu)
+
+    hdu_list.writeto(filename, overwrite=True)
+
+    # When writing a gzip unquantized (lossless) floating point image,
+    # current versions of astropy (4.0.1 and earlier, at least) write
+    # the ZQUANTIZ header value as NO_DITHER, while cfitsio expects
+    # this to be NONE for unquantized data.  The only way to overwrite
+    # this reserved header keyword is to manually overwrite the bytes
+    # in the file.  The following code uses mmap to overwrite the
+    # necessary header keyword without loading the full image into
+    # memory.  Note that healsparse files only have one compressed
+    # extension, so there will only be one use of ZQUANTIZ in the file.
+    if compress and not is_integer_value(sparse_map[0]):
+        with open(filename, "r+b") as f:
+            mm = mmap.mmap(f.fileno(), 0)
+            loc = mm.find(b"ZQUANTIZ= 'NO_DITHER'")
+            if loc >= 0:
+                mm.seek(loc)
+                mm.write(b"ZQUANTIZ= 'NONE     '")
 
 
 def _make_header(metadata):
@@ -228,12 +271,12 @@ def _make_header(metadata):
     -------
     header : `fitsio.FITSHDR` or `astropy.io.fits.Header`
     """
-    if use_fitsio:
-        hdr = fitsio.FITSHDR(metadata)
+    # All headers are astropy headers until we update fitsio
+    # if use_fitsio:
+    #     hdr = fitsio.FITSHDR(metadata)
+    if metadata is None:
+        hdr = fits.Header()
     else:
-        if metadata is None:
-            hdr = fits.Header()
-        else:
-            hdr = fits.Header(metadata)
+        hdr = fits.Header(metadata)
 
     return hdr

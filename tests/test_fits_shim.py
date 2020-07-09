@@ -186,10 +186,22 @@ class FitsShimTestCase(unittest.TestCase):
 
     def write_testfile(self, filename, data0, data1, header):
         """
+        Write a testfile, using astropy.io.fits only.  This is in place
+        until we get full compression support working in both.
+        """
+        _header = healsparse.fits_shim._make_header(header)
+        _header['EXTNAME'] = 'COV'
+        healsparse.fits_shim.fits.writeto(filename, data0,
+                                          header=_header)
+        _header['EXTNAME'] = 'SPARSE'
+        healsparse.fits_shim.fits.append(filename, data1,
+                                         header=_header, overwrite=False)
+
+    def write_testfile_unused(self, filename, data0, data1, header):
+        """
         Write a testfile.
         """
         if healsparse.fits_shim.use_fitsio:
-            print(filename, os.path.isfile(filename))
             healsparse.fits_shim.fitsio.write(filename, data0,
                                               header=header, extname='COV')
             healsparse.fits_shim.fitsio.write(filename, data1,

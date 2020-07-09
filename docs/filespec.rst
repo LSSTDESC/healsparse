@@ -102,11 +102,20 @@ If the sparse map is a wide mask, it must contain:
 
 **Sparse Map Image**
 
-If the sparse map is not of a numpy record array type, it is stored as a one dimensional image array.  The first block of :code:`nfine_per_cov` values are set to :code:`sentinel`.  Each additional block of :code:`nfine_per_cov` is associated with a single element in the coverage map.  These blocks may be in any arbitrary order, allowing for easy appending of new coverage pixels.  All invalid pixels must be set to :code:`sentinel`.
+If the sparse map is not of a numpy record array type, it is stored as a one dimensional image array.
+The first block of :code:`nfine_per_cov` values are set to :code:`sentinel`.
+Each additional block of :code:`nfine_per_cov` is associated with a single element in the coverage map.
+These blocks may be in any arbitrary order, allowing for easy appending of new coverage pixels.
+All invalid pixels must be set to :code:`sentinel`.
+If the image is an integer type with 32 bits or fewer, it may be stored with FITS tile compression, with the tile size set to the block size (:code:`nfine_per_cov`).
+If the image is a floating-point image, it may be stored with FITS tile compression, with :code:`quantization_level=0` and :code:`GZIP_2` (lossless gzip compression), with the tile size set to the block size (:code:`nfine_per_cov`).
 
 **Sparse Map Wide Mask**
 
-If the sparse map is a wide mask map, the sparse map is stored as a flattened version of the in-memory :code:`wide_mask_width * npix` array.  This should be flattened on storage, and reshaped on read, using the default numpy memory ordering.  The sentinel value for wide masks must be :code:`0`, and all invalid pixels must be set to :code:`0`.
+If the sparse map is a wide mask map, the sparse map is stored as a flattened version of the in-memory :code:`wide_mask_width * npix` array.
+This should be flattened on storage, and reshaped on read, using the default numpy memory ordering.
+The sentinel value for wide masks must be :code:`0`, and all invalid pixels must be set to :code:`0`.
+The wide mask image may be stored with FITS tile compression, with the tile size set to the block size times with width (:code:`wide_mask_width * nfine_per_cov`).
 
 **Sparse Map Table**
 

@@ -126,10 +126,13 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
                                          row_range=[0, cov_map.nfine_per_cov*wmult])
         if wide_mask_maxbits is not None:
             sparse_stub = np.reshape(sparse_stub, (cov_map.nfine_per_cov, wmult))
+            # This fixes a bug in astropy<4.0
+            sparse_stub = sparse_stub.astype(WIDE_MASK)
 
     if not in_memory:
         # When spooling to disk, we need a stub to write (with the final cov_map)
-        # to append to.
+        # to append to.  The stub map cannot have compression turned on,
+        # or else appending doesn't work.
 
         stub_map = HealSparseMap(cov_map=cov_map,
                                  sparse_map=sparse_stub, nside_sparse=nside_sparse,
@@ -137,7 +140,7 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
 
         # And write this out to a temporary filename
         outfile_temp = outfile + '.incomplete'
-        stub_map.write(outfile_temp, clobber=True)
+        stub_map.write(outfile_temp, clobber=True, nocompress=True)
 
         try:
             outfits = HealSparseFits(outfile_temp, mode='rw')

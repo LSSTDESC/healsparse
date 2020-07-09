@@ -192,6 +192,45 @@ class WideMasksTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map_in_partial.check_bits_pix(pixel_sub, [4]), False)
         testing.assert_array_equal(sparse_map_in_partial.check_bits_pix(pixel_sub, [12]), False)
 
+    def test_wide_mask_map_io_compression(self):
+        """
+        Test wide mask io with and without compression.
+        """
+        nside_coverage = 32
+        nside_map = 4096
+
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        # Test with double-wide
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
+                                                         WIDE_MASK, wide_mask_maxbits=16)
+        sparse_map.set_bits_pix(np.arange(20000, 50000), [5])
+        sparse_map.set_bits_pix(np.arange(120000, 150000), [5, 10])
+
+        fname_comp = os.path.join(self.test_dir, 'test_mask_map_compressed.hs')
+        sparse_map.write(fname_comp, clobber=True, nocompress=False)
+        fname_nocomp = os.path.join(self.test_dir, 'test_mask_map_notcompressed.hs')
+        sparse_map.write(fname_nocomp, clobber=True, nocompress=True)
+
+        self.assertGreater(os.path.getsize(fname_nocomp), os.path.getsize(fname_comp))
+
+        sparse_map_in_comp = healsparse.HealSparseMap.read(fname_comp)
+        sparse_map_in_nocomp = healsparse.HealSparseMap.read(fname_nocomp)
+
+        testing.assert_array_equal(sparse_map.valid_pixels,
+                                   sparse_map_in_nocomp.valid_pixels)
+        testing.assert_array_equal(sparse_map[sparse_map.valid_pixels],
+                                   sparse_map_in_nocomp[sparse_map.valid_pixels])
+        testing.assert_array_equal(sparse_map[0: 10],
+                                   sparse_map_in_nocomp[0: 10])
+
+        testing.assert_array_equal(sparse_map.valid_pixels,
+                                   sparse_map_in_comp.valid_pixels)
+        testing.assert_array_equal(sparse_map[sparse_map.valid_pixels],
+                                   sparse_map_in_comp[sparse_map.valid_pixels])
+        testing.assert_array_equal(sparse_map[0: 10],
+                                   sparse_map_in_comp[0: 10])
+
     def test_wide_mask_or(self):
         """
         Test wide mask oring
