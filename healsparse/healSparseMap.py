@@ -495,8 +495,10 @@ class HealSparseMap(object):
             _write_filename(filename, c_hdr, s_hdr, self._cov_map[:], self._sparse_map.ravel(),
                             compress=not nocompress,
                             compress_tilesize=self._wide_mask_width*self._cov_map.nfine_per_cov)
-        elif self.is_integer_map and self._sparse_map[0].dtype.itemsize < 8:
-            # Integer maps < 64 bit (8 byte) can be compressed.
+        elif ((self.is_integer_map and self._sparse_map[0].dtype.itemsize < 8) or
+              (not self.is_integer_map and not self._is_rec_array)):
+            # Integer maps < 64 bit (8 byte) can be compressed, as can
+            # floating point maps
             _write_filename(filename, c_hdr, s_hdr, self._cov_map[:], self._sparse_map,
                             compress=not nocompress,
                             compress_tilesize=self._cov_map.nfine_per_cov)

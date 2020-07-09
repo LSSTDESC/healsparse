@@ -265,6 +265,46 @@ class IoTestCase(unittest.TestCase):
             testing.assert_array_equal(sparse_map[0: 10],
                                        sparse_map_in_comp[0: 10])
 
+    def test_write_compression_float(self):
+        """
+        Test writing floating point maps with and without compression
+        """
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        random.seed(seed=12345)
+
+        # We do not expect the 64-bit to be compressed, but check that it works.
+        for float_dtype in [np.float32, np.float64]:
+            sparse_map = healsparse.HealSparseMap.make_empty(32, 4096, float_dtype)
+            sparse_map[20000: 50000] = random.normal(scale=100.0, size=30000).astype(float_dtype)
+            sparse_map[120000: 150000] = random.normal(scale=1000.0, size=30000).astype(float_dtype)
+
+            fname_comp = os.path.join(self.test_dir, 'test_float_map_compressed.hs')
+            sparse_map.write(fname_comp, clobber=True, nocompress=False)
+            fname_nocomp = os.path.join(self.test_dir, 'test_float_map_notcompressed.hs')
+            sparse_map.write(fname_nocomp, clobber=True, nocompress=True)
+
+            # Compare the file sizes
+            self.assertGreater(os.path.getsize(fname_nocomp), os.path.getsize(fname_comp))
+
+            # Read in and compare
+            sparse_map_in_comp = healsparse.HealSparseMap.read(fname_comp)
+            sparse_map_in_nocomp = healsparse.HealSparseMap.read(fname_nocomp)
+
+            testing.assert_array_equal(sparse_map.valid_pixels,
+                                       sparse_map_in_nocomp.valid_pixels)
+            testing.assert_array_almost_equal(sparse_map[sparse_map.valid_pixels],
+                                              sparse_map_in_nocomp[sparse_map.valid_pixels])
+            testing.assert_array_almost_equal(sparse_map[0: 10],
+                                              sparse_map_in_nocomp[0: 10])
+
+            testing.assert_array_equal(sparse_map.valid_pixels,
+                                       sparse_map_in_comp.valid_pixels)
+            testing.assert_array_almost_equal(sparse_map[sparse_map.valid_pixels],
+                                              sparse_map_in_comp[sparse_map.valid_pixels])
+            testing.assert_array_almost_equal(sparse_map[0: 10],
+                                              sparse_map_in_comp[0: 10])
+
     def setUp(self):
         self.test_dir = None
 
