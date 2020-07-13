@@ -1169,7 +1169,7 @@ class HealSparseMap(object):
         """
         if self._nside_sparse < nside_out:
             raise ValueError('nside_out should be smaller than nside for the sparse_map')
-        if self._is_wide_mask:
+        if self._is_wide_mask & (reduction not in ['and', 'or']):
             raise NotImplementedError('Cannot degrade a wide_mask map')
         # Count the number of filled pixels in the coverage mask
         npop_pix = np.count_nonzero(self.coverage_mask)

@@ -109,6 +109,27 @@ class DegradeMapTestCase(unittest.TestCase):
         testing.assert_almost_equal(newSparseMap.get_values_pos(ra, dec, lonlat=True)['col3'],
                                     hpmap_col3[ipnest_test])
 
+    def test_degrade_widemask(self):
+        """
+        Test HealSparse.degrade functionality with WIDE_MASK
+        """
 
+  
+        nside_coverage = 32
+        nside_map = 256
+        nside_map2 = 128
+        sparse_map_all = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
+                                                         WIDE_MASK, wide_mask_maxbits=7)
+        sparse_map_and = healpsarse.HealSparseMap.make_empty(nside_coverage, nside_map2,
+                                                         WIDE_MASK, wide_mask_maxbits=7)
+        sparse_map_or = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map2,
+                                                         WIDE_MASK, wide_mask_maxbits=7)
+        
+        pixel = np.arange(4000, 8000)
+        pixel2 = np.right_shift(pixel)
+        print(pixel2)
+        sparse_map.set_bits_pix(pixel, [4])
+        
+         
 if __name__ == '__main__':
     unittest.main()
