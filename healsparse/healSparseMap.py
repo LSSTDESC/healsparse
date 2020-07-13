@@ -895,6 +895,63 @@ class HealSparseMap(object):
         """
         return self._cov_map.coverage_mask
 
+    def fracdet_map(self, nside):
+        """
+        Get the fractional area covered by the sparse map at an arbitrary resolution.
+
+        Parameters
+        ----------
+        nside : `int`
+           Healpix nside for fracdet map.  Must not be greater than sparse
+           resolution or less than coverage resolution.
+
+        Returns
+        -------
+        fracdet_map : `HealSparseMap`
+           Fractional coverage map.
+        """
+        if nside > self.nside_sparse:
+            raise ValueError("Cannot return fracdet_map at higher resolution than "
+                             "the sparse map (nside=%d)." % (self.nside_sparse))
+        if nside < self.nside_coverage:
+            raise ValueError("Cannot return fractdet_map at lower resolution than "
+                             "the coverage map (nside=%d)." % (self.nside_coverage))
+
+        # This code is essentially a unification of coverage_map() and degrade()
+        # to get the fracdet_coverage in a single step
+        cov_mask = self.coverage_mask
+        npop_pix = np.count_nonzero(cov_mask)
+
+        bit_shift = _compute_bitshift(nside, self.nside_sparse)
+        nfine_per_frac = 2**bit_shift
+        nfrac_per_cov = self._cov_map.nfine_per_cov//nfine_per_frac
+
+        if self._is_wide_mask:
+            shape_new = ((npop_pix + 1)*nfrac_per_cov,
+                         nfine_per_frac,
+                         self._wide_mask_width)
+            sp_map_t = self._sparse_map.reshape(shape_new)
+            fracdet = np.sum(np.any(sp_map_t > self._sentinel, axis=2), axis=1).astype(np.float64)
+        else:
+            shape_new = ((npop_pix + 1)*nfrac_per_cov,
+                         nfine_per_frac)
+            if self._is_rec_array:
+                sp_map_t = self._sparse_map[self._primary].reshape(shape_new)
+            else:
+                sp_map_t = self._sparse_map.reshape(shape_new)
+            fracdet = np.sum(sp_map_t > self._sentinel, axis=1).astype(np.float64)
+
+        fracdet /= nfine_per_frac
+
+        fracdet_cov_map = HealSparseCoverage.make_from_pixels(self.nside_coverage,
+                                                              nside,
+                                                              np.where(cov_mask)[0])
+
+        # The sentinel for a fracdet_map is 0.0, no coverage.
+        return HealSparseMap(cov_map=fracdet_cov_map, sparse_map=fracdet,
+                             nside_sparse=nside, primary=self._primary,
+                             sentinel=0.0)
+
     @property
     def nside_coverage(self):
         """
