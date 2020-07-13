@@ -39,9 +39,9 @@ def reduce_array(x, reduction='mean', axis=2):
         elif reduction == 'min':
             ret = np.nanmin(x, axis=axis).ravel()
         elif reduction == 'and':
-            ret = np.apply_along_axis(np.logical_and, axis, x).ravel()
+            ret = np.all(x, axis=axis).ravel()
         elif reduction == 'or':
-            ret = np.apply_along_axis(np.logical_or, axis, x).ravel()
+            ret = np.any(x, axis=axis).ravel()
         else:
             raise ValueError('Reduction method %s not recognized.' % reduction)
 
