@@ -860,15 +860,27 @@ class HealSparseMap(object):
            Float array of fractional coverage of each pixel
         """
 
-        cov_map = np.zeros_like(self.coverage_mask, dtype=np.double)
+        cov_map = np.zeros_like(self.coverage_mask, dtype=np.float64)
         cov_mask = self.coverage_mask
         npop_pix = np.count_nonzero(cov_mask)
-        if self._is_rec_array:
-            spMap_T = self._sparse_map[self._primary].reshape((npop_pix + 1, -1))
+        if self._is_wide_mask:
+            shape_new = (npop_pix + 1,
+                         self._cov_map.nfine_per_cov,
+                         self._wide_mask_width)
+            sp_map_t = self._sparse_map.reshape(shape_new)
+            # This trickery first checks all the bits, and then sums into the
+            # coverage pixel
+            counts = np.sum(np.any(sp_map_t > self._sentinel, axis=2), axis=1)
         else:
-            spMap_T = self._sparse_map.reshape((npop_pix + 1, -1))
-        counts = np.sum((spMap_T > self._sentinel), axis=1).astype(np.double)
-        cov_map[cov_mask] = counts[1:] / 2**self._cov_map.bit_shift
+            shape_new = (npop_pix + 1,
+                         self._cov_map.nfine_per_cov)
+            if self._is_rec_array:
+                sp_map_t = self._sparse_map[self._primary].reshape(shape_new)
+            else:
+                sp_map_t = self._sparse_map.reshape(shape_new)
+            counts = np.sum((sp_map_t > self._sentinel), axis=1).astype(np.float64)
+
+        cov_map[cov_mask] = counts[1:]/self._cov_map.nfine_per_cov
         return cov_map
 
     @property
@@ -1116,7 +1128,7 @@ class HealSparseMap(object):
         if self._is_rec_array:
             valid_pixel_inds, = np.where(self._sparse_map[self._primary] > self._sentinel)
         elif self._is_wide_mask:
-            valid_pixel_inds, = np.where(self._sparse_map.sum(axis=1, dtype=np.bool))
+            valid_pixel_inds, = np.where(np.any(self._sparse_map > self._sentinel, axis=1))
         else:
             valid_pixel_inds, = np.where(self._sparse_map > self._sentinel)
 
