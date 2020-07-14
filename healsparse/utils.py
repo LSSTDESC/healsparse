@@ -40,9 +40,9 @@ def reduce_array(x, reduction='mean', axis=2):
             ret = np.nanmin(x, axis=axis).ravel()
         elif reduction == 'and':
             # ravel does not yield the same format as wide_mask
-            ret = np.bitwise_and.reduce(x, axis=axis).reshape((-1, 1))
+            ret = np.bitwise_and.reduce(x, axis=axis).ravel()
         elif reduction == 'or':
-            ret = np.bitwise_or.reduce(x, axis=axis).reshape((-1, 1))
+            ret = np.bitwise_or.reduce(x, axis=axis).ravel()
         else:
             raise ValueError('Reduction method %s not recognized.' % reduction)
 

@@ -1182,7 +1182,7 @@ class HealSparseMap(object):
                 reduction operation, try and/or')
             else:
                 aux = self._sparse_map.reshape((npop_pix+1, (nside_out//self.nside_coverage)**2, -1))
-                new_sparse_map = reduce_array(aux, reduction=reduction)
+                new_sparse_map = reduce_array(aux, reduction=reduction).reshape((-1, 1))
                 sentinel_out = self._sentinel
 
         # Work with RecArray (we have to change the resolution to all maps...)
@@ -1207,7 +1207,11 @@ class HealSparseMap(object):
                 aux[np.isnan(aux)] = sentinel_out
                 new_sparse_map[key] = aux
 
-        # Work with regular ndarray
+        # Work with int array and ndarray
+        elif (issubclass(self._sparse_map.dtype.type, np.integer)) and (reduction in ['and', 'or']):
+            aux = self._sparse_map.reshape((npop_pix+1, (nside_out//self.nside_coverage)**2, -1))
+            new_sparse_map = reduce_array(aux, reduction=reduction)
+            sentinel_out = self._sentinel
         else:
             if issubclass(self._sparse_map.dtype.type, np.integer):
                 aux_dtype = np.float64
