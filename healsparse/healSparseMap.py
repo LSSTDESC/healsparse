@@ -1174,16 +1174,17 @@ class HealSparseMap(object):
         # We need the new bit_shifts and we have to build a new CovIndexMap
         bit_shift = _compute_bitshift(self.nside_coverage, nside_out)
         nfine_per_cov = 2**bit_shift
-        
+
         # Work with wide masks
         if self._is_wide_mask:
             if reduction not in ['and', 'or']:
-                raise NotImplementedError('Cannot degrade a wide_mask map with this reduction operation, try and/or')
+                raise NotImplementedError('Cannot degrade a wide_mask map with this \
+                reduction operation, try and/or')
             else:
                 aux = self._sparse_map.reshape((npop_pix+1, (nside_out//self.nside_coverage)**2, -1))
                 new_sparse_map = reduce_array(aux, reduction=reduction)
-                sentinel_out = self._sentinel    
-                
+                sentinel_out = self._sentinel
+
         # Work with RecArray (we have to change the resolution to all maps...)
         elif self._is_rec_array:
             dtype = []
