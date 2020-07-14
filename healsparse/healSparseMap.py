@@ -603,7 +603,7 @@ class HealSparseMap(object):
 
         if self._is_view:
             # Check that we are not setting new pixels
-            if np.any(self.get_values_pix(_pix) <= self._sentinel):
+            if np.any(self.get_values_pix(_pix) == self._sentinel):
                 raise RuntimeError("This API cannot be used to set new pixels in the map.")
 
         # Compute the coverage pixels
@@ -773,11 +773,11 @@ class HealSparseMap(object):
 
         if valid_mask:
             if self._is_rec_array:
-                return (values[self._primary] > self._sentinel)
+                return (values[self._primary] != self._sentinel)
             elif self._is_wide_mask:
                 return (values > 0).sum(axis=1, dtype=np.bool)
             else:
-                return (values > self._sentinel)
+                return (values != self._sentinel)
         else:
             # Just return the values
             return values
@@ -860,15 +860,27 @@ class HealSparseMap(object):
            Float array of fractional coverage of each pixel
         """
 
-        cov_map = np.zeros_like(self.coverage_mask, dtype=np.double)
+        cov_map = np.zeros_like(self.coverage_mask, dtype=np.float64)
         cov_mask = self.coverage_mask
         npop_pix = np.count_nonzero(cov_mask)
-        if self._is_rec_array:
-            spMap_T = self._sparse_map[self._primary].reshape((npop_pix + 1, -1))
+        if self._is_wide_mask:
+            shape_new = (npop_pix + 1,
+                         self._cov_map.nfine_per_cov,
+                         self._wide_mask_width)
+            sp_map_t = self._sparse_map.reshape(shape_new)
+            # This trickery first checks all the bits, and then sums into the
+            # coverage pixel
+            counts = np.sum(np.any(sp_map_t != self._sentinel, axis=2), axis=1)
         else:
-            spMap_T = self._sparse_map.reshape((npop_pix + 1, -1))
-        counts = np.sum((spMap_T > self._sentinel), axis=1).astype(np.double)
-        cov_map[cov_mask] = counts[1:] / 2**self._cov_map.bit_shift
+            shape_new = (npop_pix + 1,
+                         self._cov_map.nfine_per_cov)
+            if self._is_rec_array:
+                sp_map_t = self._sparse_map[self._primary].reshape(shape_new)
+            else:
+                sp_map_t = self._sparse_map.reshape(shape_new)
+            counts = np.sum((sp_map_t != self._sentinel), axis=1).astype(np.float64)
+
+        cov_map[cov_mask] = counts[1:]/self._cov_map.nfine_per_cov
         return cov_map
 
     @property
@@ -882,6 +894,63 @@ class HealSparseMap(object):
            Boolean array of coverage mask.
         """
         return self._cov_map.coverage_mask
+
+    def fracdet_map(self, nside):
+        """
+        Get the fractional area covered by the sparse map at an arbitrary resolution.
+
+        Parameters
+        ----------
+        nside : `int`
+           Healpix nside for fracdet map.  Must not be greater than sparse
+           resolution or less than coverage resolution.
+
+        Returns
+        -------
+        fracdet_map : `HealSparseMap`
+           Fractional coverage map.
+        """
+        if nside > self.nside_sparse:
+            raise ValueError("Cannot return fracdet_map at higher resolution than "
+                             "the sparse map (nside=%d)." % (self.nside_sparse))
+        if nside < self.nside_coverage:
+            raise ValueError("Cannot return fractdet_map at lower resolution than "
+                             "the coverage map (nside=%d)." % (self.nside_coverage))
+
+        # This code is essentially a unification of coverage_map() and degrade()
+        # to get the fracdet_coverage in a single step
+        cov_mask = self.coverage_mask
+        npop_pix = np.count_nonzero(cov_mask)
+
+        bit_shift = _compute_bitshift(nside, self.nside_sparse)
+        nfine_per_frac = 2**bit_shift
+        nfrac_per_cov = self._cov_map.nfine_per_cov//nfine_per_frac
+
+        if self._is_wide_mask:
+            shape_new = ((npop_pix + 1)*nfrac_per_cov,
+                         nfine_per_frac,
+                         self._wide_mask_width)
+            sp_map_t = self._sparse_map.reshape(shape_new)
+            fracdet = np.sum(np.any(sp_map_t != self._sentinel, axis=2), axis=1).astype(np.float64)
+        else:
+            shape_new = ((npop_pix + 1)*nfrac_per_cov,
+                         nfine_per_frac)
+            if self._is_rec_array:
+                sp_map_t = self._sparse_map[self._primary].reshape(shape_new)
+            else:
+                sp_map_t = self._sparse_map.reshape(shape_new)
+            fracdet = np.sum(sp_map_t != self._sentinel, axis=1).astype(np.float64)
+
+        fracdet /= nfine_per_frac
+
+        fracdet_cov_map = HealSparseCoverage.make_from_pixels(self.nside_coverage,
+                                                              nside,
+                                                              np.where(cov_mask)[0])
+
+        # The sentinel for a fracdet_map is 0.0, no coverage.
+        return HealSparseMap(cov_map=fracdet_cov_map, sparse_map=fracdet,
+                             nside_sparse=nside, primary=self._primary,
+                             sentinel=0.0)
 
     @property
     def nside_coverage(self):
@@ -1114,11 +1183,11 @@ class HealSparseMap(object):
         valid_pixels : `np.ndarray`
         """
         if self._is_rec_array:
-            valid_pixel_inds, = np.where(self._sparse_map[self._primary] > self._sentinel)
+            valid_pixel_inds, = np.where(self._sparse_map[self._primary] != self._sentinel)
         elif self._is_wide_mask:
-            valid_pixel_inds, = np.where(self._sparse_map.sum(axis=1, dtype=np.bool))
+            valid_pixel_inds, = np.where(np.any(self._sparse_map != self._sentinel, axis=1))
         else:
-            valid_pixel_inds, = np.where(self._sparse_map > self._sentinel)
+            valid_pixel_inds, = np.where(self._sparse_map != self._sentinel)
 
         return valid_pixel_inds - self._cov_map[self._cov_map.cov_pixels_from_index(valid_pixel_inds)]
 
@@ -1394,7 +1463,7 @@ class HealSparseMap(object):
 
         new_sparse_map = np.full_like(self._sparse_map[key], _sentinel)
 
-        valid_indices = (self._sparse_map[self._primary] > self._sentinel)
+        valid_indices = (self._sparse_map[self._primary] != self._sentinel)
         new_sparse_map[valid_indices] = self._sparse_map[key][valid_indices]
 
         return HealSparseMap(cov_map=self._cov_map, sparse_map=new_sparse_map,
@@ -1426,7 +1495,7 @@ class HealSparseMap(object):
         new_sparse_map = self._sparse_map.astype(dtype)
         _sentinel = check_sentinel(new_sparse_map.dtype.type, sentinel)
 
-        invalid_pix = (self._sparse_map <= self._sentinel)
+        invalid_pix = (self._sparse_map == self._sentinel)
         new_sparse_map[invalid_pix] = _sentinel
 
         return HealSparseMap(cov_map=self._cov_map, sparse_map=new_sparse_map,
@@ -1641,14 +1710,14 @@ class HealSparseMap(object):
                 raise NotImplementedError("Can only use an integer constant with the %s operation" % (name))
 
         if self._is_wide_mask:
-            valid_sparse_pixels = (self._sparse_map > self._sentinel).sum(axis=1, dtype=np.bool)
+            valid_sparse_pixels = (self._sparse_map != self._sentinel).sum(axis=1, dtype=np.bool)
 
             other_value = np.zeros(self._wide_mask_width, self._sparse_map.dtype)
             for bit in other:
                 field, bitval = _get_field_and_bitval(bit)
                 other_value[field] |= bitval
         else:
-            valid_sparse_pixels = (self._sparse_map > self._sentinel)
+            valid_sparse_pixels = (self._sparse_map != self._sentinel)
 
         if in_place:
             if self._is_wide_mask:
