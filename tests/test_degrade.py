@@ -136,6 +136,34 @@ class DegradeMapTestCase(unittest.TestCase):
         # Check the results
         testing.assert_almost_equal(sparse_map_or._sparse_map, sparse_map_test._sparse_map)
 
+        # Repeat for maxbits > 8
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
+                                                         WIDE_MASK, wide_mask_maxbits=16)
+        sparse_map_or = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map2,
+                                                            WIDE_MASK, wide_mask_maxbits=16)
+        # Fill some pixels in the "high-resolution" map
+        pixel = np.arange(0, 1024)
+        pixel = np.concatenate([pixel[:512], pixel[512::3]]).ravel()
+        sparse_map.set_bits_pix(pixel, [4, 12])
+        sparse_map.clear_bits_pix(pixel[:16], [4])  # set low value in the first pixel
+
+        # Check which pixels will be full in the "low-resolution" map and fill them
+        # Note that we are filling more than the ones that are going to be True
+        # since we want to preserve the coverage_map
+        pixel2_all = np.unique(np.right_shift(pixel,
+                               healsparse.utils._compute_bitshift(nside_map2, nside_map)))
+        sparse_map_or.set_bits_pix(pixel2_all, [4, 12])
+
+        # Get the pixel number of the bad pixels
+        pixel2_bad = np.array([0])
+        sparse_map_or.clear_bits_pix(pixel2_bad, [4])  # set low value in the first pixel
+
+        # Degrade with and
+        sparse_map_test = sparse_map.degrade(nside_map2, reduction='or')
+
+        # Check the results
+        testing.assert_almost_equal(sparse_map_or._sparse_map, sparse_map_test._sparse_map)
+
     def test_degrade_widemask_and(self):
         """
         Test HealSparse.degrade AND functionality with WIDE_MASK
@@ -162,6 +190,36 @@ class DegradeMapTestCase(unittest.TestCase):
         pixel2_bad = np.unique(np.right_shift(pixel[512:],
                                healsparse.utils._compute_bitshift(nside_map2, nside_map)))
         sparse_map_and.clear_bits_pix(pixel2_bad, [4])
+
+        # Degrade with and
+        sparse_map_test = sparse_map.degrade(nside_map2, reduction='and')
+
+        # Check the results
+        testing.assert_almost_equal(sparse_map_and._sparse_map, sparse_map_test._sparse_map)
+
+        # Repeat for maxbits > 8
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
+                                                         WIDE_MASK, wide_mask_maxbits=16)
+        sparse_map_and = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map2,
+                                                             WIDE_MASK, wide_mask_maxbits=16)
+        # Fill some pixels in the "high-resolution" map
+        pixel = np.arange(0, 1024)
+        pixel = np.concatenate([pixel[:512], pixel[512::3]]).ravel()
+        sparse_map.set_bits_pix(pixel, [4, 12])
+        sparse_map.clear_bits_pix(pixel[:16], [4])  # set low value in the first pixel
+
+        # Check which pixels will be full in the "low-resolution" map and fill them
+        # Note that we are filling more than the ones that are going to be True
+        # since we want to preserve the coverage_map
+        pixel2_all = np.unique(np.right_shift(pixel,
+                               healsparse.utils._compute_bitshift(nside_map2, nside_map)))
+        sparse_map_and.set_bits_pix(pixel2_all, [4, 12])
+
+        # Get the pixel number of the bad pixels
+        pixel2_bad = np.unique(np.right_shift(pixel[512:],
+                               healsparse.utils._compute_bitshift(nside_map2, nside_map)))
+        sparse_map_and.clear_bits_pix(pixel2_bad, [4, 12])
+        sparse_map_and.clear_bits_pix(pixel2_all[0], [4])  # set low value in the first pixel
 
         # Degrade with and
         sparse_map_test = sparse_map.degrade(nside_map2, reduction='and')

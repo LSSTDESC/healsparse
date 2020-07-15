@@ -1181,8 +1181,9 @@ class HealSparseMap(object):
                 raise NotImplementedError('Cannot degrade a wide_mask map with this \
                 reduction operation, try and/or')
             else:
-                aux = self._sparse_map.reshape((npop_pix+1, (nside_out//self.nside_coverage)**2, -1))
-                new_sparse_map = reduce_array(aux, reduction=reduction).reshape((-1, 1))
+                nbits = self._sparse_map.shape[1]
+                aux = self._sparse_map.reshape((npop_pix+1, (nside_out//self.nside_coverage)**2, nbits, -1))
+                new_sparse_map = reduce_array(aux, reduction=reduction, axis=3).reshape((-1, nbits))
                 sentinel_out = self._sentinel
 
         # Work with RecArray (we have to change the resolution to all maps...)
