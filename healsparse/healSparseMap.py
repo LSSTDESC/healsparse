@@ -1238,16 +1238,27 @@ class HealSparseMap(object):
         """
         if self._nside_sparse < nside_out:
             raise ValueError('nside_out should be smaller than nside for the sparse_map')
-        if self._is_wide_mask:
-            raise NotImplementedError('Cannot degrade a wide_mask map')
         # Count the number of filled pixels in the coverage mask
         npop_pix = np.count_nonzero(self.coverage_mask)
         # We need the new bit_shifts and we have to build a new CovIndexMap
         bit_shift = _compute_bitshift(self.nside_coverage, nside_out)
         nfine_per_cov = 2**bit_shift
+
+        # Work with wide masks
+        if self._is_wide_mask:
+            if reduction not in ['and', 'or']:
+                raise NotImplementedError('Cannot degrade a wide_mask map with this \
+                reduction operation, try and/or')
+            else:
+                nbits = self._sparse_map.shape[1]
+                aux = self._sparse_map.reshape((npop_pix+1, (nside_out//self.nside_coverage)**2, nbits, -1))
+                new_sparse_map = reduce_array(aux, reduction=reduction, axis=3).reshape((-1, nbits))
+                sentinel_out = self._sentinel
+
         # Work with RecArray (we have to change the resolution to all maps...)
-        if self._is_rec_array:
+        elif self._is_rec_array:
             dtype = []
+            sentinel_out = hp.UNSEEN
             # We should avoid integers
             for key, value in self._sparse_map.dtype.fields.items():
                 if issubclass(self._sparse_map[key].dtype.type, np.integer):
@@ -1262,32 +1273,35 @@ class HealSparseMap(object):
                 aux = aux.reshape((npop_pix + 1, (nside_out//self.nside_coverage)**2, -1))
                 # Perform the reduction operation (check utils.reduce_array)
                 aux = reduce_array(aux, reduction=reduction)
-                # Transform back to UNSEEN
-                aux[np.isnan(aux)] = hp.UNSEEN
+                # Transform back to sentinel value
+                aux[np.isnan(aux)] = sentinel_out
                 new_sparse_map[key] = aux
 
-        # Work with regular ndarray
+        # Work with int array and ndarray
+        elif (issubclass(self._sparse_map.dtype.type, np.integer)) and (reduction in ['and', 'or']):
+            aux = self._sparse_map.reshape((npop_pix+1, (nside_out//self.nside_coverage)**2, -1))
+            new_sparse_map = reduce_array(aux, reduction=reduction)
+            sentinel_out = self._sentinel
         else:
             if issubclass(self._sparse_map.dtype.type, np.integer):
                 aux_dtype = np.float64
             else:
                 aux_dtype = self._sparse_map.dtype
-
+            sentinel_out = hp.UNSEEN
             aux = self._sparse_map.astype(aux_dtype)
             aux[self._sparse_map == self._sentinel] = np.nan
             aux = aux.reshape((npop_pix + 1, (nside_out//self.nside_coverage)**2, -1))
             aux = reduce_array(aux, reduction=reduction)
             # NaN are converted to UNSEEN
-            aux[np.isnan(aux)] = hp.UNSEEN
+            aux[np.isnan(aux)] = sentinel_out
             new_sparse_map = aux
 
         # The coverage index map is now offset, we have to build a new one
         new_cov_map = HealSparseCoverage.make_from_pixels(self.nside_coverage,
                                                           nside_out,
                                                           np.where(self.coverage_mask)[0])
-
         return HealSparseMap(cov_map=new_cov_map, sparse_map=new_sparse_map,
-                             nside_sparse=nside_out, primary=self._primary, sentinel=hp.UNSEEN)
+                             nside_sparse=nside_out, primary=self._primary, sentinel=sentinel_out)
 
     def apply_mask(self, mask_map, mask_bits=None, mask_bit_arr=None, in_place=True):
         """

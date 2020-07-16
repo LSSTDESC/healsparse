@@ -17,7 +17,7 @@ def reduce_array(x, reduction='mean', axis=2):
     x: `ndarray`
         input array in which to perform the operation
     reduction: `str`
-        reduction method. Valid options: mean, median, std, max, min
+        reduction method. Valid options: mean, median, std, max, min, and, or
         (default: mean).
     axis: `int`
         axis in which to perform the operation (default: 2)
@@ -29,15 +29,20 @@ def reduce_array(x, reduction='mean', axis=2):
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore', category=RuntimeWarning)
         if reduction == 'mean':
-            ret = np.nanmean(x, axis=2).ravel()
+            ret = np.nanmean(x, axis=axis).ravel()
         elif reduction == 'median':
-            ret = np.nanmedian(x, axis=2).ravel()
+            ret = np.nanmedian(x, axis=axis).ravel()
         elif reduction == 'std':
-            ret = np.nanstd(x, axis=2).ravel()
+            ret = np.nanstd(x, axis=axis).ravel()
         elif reduction == 'max':
-            ret = np.nanmax(x, axis=2).ravel()
+            ret = np.nanmax(x, axis=axis).ravel()
         elif reduction == 'min':
-            ret = np.nanmin(x, axis=2).ravel()
+            ret = np.nanmin(x, axis=axis).ravel()
+        elif reduction == 'and':
+            # ravel does not yield the same format as wide_mask
+            ret = np.bitwise_and.reduce(x, axis=axis).ravel()
+        elif reduction == 'or':
+            ret = np.bitwise_or.reduce(x, axis=axis).ravel()
         else:
             raise ValueError('Reduction method %s not recognized.' % reduction)
 
