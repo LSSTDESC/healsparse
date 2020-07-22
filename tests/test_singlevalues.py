@@ -114,7 +114,7 @@ class SingleValuesTestCase(unittest.TestCase):
         """
         m = healsparse.HealSparseMap.make_empty(32, 512, healsparse.WIDE_MASK, wide_mask_maxbits=16)
 
-        val = np.ones(2, dtype=np.int8)
+        val = np.ones(2, dtype=np.uint8)
         val[1] = 2
         m.update_values_pix(np.arange(100), val)
         testing.assert_array_equal(m[0: 100][:, 0], np.ones(100, dtype=np.int8))
@@ -125,6 +125,19 @@ class SingleValuesTestCase(unittest.TestCase):
                           np.zeros(3, dtype=np.int8))
         self.assertRaises(ValueError, m.update_values_pix, np.arange(100),
                           np.zeros(3, dtype=np.int16))
+
+        # Test an edge case where there is ambiguity between the length of the array and
+        # the width of the wide mask
+
+        m = healsparse.HealSparseMap.make_empty(32, 512, healsparse.WIDE_MASK, wide_mask_maxbits=32)
+
+        val = np.ones((4, 4), dtype=np.uint8)
+        m.update_values_pix(np.arange(4), val)
+
+        testing.assert_array_equal(m[0: 4][:, 0], np.ones(4, dtype=np.uint8))
+        testing.assert_array_equal(m[0: 4][:, 1], np.ones(4, dtype=np.uint8))
+        testing.assert_array_equal(m[0: 4][:, 2], np.ones(4, dtype=np.uint8))
+        testing.assert_array_equal(m[0: 4][:, 3], np.ones(4, dtype=np.uint8))
 
 
 if __name__ == '__main__':
