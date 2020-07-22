@@ -561,7 +561,7 @@ class HealSparseMap(object):
                 # Special for wide_mask
                 if not isinstance(values, np.ndarray):
                     raise ValueError("Wide mask must be set with a numpy ndarray")
-                if len(values) == self._wide_mask_width:
+                if len(values) == self._wide_mask_width and len(values.shape) == 1:
                     is_single_value = True
                     # Reshape so we can use the 0th entry below
                     _values = _values.reshape((1, self._wide_mask_width))
