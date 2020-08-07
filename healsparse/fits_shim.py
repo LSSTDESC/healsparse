@@ -251,11 +251,20 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map,
     # extension, so there will only be one use of ZQUANTIZ in the file.
     if compress and not is_integer_value(sparse_map[0]):
         with open(filename, "r+b") as f:
-            mm = mmap.mmap(f.fileno(), 0)
-            loc = mm.find(b"ZQUANTIZ= 'NO_DITHER'")
-            if loc >= 0:
-                mm.seek(loc)
-                mm.write(b"ZQUANTIZ= 'NONE     '")
+            try:
+                mm = mmap.mmap(f.fileno(), 0)
+                loc = mm.find(b"ZQUANTIZ= 'NO_DITHER'")
+                if loc >= 0:
+                    mm.seek(loc)
+                    mm.write(b"ZQUANTIZ= 'NONE     '")
+            except OSError:
+                # Some systems do not have the mmap available,
+                # we need to read in the full file.
+                data = f.read()
+                loc = data.find(b"ZQUANTIZ= 'NO_DITHER'")
+                if loc >= 0:
+                    f.seek(loc)
+                    f.write(b"ZQUANTIZ= 'NONE     '")
 
 
 def _make_header(metadata):
