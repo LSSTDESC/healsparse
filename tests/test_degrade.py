@@ -329,7 +329,6 @@ class DegradeMapTestCase(unittest.TestCase):
         # Degrade sparse map and compare to original
 
         new_map = sparse_map.degrade(nside_out=nside_new, reduction='prod')
-        print(new_map.generate_healpix_map())
         # Test the coverage map generation and lookup
 
         testing.assert_almost_equal(deg_map, new_map.generate_healpix_map())
@@ -377,7 +376,6 @@ class DegradeMapTestCase(unittest.TestCase):
         # Degrade sparse map and compare to original
 
         new_map = sparse_map.degrade(nside_out=nside_new, reduction='sum')
-        print(new_map.generate_healpix_map())
         # Test the coverage map generation and lookup
 
         testing.assert_almost_equal(deg_map, new_map.generate_healpix_map())
