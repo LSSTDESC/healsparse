@@ -286,6 +286,102 @@ class DegradeMapTestCase(unittest.TestCase):
         # Check the results
         testing.assert_almost_equal(sparse_map_and._sparse_map, sparse_map_test._sparse_map)
 
+    def test_degrade_map_float_prod(self):
+        """
+        Test HealSparse.degrade product with floats
+        """
+        nside_coverage = 32
+        nside_map = 1024
+        nside_new = 512
+        full_map = np.full(hp.nside2npix(nside_map), 2.)
+        # Generate sparse map
+
+        sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage,
+                                              nside_sparse=nside_map)
+
+        # Degrade original HEALPix map
+
+        deg_map = np.full(hp.nside2npix(nside_new), 2.**4)
+        # Degrade sparse map and compare to original
+
+        new_map = sparse_map.degrade(nside_out=nside_new, reduction='prod')
+
+        # Test the coverage map generation and lookup
+
+        testing.assert_almost_equal(deg_map, new_map.generate_healpix_map())
+
+    def test_degrade_map_int_prod(self):
+        """
+        Test HealSparse.degrade product with integers
+        """
+        nside_coverage = 32
+        nside_map = 1024
+        nside_new = 512
+        full_map = np.full(hp.nside2npix(nside_map), 2, dtype=np.int64)
+        # Generate sparse map
+
+        sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage,
+                                              nside_sparse=nside_map, sentinel=0)
+
+        # Degrade original HEALPix map
+
+        deg_map = np.full(hp.nside2npix(nside_new), 2**4, dtype=np.int64)
+        # Degrade sparse map and compare to original
+
+        new_map = sparse_map.degrade(nside_out=nside_new, reduction='prod')
+        print(new_map.generate_healpix_map())
+        # Test the coverage map generation and lookup
+
+        testing.assert_almost_equal(deg_map, new_map.generate_healpix_map())
+
+    def test_degrade_map_float_sum(self):
+        """
+        Test HealSparse.degrade sum with float
+        """
+        nside_coverage = 32
+        nside_map = 1024
+        nside_new = 512
+        full_map = np.full(hp.nside2npix(nside_map), 1.)
+        # Generate sparse map
+
+        sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage,
+                                              nside_sparse=nside_map)
+
+        # Degrade original HEALPix map
+
+        deg_map = np.full(hp.nside2npix(nside_new), 4.)
+        # Degrade sparse map and compare to original
+
+        new_map = sparse_map.degrade(nside_out=nside_new, reduction='sum')
+
+        # Test the coverage map generation and lookup
+
+        testing.assert_almost_equal(deg_map, new_map.generate_healpix_map())
+
+    def test_degrade_map_int_sum(self):
+        """
+        Test HealSparse.degrade sum with integers
+        """
+        nside_coverage = 32
+        nside_map = 1024
+        nside_new = 512
+        full_map = np.full(hp.nside2npix(nside_map), 1, dtype=np.int64)
+        # Generate sparse map
+
+        sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage,
+                                              nside_sparse=nside_map, sentinel=0)
+
+        # Degrade original HEALPix map
+
+        deg_map = np.full(hp.nside2npix(nside_new), 4, dtype=np.int64)
+        # Degrade sparse map and compare to original
+
+        new_map = sparse_map.degrade(nside_out=nside_new, reduction='sum')
+        print(new_map.generate_healpix_map())
+        # Test the coverage map generation and lookup
+
+        testing.assert_almost_equal(deg_map, new_map.generate_healpix_map())
+
 
 if __name__ == '__main__':
     unittest.main()

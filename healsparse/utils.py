@@ -38,6 +38,10 @@ def reduce_array(x, reduction='mean', axis=2):
             ret = np.nanmax(x, axis=axis).ravel()
         elif reduction == 'min':
             ret = np.nanmin(x, axis=axis).ravel()
+        elif reduction == 'sum':
+            ret = np.nansum(x, axis=axis).ravel()
+        elif reduction == 'prod':
+            ret = np.nanprod(x, axis=axis).ravel()
         elif reduction == 'and':
             # ravel does not yield the same format as wide_mask
             ret = np.bitwise_and.reduce(x, axis=axis).ravel()
