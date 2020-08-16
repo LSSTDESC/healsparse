@@ -17,7 +17,8 @@ def reduce_array(x, reduction='mean', axis=2):
     x: `ndarray`
         input array in which to perform the operation
     reduction: `str`
-        reduction method. Valid options: mean, median, std, max, min, and, or
+        reduction method. Valid options: mean, median, std, sum, prod,
+        max, min, and, or
         (default: mean).
     axis: `int`
         axis in which to perform the operation (default: 2)
