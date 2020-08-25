@@ -1120,7 +1120,7 @@ class HealSparseMap(object):
             sparsemap nside_sparse
         reduction : `str`
             If a change in resolution is requested, this controls the method to
-            reduce the map computing the "mean", "median", "std", "max", "min", 
+            reduce the map computing the "mean", "median", "std", "max", "min",
             "sum" or "prod" (product)  of the neighboring pixels to compute the
             "degraded" map.
         key : `str`
