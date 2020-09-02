@@ -211,3 +211,15 @@ In some cases, you may me building a map and you already know the coverage when 
     nside_sparse = 4096
     map4 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse, np.float32,
                                                cov_pixels=[5, 10, 20, 21])
+
+
+Fractional Detection Maps
+-------------------------
+
+One can compute the fractional detection map of a :code:`HealSparseMap` with the :code:`fracdet_map()` method.
+This method will compute the fractional area covered by the sparse map at an arbitrary resolution (not higher than the native resolution, and not lower than the coverage map :code:`nside_coverage`).
+This is a count of the fraction of "valid" sub-pixels (those that are not equal to the sentinel value) in the original map.
+These maps can be useful in conjunction with a degraded map to easily determine the coverage fraction of each degraded pixel.
+
+In order to translate a :code:`fracdet_map` to lower resolution, the :code:`degrade()` method should be used with the default "mean" reduction operation.
+If one tries to compute the :code:`fracdet_map` of an existing :code:`fracdet_map` then you will not get the expected output, because this is the fractional coverage of the :code:`fracdet_map` itself, not of the original sparse map.
