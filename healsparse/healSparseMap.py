@@ -898,6 +898,12 @@ class HealSparseMap(object):
     def fracdet_map(self, nside):
         """
         Get the fractional area covered by the sparse map at an arbitrary resolution.
+        This output fracdet_map counts the fraction of "valid" sub-pixels (those that
+        are not equal to the sentinel value) at the desired nside resolution.
+
+        Note: You should not compute the fracdet_map of an existing fracdet_map.  To
+        get a fracdet_map at a lower resolution, use the degrade method with the
+        default "mean" reduction.
 
         Parameters
         ----------
@@ -1367,18 +1373,10 @@ class HealSparseMap(object):
                                     primary=self._primary,
                                     sentinel=self._sentinel)
 
-        if new_map.is_wide_mask_map:
-            new_values = np.zeros((bad_pixels.size, new_map._wide_mask_width),
-                                  dtype=new_map._sparse_map.dtype)
-        else:
-            new_values = np.zeros(bad_pixels.size,
-                                  dtype=new_map._sparse_map.dtype)
-        if self.is_rec_array:
-            new_values[new_map._primary] = new_map._sentinel
-        else:
-            new_values[:] = new_map._sentinel
+        new_value = new_map._sparse_map[0]
 
-        new_map.update_values_pix(valid_pixels[bad_pixels], new_values)
+        ipnest_cov = self._cov_map.cov_pixels(valid_pixels[bad_pixels])
+        new_map._sparse_map[valid_pixels[bad_pixels] + new_map._cov_map[ipnest_cov]] = new_value
 
         return new_map
 
