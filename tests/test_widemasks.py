@@ -503,6 +503,47 @@ class WideMasksTestCase(unittest.TestCase):
                                ((mask_map.get_values_pix(valid_pixels)[:, 0] & 2**16) == 0))
         testing.assert_array_equal(masked_map.get_values_pix(valid_pixels[still_good]), 1)
 
+    def test_wide_mask_applied_mask(self):
+        """
+        Test apply_mask to a wide mask map
+        """
+        nside_coverage = 128
+        nside_sparse = 2**15
+
+        box = healsparse.geom.Polygon(ra=[200.0, 200.2, 200.2, 200.0],
+                                      dec=[10.0, 10.0, 10.2, 10.2],
+                                      value=1)
+        mask_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse,
+                                                       np.int16, sentinel=0)
+        healsparse.geom.realize_geom(box, mask_map)
+
+        # Create a wide mask map, using a bigger box.
+        # Do two times with a narrow and a wide wide mask
+        for bitset in [1, 70]:
+            box2 = healsparse.geom.Polygon(ra=[199.8, 200.4, 200.4, 199.8],
+                                           dec=[9.8, 9.8, 10.4, 10.4],
+                                           value=[bitset])
+            wide_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse,
+                                                           WIDE_MASK, sentinel=0,
+                                                           wide_mask_maxbits=bitset)
+            healsparse.geom.realize_geom(box2, wide_map)
+
+            valid_pixels = wide_map.valid_pixels
+
+            masked_map = wide_map.apply_mask(mask_map, in_place=False)
+            masked_pixels = mask_map.valid_pixels
+
+            # Masked pixels should be 0
+            testing.assert_array_equal(masked_map[masked_pixels], 0)
+
+            # Pixels in the original but not in masked pixels should be 1
+            still_good, = np.where((wide_map[valid_pixels].sum(axis=1) > 0) &
+                                   (mask_map[valid_pixels] == 0))
+
+            field, bitval = healsparse.utils._get_field_and_bitval(bitset)
+            testing.assert_array_equal(masked_map[valid_pixels[still_good]][:, field],
+                                       bitval)
+
     def test_wide_mask_constoperations(self):
         """
         Test wide mask operations with constants
