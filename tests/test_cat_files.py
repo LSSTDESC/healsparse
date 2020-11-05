@@ -214,18 +214,18 @@ class CatFilesTestCase(unittest.TestCase):
                     self.assertRaises(RuntimeError, cat_healsparse_files,
                                       file_list, outfile, in_memory=in_mem,
                                       nside_coverage_out=nside_coverage_out,
-                                      check_overlap=True)
+                                      check_overlap=True, or_overlap=True)
                 else:
                     if not combined_map.is_integer_map:
                         self.assertRaises(RuntimeError, cat_healsparse_files(file_list,
                                           outfile, in_memory=in_mem,
                                           nside_coverage_out=nside_coverage_out,
-                                          check_overlap=True))
+                                          check_overlap=True, or_overlap=True))
                     else:
                         cat_healsparse_files(file_list,
                                              outfile, in_memory=in_mem,
                                              nside_coverage_out=nside_coverage_out,
-                                             check_overlap=True)
+                                             check_overlap=True, or_overlap=True)
                         map_test = healsparse.HealSparseMap.read(outfile)
                         testing.assert_array_equal(map_test.valid_pixels, combined_map.valid_pixels)
                         testing.assert_array_almost_equal(map_test[map_test.valid_pixels],

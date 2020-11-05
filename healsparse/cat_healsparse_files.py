@@ -9,7 +9,7 @@ from .utils import _compute_bitshift, WIDE_NBIT, WIDE_MASK
 
 
 def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
-                         in_memory=False, nside_coverage_out=None):
+                         in_memory=False, nside_coverage_out=None, or_overlap=False):
     """
     Concatenate healsparse files together in a memory-efficient way.
 
@@ -28,10 +28,16 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
     nside_coverage_out : `int`, optional
        Output map with specific nside_coverage.  Default is nside_coverage
        of first map in file_list.
+    or_overlap: `bool`, optional
+       If True compute the `or` overlap of two integer maps when concatenating.
     """
     if os.path.isfile(outfile) and not clobber:
         raise RuntimeError("File %s already exists and clobber is False" % (outfile))
 
+    if or_overlap and not check_overlap:
+        check_overlap = True
+        raise RuntimeWarning("""or_overlap is True and check_overlap is False,
+                             will check overlap""")
     # Read in all the coverage maps
     cov_mask_summary = None
     nside_sparse = None
@@ -223,7 +229,7 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
 
             if check_overlap:
                 if np.any(sparse_map[valid_pixels] != sparse_map._sentinel):
-                    if not sparse_map.is_integer_map:
+                    if not sparse_map.is_integer_map or not or_overlap:
                         outfits.close()
                         raise RuntimeError("Map %s has pixels that were already set in coverage pixel %d" %
                                            (file_list[index], pix))
