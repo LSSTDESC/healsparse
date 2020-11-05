@@ -9,7 +9,7 @@ from .utils import _compute_bitshift, WIDE_NBIT, WIDE_MASK
 
 
 def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
-                         in_memory=False, nside_coverage_out=None):
+                         in_memory=False, nside_coverage_out=None, or_overlap=False):
     """
     Concatenate healsparse files together in a memory-efficient way.
 
@@ -28,10 +28,16 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
     nside_coverage_out : `int`, optional
        Output map with specific nside_coverage.  Default is nside_coverage
        of first map in file_list.
+    or_overlap: `bool`, optional
+       If True compute the `or` overlap of two integer maps when concatenating.
     """
     if os.path.isfile(outfile) and not clobber:
         raise RuntimeError("File %s already exists and clobber is False" % (outfile))
 
+    if or_overlap and not check_overlap:
+        check_overlap = True
+        raise RuntimeWarning("""or_overlap is True and check_overlap is False,
+                             will check overlap""")
     # Read in all the coverage maps
     cov_mask_summary = None
     nside_sparse = None
@@ -222,12 +228,25 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
                 valid_pixels = in_map.valid_pixels
 
             if check_overlap:
-                if np.any(sparse_map[valid_pixels] > sparse_map._sentinel):
-                    outfits.close()
-                    raise RuntimeError("Map %s has pixels that were already set in coverage pixel %d" %
-                                       (file_list[index], pix))
-
-            sparse_map[valid_pixels] = in_map[valid_pixels]
+                if np.any(sparse_map[valid_pixels] != sparse_map._sentinel):
+                    if not sparse_map.is_integer_map or not or_overlap:
+                        outfits.close()
+                        raise RuntimeError("Map %s has pixels that were already set in coverage pixel %d" %
+                                           (file_list[index], pix))
+                    else:
+                        non_sentinel = sparse_map[valid_pixels] != sparse_map._sentinel
+                        # We need to separate between filled and not because if we choose
+                        # a non-zero sentinel, the or operation with the sentinel can give
+                        # strange results
+                        valid_filled = valid_pixels[non_sentinel]
+                        valid_empty = valid_pixels[~non_sentinel]
+                        sparse_map[valid_filled] = in_map[valid_filled] | sparse_map[valid_filled]
+                        if len(valid_empty) > 0:
+                            sparse_map[valid_empty] = in_map[valid_empty]
+                else:
+                    sparse_map[valid_pixels] = in_map[valid_pixels]
+            else:
+                sparse_map[valid_pixels] = in_map[valid_pixels]
 
         # And if we are spooling to disk, do that now.
         if not in_memory:
