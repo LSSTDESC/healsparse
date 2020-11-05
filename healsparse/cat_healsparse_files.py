@@ -222,12 +222,25 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
                 valid_pixels = in_map.valid_pixels
 
             if check_overlap:
-                if np.any(sparse_map[valid_pixels] > sparse_map._sentinel):
-                    outfits.close()
-                    raise RuntimeError("Map %s has pixels that were already set in coverage pixel %d" %
-                                       (file_list[index], pix))
-
-            sparse_map[valid_pixels] = in_map[valid_pixels]
+                if np.any(sparse_map[valid_pixels] != sparse_map._sentinel):
+                    if not sparse_map.is_integer_map:
+                        outfits.close()
+                        raise RuntimeError("Map %s has pixels that were already set in coverage pixel %d" %
+                                           (file_list[index], pix))
+                    else:
+                        non_sentinel = sparse_map[valid_pixels] != sparse_map._sentinel
+                        # We need to separate between filled and not because if we choose
+                        # a non-zero sentinel, the or operation with the sentinel can give
+                        # strange results
+                        valid_filled = valid_pixels[non_sentinel]
+                        valid_empty = valid_pixels[~non_sentinel]
+                        sparse_map[valid_filled] = in_map[valid_filled] | sparse_map[valid_filled]
+                        if len(valid_empty) > 0:
+                            sparse_map[valid_empty] = in_map[valid_empty]
+                else:
+                    sparse_map[valid_pixels] = in_map[valid_pixels]
+            else:
+                sparse_map[valid_pixels] = in_map[valid_pixels]
 
         # And if we are spooling to disk, do that now.
         if not in_memory:
