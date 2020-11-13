@@ -523,11 +523,11 @@ class OperationsTestCase(unittest.TestCase):
 
             hpmap_and_union[gd] = -1.0
             gd1, = np.where(hpmap1[gd] > hp.UNSEEN)
-            hpmap_and_union[gd[gd1]] = (hpmap_and_union[gd[gd1]].astype(dtype) &
-                                        hpmap1[gd[gd1]].astype(dtype))
+            hpmap_and_union[gd[gd1]] = (hpmap_and_union[gd[gd1]].astype(np.int64) &
+                                        hpmap1[gd[gd1]].astype(np.int64))
             gd2, = np.where(hpmap2[gd] > hp.UNSEEN)
-            hpmap_and_union[gd[gd2]] = (hpmap_and_union[gd[gd2]].astype(dtype) &
-                                        hpmap2[gd[gd2]].astype(dtype))
+            hpmap_and_union[gd[gd2]] = (hpmap_and_union[gd[gd2]].astype(np.int64) &
+                                        hpmap2[gd[gd2]].astype(np.int64))
             if dtype == np.uint64:
                 # For uint, we cannot tell the difference between 0 and UNSEEN
                 bd, = np.where(hpmap_and_union == 0)
@@ -543,14 +543,14 @@ class OperationsTestCase(unittest.TestCase):
 
             hpmap_and_union[gd] = -1.0
             gd1, = np.where(hpmap1[gd] > hp.UNSEEN)
-            hpmap_and_union[gd[gd1]] = (hpmap_and_union[gd[gd1]].astype(dtype) &
-                                        hpmap1[gd[gd1]].astype(dtype))
+            hpmap_and_union[gd[gd1]] = (hpmap_and_union[gd[gd1]].astype(np.int64) &
+                                        hpmap1[gd[gd1]].astype(np.int64))
             gd2, = np.where(hpmap2[gd] > hp.UNSEEN)
-            hpmap_and_union[gd[gd2]] = (hpmap_and_union[gd[gd2]].astype(dtype) &
-                                        hpmap2[gd[gd2]].astype(dtype))
+            hpmap_and_union[gd[gd2]] = (hpmap_and_union[gd[gd2]].astype(np.int64) &
+                                        hpmap2[gd[gd2]].astype(np.int64))
             gd3, = np.where(hpmap3[gd] > hp.UNSEEN)
-            hpmap_and_union[gd[gd3]] = (hpmap_and_union[gd[gd3]].astype(dtype) &
-                                        hpmap3[gd[gd3]].astype(dtype))
+            hpmap_and_union[gd[gd3]] = (hpmap_and_union[gd[gd3]].astype(np.int64) &
+                                        hpmap3[gd[gd3]].astype(np.int64))
             if dtype == np.uint64:
                 # For uint, we cannot tell the difference between 0 and UNSEEN
                 bd, = np.where(hpmap_and_union == 0)
