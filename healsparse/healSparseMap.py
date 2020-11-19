@@ -1388,7 +1388,7 @@ class HealSparseMap(object):
             if not self._is_rec_array:
                 raise IndexError("HealSparseMap is not a recarray map, cannot use string index.")
             return self.get_single(key, sentinel=None)
-        elif isinstance(key, int):
+        elif isinstance(key, numbers.Integral):
             # Get a single pixel
             # Return a single (non-array) value
             return self.get_values_pix(np.array([key]))[0]

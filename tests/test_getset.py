@@ -102,9 +102,11 @@ class GetSetTestCase(unittest.TestCase):
 
         indices = np.array([1, 2, 100, 500, 10000])
         testing.assert_array_almost_equal(sparse_map[indices], full_map[indices])
+        testing.assert_almost_equal(sparse_map[indices[0]], full_map[indices[0]])
 
         indices = np.array([1., 2, 100, 500, 10000])
         self.assertRaises(IndexError, sparse_map.__getitem__, indices)
+        self.assertRaises(IndexError, sparse_map.__getitem__, indices[0])
 
     def test_getitem_list(self):
         """
