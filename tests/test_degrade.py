@@ -380,6 +380,35 @@ class DegradeMapTestCase(unittest.TestCase):
 
         testing.assert_almost_equal(deg_map, new_map.generate_healpix_map())
 
+    def test_degrade_map_wavg(self):
+        """
+        Test HealSparse.degrade functionality with float quantities
+        """
+        random.seed(12345)
+        nside_coverage = 32
+        nside_map = 1024
+        nside_new = 256
+        full_map = random.random(hp.nside2npix(nside_map))
+        weights = 0.25*np.ones_like(full_map)
+
+        # Generate sparse map
+
+        sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage,
+                                              nside_sparse=nside_map)
+        weights = healsparse.HealSparseMap(healpix_map=weights, nside_coverage=nside_coverage,
+                                           nside_sparse=nside_map)
+        # Degrade original HEALPix map
+
+        deg_map = hp.ud_grade(full_map, nside_out=nside_new, order_in='NESTED', order_out='NESTED')
+
+        # Degrade sparse map and compare to original
+
+        new_map = sparse_map.degrade(nside_out=nside_new, reduction='wavg', weights=weights)
+
+        # Test the coverage map generation and lookup
+
+        testing.assert_almost_equal(deg_map, new_map.generate_healpix_map())
+
 
 if __name__ == '__main__':
     unittest.main()

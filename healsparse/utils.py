@@ -7,7 +7,7 @@ WIDE_NBIT = 8
 WIDE_MASK = np.uint8
 
 
-def reduce_array(x, reduction='mean', axis=2):
+def reduce_array(x, reduction='mean', axis=2, weights=None):
     """
     Auxiliary method to perform one of the following operations:
     nanmean, nanmax, nanmedian, nanmin, nanstd
@@ -48,6 +48,15 @@ def reduce_array(x, reduction='mean', axis=2):
             ret = np.bitwise_and.reduce(x, axis=axis).ravel()
         elif reduction == 'or':
             ret = np.bitwise_or.reduce(x, axis=axis).ravel()
+        elif reduction == 'wavg':
+            if weights is None:
+                ret = np.nanmean(x, axis=axis).ravel()
+            else:
+                if weights.shape != x.shape:
+                    raise ValueError('Weights should have the same shape as x')
+                else:
+                    ret = (np.nansum(x*weights, axis=axis) /
+                           np.nansum(weights, axis=axis)).ravel()
         else:
             raise ValueError('Reduction method %s not recognized.' % reduction)
 

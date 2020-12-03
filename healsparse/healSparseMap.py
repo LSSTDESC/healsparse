@@ -1226,7 +1226,7 @@ class HealSparseMap(object):
         else:
             return hp.pix2ang(self.nside_sparse, self.valid_pixels, lonlat=lonlat, nest=True)
 
-    def degrade(self, nside_out, reduction='mean'):
+    def degrade(self, nside_out, reduction='mean', weights=None):
         """
         Reduce the resolution, i.e., increase the pixel size
         of a given sparse map.
@@ -1236,7 +1236,10 @@ class HealSparseMap(object):
         nside_out : `int`
            Output Nside resolution parameter.
         reduction : `str`
-           Reduction method (mean, median, std, max, min, and, or, sum, prod).
+           Reduction method (mean, median, std, max, min, and, or, sum, prod, wavg).
+        weights : `healSparseMap`
+           If the reduction is `wavg` this is the map with the weights to use.
+           It should have the same characteristics as the original map.
 
         Returns
         -------
@@ -1257,6 +1260,8 @@ class HealSparseMap(object):
                 raise NotImplementedError('Cannot degrade a wide_mask map with this \
                 reduction operation, try and/or')
             else:
+                if weights is not None:
+                    raise Warning('Ignoring weights')
                 nbits = self._sparse_map.shape[1]
                 aux = self._sparse_map.reshape((npop_pix+1, (nside_out//self.nside_coverage)**2, nbits, -1))
                 new_sparse_map = reduce_array(aux, reduction=reduction, axis=3).reshape((-1, nbits))
@@ -1267,6 +1272,22 @@ class HealSparseMap(object):
             dtype = []
             sentinel_out = hp.UNSEEN
             # We should avoid integers
+            if weights is not None:
+                if reduction == 'wavg':
+                    bad_map = ((weights.nside_sparse != self.nside_sparse) or
+                               (weights.nside_coverage != self.nside_coverage) or
+                               (weights.valid_pixels != self.valid_pixels))
+                    if bad_map:
+                        raise ValueError('weights dimensions should be the same as this maps')
+                    else:
+                        weights = weights._sparse_map
+                        # Set to zero weight those pixels that are not observed
+                        weights[self._sparse_map[self._primary] == self._sentinel] = 0.
+                        weights = weights.reshape((npop_pix + 1,
+                                                  (nside_out//self.nside_coverage)**2, -1))
+                else:
+                    raise Warning('Only `wavg` uses weights')
+                    weights = None
             for key, value in self._sparse_map.dtype.fields.items():
                 if issubclass(self._sparse_map[key].dtype.type, np.integer):
                     dtype.append((key, np.float64))
@@ -1279,13 +1300,16 @@ class HealSparseMap(object):
                 aux[self._sparse_map[self._primary] == self._sentinel] = np.nan
                 aux = aux.reshape((npop_pix + 1, (nside_out//self.nside_coverage)**2, -1))
                 # Perform the reduction operation (check utils.reduce_array)
-                aux = reduce_array(aux, reduction=reduction)
+                aux = reduce_array(aux, reduction=reduction, weights=weights)
                 # Transform back to sentinel value
                 aux[np.isnan(aux)] = sentinel_out
                 new_sparse_map[key] = aux
 
         # Work with int array and ndarray
         elif (issubclass(self._sparse_map.dtype.type, np.integer)) and (reduction in ['and', 'or']):
+            if weights is not None:
+                raise Warning('Ignoring weights')
+                weights = None
             aux = self._sparse_map.reshape((npop_pix+1, (nside_out//self.nside_coverage)**2, -1))
             new_sparse_map = reduce_array(aux, reduction=reduction)
             sentinel_out = self._sentinel
@@ -1294,11 +1318,24 @@ class HealSparseMap(object):
                 aux_dtype = np.float64
             else:
                 aux_dtype = self._sparse_map.dtype
+            if weights is not None:
+                if reduction == 'wavg':
+                    bad_map = ((weights.nside_sparse != self.nside_sparse) or
+                               (weights.nside_coverage != self.nside_coverage) or
+                               (not np.allclose(weights.valid_pixels, self.valid_pixels)))
+                    if bad_map:
+                        raise ValueError('weights dimensions should be the same as this maps')
+                    else:
+                        weights = weights._sparse_map
+                        # Set to zero weight those pixels that are not observed
+                        weights[self._sparse_map == self._sentinel] = 0.
+                        weights = weights.reshape((npop_pix + 1,
+                                                  (nside_out//self.nside_coverage)**2, -1))
             sentinel_out = hp.UNSEEN
             aux = self._sparse_map.astype(aux_dtype)
             aux[self._sparse_map == self._sentinel] = np.nan
             aux = aux.reshape((npop_pix + 1, (nside_out//self.nside_coverage)**2, -1))
-            aux = reduce_array(aux, reduction=reduction)
+            aux = reduce_array(aux, reduction=reduction, weights=weights)
             # NaN are converted to UNSEEN
             aux[np.isnan(aux)] = sentinel_out
             new_sparse_map = aux
