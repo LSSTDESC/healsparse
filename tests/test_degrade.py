@@ -400,7 +400,7 @@ class DegradeMapTestCase(unittest.TestCase):
                                               nside_sparse=nside_map)
         weights = healsparse.HealSparseMap(healpix_map=weights, nside_coverage=nside_coverage,
                                            nside_sparse=nside_map)
-        print(weights.get_values_pix(weights.valid_pixels))
+
         # Degrade sparse map and compare to original
 
         new_map = sparse_map.degrade(nside_out=nside_new, reduction='wmean', weights=weights)
