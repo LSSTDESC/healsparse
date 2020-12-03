@@ -65,7 +65,7 @@ A :code:`HealSparseMap` has the concept of "valid pixels", the pixels over which
     >>> [0.00932548 ... 0.81134431]
 
 
-You can convert a :code:`HealSparseMap` to a :code:`healpy` map (:code:`numpy` array) either by using a full slice (:code:`[:]`) or with the :code:`generate_healpix_map()` method.  Do watch out, at high resolution this can blow away your memory!  In these cases, :code:`generate_healpix_map()` can degrade the map before conversion, using a reduction function (over valid pixels) of your choosing, including :code:`mean`, :code:`median`, :code:`std`, :code:`max`, :code:`min`, :code: `and`, :code: `or`, :code: `sum`, :code: `prod` (product), and :code: `wavg` (weighted average).
+You can convert a :code:`HealSparseMap` to a :code:`healpy` map (:code:`numpy` array) either by using a full slice (:code:`[:]`) or with the :code:`generate_healpix_map()` method.  Do watch out, at high resolution this can blow away your memory!  In these cases, :code:`generate_healpix_map()` can degrade the map before conversion, using a reduction function (over valid pixels) of your choosing, including :code:`mean`, :code:`median`, :code:`std`, :code:`max`, :code:`min`, :code: `and`, :code: `or`, :code: `sum`, :code: `prod` (product), and :code: `wmean` (weighted mean).
 
 .. code-block :: python
 
