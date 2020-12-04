@@ -338,7 +338,7 @@ class HealSparseMap(object):
                               metadata=metadata, cov_pixels=cov_pixels)
 
     @staticmethod
-    def _read_healsparse_file(filename, pixels=None, degrade_nside=None, reduction='mean'):
+    def _read_healsparse_file(filename, pixels=None):
         """
         Read a healsparse file, optionally with a set of coverage pixels.
 
@@ -348,11 +348,6 @@ class HealSparseMap(object):
            Name of the file to read.
         pixels : `list`, optional
            List of integer pixels from the coverage map
-           degrade_nside : `int`, optional
-           Degrade map to this nside on read.  None means leave as-is.
-           reduction : `str`, optional
-           Reduction method with degrade-on-read.
-           (mean, median, std, max, min, and, or, sum, prod).
 
         Returns
         -------
