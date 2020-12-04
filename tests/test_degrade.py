@@ -1,5 +1,3 @@
-from __future__ import division, absolute_import, print_function
-
 import unittest
 import numpy.testing as testing
 import numpy as np
@@ -443,7 +441,6 @@ class DegradeMapTestCase(unittest.TestCase):
         """
         Test HealSparse.degrade wmean functionality with float quantities
         """
-        random.seed(12345)
         nside_coverage = 32
         nside_map = 1024
         nside_new = 256
@@ -461,12 +458,22 @@ class DegradeMapTestCase(unittest.TestCase):
                                            nside_sparse=nside_map)
 
         # Degrade sparse map and compare to original
-
         new_map = sparse_map.degrade(nside_out=nside_new, reduction='wmean', weights=weights)
 
         # Test the coverage map generation and lookup
+        testing.assert_almost_equal(new_map.generate_healpix_map(), deg_map)
 
-        testing.assert_almost_equal(deg_map, new_map.generate_healpix_map())
+        # Test degrade-on-read with weights
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        fname = os.path.join(self.test_dir, 'test_float_degrade.hs')
+        sparse_map.write(fname)
+        fname_weight = os.path.join(self.test_dir, 'test_float_degrade_weights.hs')
+        weights.write(fname_weight)
+
+        new_map2 = healsparse.HealSparseMap.read(fname, degrade_nside=nside_new, reduction='wmean',
+                                                 weightfile=fname_weight)
+        testing.assert_almost_equal(new_map2.generate_healpix_map(), deg_map)
 
     def test_degrade_map_int_wmean(self):
         """
@@ -489,7 +496,6 @@ class DegradeMapTestCase(unittest.TestCase):
 
         new_map = sparse_map.degrade(nside_out=nside_new, reduction='wmean', weights=weights)
         # Test the coverage map generation and lookup
-        testing.assert_warns(Warning)
         testing.assert_almost_equal(deg_map, new_map.generate_healpix_map())
 
     def test_degrade_widemask_wmean(self):
@@ -503,8 +509,11 @@ class DegradeMapTestCase(unittest.TestCase):
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
                                                          WIDE_MASK, wide_mask_maxbits=7)
 
+        weights = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.float32)
+
         testing.assert_raises(NotImplementedError,
-                              sparse_map.degrade, nside_out=nside_out, reduction='wmean')
+                              sparse_map.degrade, nside_out=nside_out, reduction='wmean',
+                              weights=weights)
 
     def setUp(self):
         self.test_dir = None
