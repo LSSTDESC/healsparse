@@ -5,6 +5,9 @@ import numpy.testing as testing
 import numpy as np
 import healpy as hp
 from numpy import random
+import tempfile
+import os
+import shutil
 import healsparse
 from healsparse import WIDE_MASK
 
@@ -37,6 +40,16 @@ class DegradeMapTestCase(unittest.TestCase):
 
         testing.assert_almost_equal(deg_map, new_map.generate_healpix_map())
 
+        # Test degrade-on-read
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        fname = os.path.join(self.test_dir, 'test_float_degrade.hs')
+        sparse_map.write(fname)
+
+        new_map2 = healsparse.HealSparseMap.read(fname, degrade_nside=nside_new)
+
+        testing.assert_almost_equal(deg_map, new_map2.generate_healpix_map())
+
     def test_degrade_map_int(self):
         """
         Test HealSparse.degrade functionality with int quantities
@@ -61,8 +74,17 @@ class DegradeMapTestCase(unittest.TestCase):
         new_map = sparse_map.degrade(nside_out=nside_new)
 
         # Test the coverage map generation and lookup
-
         testing.assert_almost_equal(deg_map, new_map.generate_healpix_map())
+
+        # Test degrade-on-read
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        fname = os.path.join(self.test_dir, 'test_int_degrade.hs')
+        sparse_map.write(fname)
+
+        new_map2 = healsparse.HealSparseMap.read(fname, degrade_nside=nside_new)
+
+        testing.assert_almost_equal(deg_map, new_map2.generate_healpix_map())
 
     def test_degrade_map_recarray(self):
         """
@@ -102,12 +124,27 @@ class DegradeMapTestCase(unittest.TestCase):
         ipnest_test = hp.ang2pix(nside_new, theta, phi, nest=True)
 
         # Degrade the old map
-        newSparseMap = sparse_map.degrade(nside_out=nside_new)
-        testing.assert_almost_equal(newSparseMap.get_values_pos(ra, dec, lonlat=True)['col1'],
+        new_map = sparse_map.degrade(nside_out=nside_new)
+        testing.assert_almost_equal(new_map.get_values_pos(ra, dec, lonlat=True)['col1'],
                                     hpmap_col1[ipnest_test])
-        testing.assert_almost_equal(newSparseMap.get_values_pos(ra, dec, lonlat=True)['col2'],
+        testing.assert_almost_equal(new_map.get_values_pos(ra, dec, lonlat=True)['col2'],
                                     hpmap_col2[ipnest_test])
-        testing.assert_almost_equal(newSparseMap.get_values_pos(ra, dec, lonlat=True)['col3'],
+        testing.assert_almost_equal(new_map.get_values_pos(ra, dec, lonlat=True)['col3'],
+                                    hpmap_col3[ipnest_test])
+
+        # Test degrade-on-read
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        fname = os.path.join(self.test_dir, 'test_recarray_degrade.hs')
+        sparse_map.write(fname)
+
+        new_map2 = healsparse.HealSparseMap.read(fname, degrade_nside=nside_new)
+
+        testing.assert_almost_equal(new_map2.get_values_pos(ra, dec, lonlat=True)['col1'],
+                                    hpmap_col1[ipnest_test])
+        testing.assert_almost_equal(new_map2.get_values_pos(ra, dec, lonlat=True)['col2'],
+                                    hpmap_col2[ipnest_test])
+        testing.assert_almost_equal(new_map2.get_values_pos(ra, dec, lonlat=True)['col3'],
                                     hpmap_col3[ipnest_test])
 
     def test_degrade_widemask_or(self):
@@ -162,7 +199,16 @@ class DegradeMapTestCase(unittest.TestCase):
         sparse_map_test = sparse_map.degrade(nside_map2, reduction='or')
 
         # Check the results
-        testing.assert_almost_equal(sparse_map_or._sparse_map, sparse_map_test._sparse_map)
+        testing.assert_almost_equal(sparse_map_test._sparse_map, sparse_map_or._sparse_map)
+
+        # Test degrade-on-read
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        fname = os.path.join(self.test_dir, 'test_wide_degrade.hs')
+        sparse_map.write(fname)
+
+        sparse_map_test2 = healsparse.HealSparseMap.read(fname, degrade_nside=nside_map2, reduction='or')
+        testing.assert_almost_equal(sparse_map_test2._sparse_map, sparse_map_or._sparse_map)
 
     def test_degrade_widemask_and(self):
         """
@@ -227,6 +273,8 @@ class DegradeMapTestCase(unittest.TestCase):
         # Check the results
         testing.assert_almost_equal(sparse_map_and._sparse_map, sparse_map_test._sparse_map)
 
+        # Testing the degrade-on-read is redundant from the or case.
+
     def test_degrade_int_or(self):
         """
         Test HealSparse.degrade OR functionality with integer maps
@@ -255,7 +303,16 @@ class DegradeMapTestCase(unittest.TestCase):
         sparse_map_test = sparse_map.degrade(nside_map2, reduction='or')
 
         # Check the results
-        testing.assert_almost_equal(sparse_map_or._sparse_map, sparse_map_test._sparse_map)
+        testing.assert_almost_equal(sparse_map_test._sparse_map, sparse_map_or._sparse_map)
+
+        # Test degrade-on-read
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        fname = os.path.join(self.test_dir, 'test_intor_degrade.hs')
+        sparse_map.write(fname)
+
+        sparse_map_test2 = healsparse.HealSparseMap.read(fname, degrade_nside=nside_map2, reduction='or')
+        testing.assert_almost_equal(sparse_map_test2._sparse_map, sparse_map_or._sparse_map)
 
     def test_degrade_int_and(self):
         """
@@ -285,6 +342,8 @@ class DegradeMapTestCase(unittest.TestCase):
 
         # Check the results
         testing.assert_almost_equal(sparse_map_and._sparse_map, sparse_map_test._sparse_map)
+
+        # Testing the degrade-on-read is redundant from the or case.
 
     def test_degrade_map_float_prod(self):
         """
@@ -446,6 +505,14 @@ class DegradeMapTestCase(unittest.TestCase):
 
         testing.assert_raises(NotImplementedError,
                               sparse_map.degrade, nside_out=nside_out, reduction='wmean')
+
+    def setUp(self):
+        self.test_dir = None
+
+    def tearDown(self):
+        if self.test_dir is not None:
+            if os.path.exists(self.test_dir):
+                shutil.rmtree(self.test_dir, True)
 
 
 if __name__ == '__main__':
