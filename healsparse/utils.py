@@ -7,10 +7,10 @@ WIDE_NBIT = 8
 WIDE_MASK = np.uint8
 
 
-def reduce_array(x, reduction='mean', axis=2):
+def reduce_array(x, reduction='mean', axis=2, weights=None):
     """
     Auxiliary method to perform one of the following operations:
-    nanmean, nanmax, nanmedian, nanmin, nanstd
+    nanmean, nanmax, nanmedian, nanmin, nanstd, and, or, wmean.
 
     Args:
     ----
@@ -18,10 +18,12 @@ def reduce_array(x, reduction='mean', axis=2):
         input array in which to perform the operation
     reduction: `str`
         reduction method. Valid options: mean, median, std, sum, prod,
-        max, min, and, or
+        max, min, and, or, wmean
         (default: mean).
     axis: `int`
         axis in which to perform the operation (default: 2)
+    weights: `ndarray`
+        weights to compute the weighted mean.
 
     Returns:
     --------
@@ -48,6 +50,15 @@ def reduce_array(x, reduction='mean', axis=2):
             ret = np.bitwise_and.reduce(x, axis=axis).ravel()
         elif reduction == 'or':
             ret = np.bitwise_or.reduce(x, axis=axis).ravel()
+        elif reduction == 'wmean':
+            if weights is None:
+                ret = np.nanmean(x, axis=axis).ravel()
+            else:
+                if weights.shape != x.shape:
+                    raise ValueError('Weights should have the same shape as x')
+                else:
+                    ret = (np.nansum(x*weights, axis=axis) /
+                           np.nansum(weights, axis=axis)).ravel()
         else:
             raise ValueError('Reduction method %s not recognized.' % reduction)
 

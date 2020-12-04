@@ -380,6 +380,73 @@ class DegradeMapTestCase(unittest.TestCase):
 
         testing.assert_almost_equal(deg_map, new_map.generate_healpix_map())
 
+    def test_degrade_map_wmean(self):
+        """
+        Test HealSparse.degrade wmean functionality with float quantities
+        """
+        random.seed(12345)
+        nside_coverage = 32
+        nside_map = 1024
+        nside_new = 256
+        full_map = np.ones(hp.nside2npix(nside_map))
+        weights = np.ones_like(full_map)
+        full_map[::32] = 0.5  # We lower the value in 1 pixel every 32
+        weights[::32] = 0.5  # We downweight 1 pixel every 32
+        deg_map = np.ones(hp.nside2npix(nside_new))
+        deg_map[::2] = 15.25/15.5
+        # Generate sparse map
+
+        sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage,
+                                              nside_sparse=nside_map)
+        weights = healsparse.HealSparseMap(healpix_map=weights, nside_coverage=nside_coverage,
+                                           nside_sparse=nside_map)
+
+        # Degrade sparse map and compare to original
+
+        new_map = sparse_map.degrade(nside_out=nside_new, reduction='wmean', weights=weights)
+
+        # Test the coverage map generation and lookup
+
+        testing.assert_almost_equal(deg_map, new_map.generate_healpix_map())
+
+    def test_degrade_map_int_wmean(self):
+        """
+        Test HealSparse.degrade wmean with integers
+        """
+        nside_coverage = 32
+        nside_map = 1024
+        nside_new = 512
+        full_map = np.full(hp.nside2npix(nside_map), 1, dtype=np.int64)
+        # Generate sparse map
+
+        sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage,
+                                              nside_sparse=nside_map, sentinel=0)
+        weights = healsparse.HealSparseMap(healpix_map=np.ones(len(full_map)), nside_coverage=nside_coverage,
+                                           nside_sparse=nside_map)
+        # Degrade original HEALPix map
+
+        deg_map = np.full(hp.nside2npix(nside_new), 1, dtype=np.int64)
+        # Degrade sparse map and compare to original
+
+        new_map = sparse_map.degrade(nside_out=nside_new, reduction='wmean', weights=weights)
+        # Test the coverage map generation and lookup
+        testing.assert_warns(Warning)
+        testing.assert_almost_equal(deg_map, new_map.generate_healpix_map())
+
+    def test_degrade_widemask_wmean(self):
+        """
+        Test HealSparse.degrade AND functionality with WIDE_MASK
+        """
+
+        nside_coverage = 32
+        nside_map = 256
+        nside_out = 64
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
+                                                         WIDE_MASK, wide_mask_maxbits=7)
+
+        testing.assert_raises(NotImplementedError,
+                              sparse_map.degrade, nside_out=nside_out, reduction='wmean')
+
 
 if __name__ == '__main__':
     unittest.main()
