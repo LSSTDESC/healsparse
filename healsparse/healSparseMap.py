@@ -1434,6 +1434,12 @@ class HealSparseMap(object):
         bit_shift = _compute_bitshift(self.nside_coverage, nside_out)
         nfine_per_cov = 2**bit_shift
 
+        if weights is not None:
+            if not isinstance(weights, HealSparseMap):
+                raise ValueError("weights must be a HealSparseMap.")
+            if weights.is_rec_array or weights.is_wide_mask_map or weights.is_integer_map:
+                raise ValueError("weights must be a floating-point map.")
+
         # Work with wide masks
         if self._is_wide_mask:
             if reduction not in ['and', 'or']:
