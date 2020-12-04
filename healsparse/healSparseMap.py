@@ -1,4 +1,3 @@
-from __future__ import division, absolute_import, print_function
 import numpy as np
 import healpy as hp
 import os
@@ -106,7 +105,8 @@ class HealSparseMap(object):
             self._sentinel = check_sentinel(self._sparse_map.dtype.type, sentinel)
 
     @classmethod
-    def read(cls, filename, nside_coverage=None, pixels=None, header=False):
+    def read(cls, filename, nside_coverage=None, pixels=None, header=False,
+             degrade_nside=None, weightfile=None, reduction='mean'):
         """
         Read in a HealSparseMap.
 
@@ -122,6 +122,15 @@ class HealSparseMap(object):
            is a HealSparseMap
         header : `bool`, optional
            Return the fits header as well as map?  Default is False.
+        degrade_nside : `int`, optional
+           Degrade map to this nside on read.  None means leave as-is.
+        weightfile : `str`, optional
+           Floating-point map to supply weights for degrade wmean.  Must
+           be a HealSparseMap (weighted degrade not supported for
+           healpix degrade-on-read).
+        reduction : `str`, optional
+           Reduction method with degrade-on-read.
+           (mean, median, std, max, min, and, or, sum, prod, wmean).
 
         Returns
         -------
@@ -139,6 +148,10 @@ class HealSparseMap(object):
             if nside_coverage is None:
                 raise RuntimeError("Must specify nside_coverage when reading healpix map")
 
+            if weightfile is not None and degrade_nside is not None:
+                raise NotImplementedError("Cannot specify a weightfile with degrade-on-read "
+                                          "with a healpix map input.")
+
             # This is a healpix format
             # We need to determine the datatype, preserving it.
             if hdr['OBJECT'].rstrip() == 'PARTIAL':
@@ -151,25 +164,40 @@ class HealSparseMap(object):
                     dtype = row[0][0][0].dtype.type
 
             healpix_map = hp.read_map(filename, nest=True, verbose=False, dtype=dtype)
+            healsparse_map = cls(healpix_map=healpix_map, nside_coverage=nside_coverage, nest=True)
+
+            if degrade_nside is not None:
+                # Degrade this map.  Note that this could not be done on read
+                # because healpy maps do not have that functionality.
+                healsparse_map = healsparse_map.degrade(degrade_nside, reduction=reduction)
+
             if header:
-                return (cls(healpix_map=healpix_map, nside_coverage=nside_coverage, nest=True), hdr)
+                return (healsparse_map, hdr)
             else:
-                return cls(healpix_map=healpix_map, nside_coverage=nside_coverage, nest=True)
+                return healsparse_map
         elif 'PIXTYPE' in hdr and hdr['PIXTYPE'].rstrip() == 'HEALSPARSE':
-            # This is a sparse map type.  Just use fits for now.
-            cov_map, sparse_map, nside_sparse, primary, sentinel = \
-                cls._read_healsparse_file(filename, pixels=pixels)
-            if 'WIDEMASK' in hdr and hdr['WIDEMASK']:
-                sparse_map = sparse_map.reshape((sparse_map.size // hdr['WWIDTH'],
-                                                 hdr['WWIDTH'])).astype(WIDE_MASK)
-            if header:
-                return (cls(cov_map=cov_map, sparse_map=sparse_map,
-                            nside_sparse=nside_sparse, primary=primary, sentinel=sentinel,
-                            metadata=hdr), hdr)
+            if degrade_nside is None:
+                cov_map, sparse_map, nside_sparse, primary, sentinel = \
+                    cls._read_healsparse_file(filename, pixels=pixels)
+
+                if 'WIDEMASK' in hdr and hdr['WIDEMASK']:
+                    sparse_map = sparse_map.reshape((sparse_map.size // hdr['WWIDTH'],
+                                                     hdr['WWIDTH'])).astype(WIDE_MASK)
             else:
-                return cls(cov_map=cov_map, sparse_map=sparse_map,
-                           nside_sparse=nside_sparse, primary=primary, sentinel=sentinel,
-                           metadata=hdr)
+                # Read with degrade-on-read code
+                cov_map, sparse_map, nside_sparse, primary, sentinel = \
+                    cls._read_healsparse_file_and_degrade(filename, pixels,
+                                                          degrade_nside, reduction,
+                                                          weightfile)
+
+            healsparse_map = cls(cov_map=cov_map, sparse_map=sparse_map,
+                                 nside_sparse=nside_sparse, primary=primary, sentinel=sentinel,
+                                 metadata=hdr)
+
+            if header:
+                return (healsparse_map, hdr)
+            else:
+                return healsparse_map
         else:
             raise RuntimeError("Filename %s not in healpix or healsparse format." % (filename))
 
@@ -355,12 +383,20 @@ class HealSparseMap(object):
             if len(np.unique(_pixels)) < len(_pixels):
                 raise RuntimeError("Input list of pixels must be unique.")
 
+            # Which pixels are in the coverage map?
+            cov_pix, = np.where(cov_map.coverage_mask)
+            sub = np.clip(np.searchsorted(cov_pix, _pixels), 0, cov_pix.size)
+            ok, = np.where(cov_pix[sub] == _pixels)
+            if ok.size == 0:
+                raise RuntimeError("None of the specified pixels are in the coverage map.")
+            _pixels = np.sort(_pixels[ok])
+
             # Read part of a map
             with HealSparseFits(filename) as fits:
                 s_hdr = fits.read_ext_header('SPARSE')
 
                 nside_sparse = s_hdr['NSIDE']
-                nside_coverage = hp.npix2nside(cov_map[:].size)
+                nside_coverage = cov_map.nside_coverage
 
                 if 'SENTINEL' in s_hdr:
                     sentinel = s_hdr['SENTINEL']
@@ -379,18 +415,10 @@ class HealSparseMap(object):
                 # This is the map without the offset
                 cov_index_map_temp = cov_map[:] + np.arange(hp.nside2npix(nside_coverage),
                                                             dtype=np.int64)*cov_map.nfine_per_cov
-                cov_pix, = np.where(cov_index_map_temp >= cov_map.nfine_per_cov)
-
-                # Find which pixels are in the coverage map
-                sub = np.clip(np.searchsorted(cov_pix, _pixels), 0, cov_pix.size - 1)
-                ok, = np.where(cov_pix[sub] == _pixels)
-                if ok.size == 0:
-                    raise RuntimeError("None of the specified pixels are in the coverage map")
-                sub = np.sort(sub[ok])
 
                 # It is not 100% sure this is the most efficient way to read in,
                 # but it does work.
-                sparse_map = np.zeros((sub.size + 1)*cov_map.nfine_per_cov*wmult,
+                sparse_map = np.zeros((_pixels.size + 1)*cov_map.nfine_per_cov*wmult,
                                       dtype=fits.get_ext_dtype('SPARSE'))
                 # Read in the overflow bin
                 row_range = [0, cov_map.nfine_per_cov*wmult]
@@ -398,7 +426,7 @@ class HealSparseMap(object):
                     fits.read_ext_data('SPARSE',
                                        row_range=row_range)
                 # And read in the pixels
-                for i, pix in enumerate(cov_pix[sub]):
+                for i, pix in enumerate(_pixels):
                     row_range = [cov_index_map_temp[pix]*wmult,
                                  (cov_index_map_temp[pix] + cov_map.nfine_per_cov)*wmult]
                     sparse_map[(i + 1)*cov_map.nfine_per_cov*wmult:
@@ -408,9 +436,219 @@ class HealSparseMap(object):
                 # Set the coverage index map for the pixels that we read in
                 cov_map = HealSparseCoverage.make_from_pixels(nside_coverage,
                                                               nside_sparse,
-                                                              cov_pix[sub])
+                                                              _pixels)
 
         return cov_map, sparse_map, nside_sparse, primary, sentinel
+
+    @staticmethod
+    def _read_healsparse_file_and_degrade(filename, pixels, nside_out, reduction, weightfile):
+        """
+        Read a healsparse file, and degrade on read.
+
+        Parameters
+        ----------
+        filename : `str`
+           Name of the file to read.
+        pixels : `list`
+           List of integer pixels from the coverage map.  May be None (full map).
+        nside_out : `int`
+           Degrade map to this nside on read.
+        reduction : `str`
+           Reduction method with degrade-on-read.
+           (mean, median, std, max, min, and, or, sum, prod, wmean).
+        weightfile : `str`
+           File containing weights.  May be None (no weights).
+
+        Returns
+        -------
+        healsparse_map : `HealSparseMap`
+        """
+        cov_map = HealSparseCoverage.read(filename)
+        primary = None
+
+        if pixels is None:
+            # When doing degrade-on-read, we must read in pixel-by-pixel,
+            # so we get all the pixels.
+            _pixels, = np.where(cov_map.coverage_mask)
+        else:
+            _pixels = np.atleast_1d(pixels)
+            if len(np.unique(_pixels)) < len(_pixels):
+                raise RuntimeError("Input list of pixels must be unique.")
+
+            # Which pixels are in the coverage map?
+            cov_pix, = np.where(cov_map.coverage_mask)
+            sub = np.clip(np.searchsorted(cov_pix, _pixels), 0, cov_pix.size)
+            ok, = np.where(cov_pix[sub] == _pixels)
+            if ok.size == 0:
+                raise RuntimeError("None of the specified pixels are in the coverage map.")
+            _pixels = np.sort(_pixels[ok])
+
+        # If we have a weight map, check that it conforms to the map we want to degrade.
+        use_weightfile = False
+        if weightfile is not None and reduction == 'wmean':
+            cov_map_weight = HealSparseCoverage.read(weightfile)
+            if cov_map_weight.nside_coverage != cov_map.nside_coverage:
+                raise ValueError("The weightfile %s must have same coverage nside." % (weightfile))
+            cov_pix_weight, = np.where(cov_map_weight.coverage_mask)
+            if not np.all(np.in1d(_pixels, cov_pix_weight)):
+                raise ValueError("The weightfile %s must have coverage in all the "
+                                 "pixels to read." % (weightfile))
+            use_weightfile = True
+        elif weightfile is not None:
+            raise Warning('Weightfile specified but wmean reduction mode is not set.  Ignoring weightfile')
+
+        nside_coverage = cov_map.nside_coverage
+
+        cov_map_out = HealSparseCoverage.make_from_pixels(nside_coverage,
+                                                          nside_out,
+                                                          _pixels)
+        # This is the map without the offset
+        cov_index_out_temp = cov_map_out[:] + np.arange(hp.nside2npix(nside_coverage),
+                                                        dtype=np.int64)*cov_map_out.nfine_per_cov
+        with HealSparseFits(filename) as fits:
+            s_hdr = fits.read_ext_header('SPARSE')
+
+            nside_sparse = s_hdr['NSIDE']
+
+            if nside_out >= nside_sparse:
+                raise ValueError('Degrade nside (%d) is not smaller than sparse nside (%d)' %
+                                 (nside_out, nside_sparse))
+
+            if 'SENTINEL' in s_hdr:
+                sentinel = s_hdr['SENTINEL']
+            else:
+                sentinel = hp.UNSEEN
+
+            if not fits.ext_is_image('SPARSE'):
+                # This is a table extension
+                is_rec_array = True
+                primary = s_hdr['PRIMARY'].rstrip()
+            else:
+                is_rec_array = False
+
+            if 'WIDEMASK' in s_hdr and s_hdr['WIDEMASK']:
+                wmult = s_hdr['WWIDTH']
+                is_wide_mask = True
+            else:
+                wmult = 1
+                is_wide_mask = False
+
+            dtype = np.dtype(fits.get_ext_dtype('SPARSE'))
+
+            # Check weight map
+            if use_weightfile:
+                wfits = HealSparseFits(weightfile)
+                s_hdr_weight = fits.read_ext_header('SPARSE')
+                dtype_weight = fits.get_ext_dtype('SPARSE')
+                testval = np.zeros(1, dtype=dtype_weight)[0]
+                if 'SENTINEL' in s_hdr_weight:
+                    sentinel_weight = s_hdr_weight['SENTINEL']
+                else:
+                    sentinel_weight = hp.UNSEEN
+                if ((s_hdr_weight['NSIDE'] != nside_sparse or
+                     not fits.ext_is_image('SPARSE') or
+                     'WIDEMASK' in s_hdr_weight or
+                     is_integer_value(testval))):
+                    wfits.close()
+                    raise ValueError("Weights must be a floating-point map with same "
+                                     "nside as map to degrade.")
+
+            bit_shift_out = _compute_bitshift(nside_coverage, nside_out)
+            nfine_per_cov_out = 2**bit_shift_out
+
+            if is_wide_mask:
+                if reduction not in ['and', 'or']:
+                    if use_weightfile:
+                        wfits.close()
+                    raise NotImplementedError('Cannot degrade a wide_mask map with any operation '
+                                              'except for and/or')
+                sentinel_out = sentinel
+                dtype_out = dtype
+                sparse_map_out = np.zeros(((_pixels.size + 1)*nfine_per_cov_out, wmult),
+                                          dtype=dtype_out)
+            elif is_rec_array:
+                dtype_out = []
+                sentinel_out = hp.UNSEEN
+                # We should avoid integers
+                test_arr = np.zeros(1, dtype=dtype)
+                for key, value in dtype.fields.items():
+                    if issubclass(test_arr[key].dtype.type, np.integer):
+                        dtype_out.append((key, np.float64))
+                    else:
+                        dtype_out.append((key, value[0]))
+                dtype_out = np.dtype(dtype_out)
+                sparse_map_out = np.zeros((_pixels.size + 1)*nfine_per_cov_out,
+                                          dtype=dtype_out)
+                sparse_map_out[primary] = sentinel_out
+            elif (issubclass(dtype.type, np.integer) and (reduction in ['and', 'or'])):
+                sentinel_out = sentinel
+                dtype_out = dtype
+                sparse_map_out = np.full((_pixels.size + 1)*nfine_per_cov_out,
+                                         sentinel_out,
+                                         dtype=dtype_out)
+            else:
+                if issubclass(dtype.type, np.integer):
+                    dtype_out = np.dtype(np.float64)
+                else:
+                    dtype_out = dtype
+                sentinel_out = hp.UNSEEN
+                sparse_map_out = np.full((_pixels.size + 1)*nfine_per_cov_out,
+                                         sentinel_out,
+                                         dtype=dtype_out)
+
+            # This is the map without the offset
+            cov_index_map_temp = cov_map[:] + np.arange(hp.nside2npix(nside_coverage),
+                                                        dtype=np.int64)*cov_map.nfine_per_cov
+            if use_weightfile:
+                cov_index_map_temp_weight = (cov_map_weight[:] +
+                                             np.arange(hp.nside2npix(nside_coverage),
+                                                       dtype=np.int64)*cov_map.nfine_per_cov)
+
+            for i, pix in enumerate(_pixels):
+                row_range = [cov_index_map_temp[pix]*wmult,
+                             (cov_index_map_temp[pix] + cov_map.nfine_per_cov)*wmult]
+                pix_data = fits.read_ext_data('SPARSE', row_range=row_range)
+
+                if use_weightfile:
+                    row_range_weight = [cov_index_map_temp_weight[pix],
+                                        (cov_index_map_temp_weight[pix] + cov_map.nfine_per_cov)]
+                    weight_values = wfits.read_ext_data('SPARSE', row_range=row_range_weight)
+                    weight_values[weight_values == sentinel_weight] = 0.0
+                    weight_values = weight_values.reshape((1,
+                                                           (nside_out//nside_coverage)**2, -1))
+                else:
+                    weight_values = None
+
+                if is_wide_mask:
+                    aux = pix_data.reshape((1, (nside_out//nside_coverage)**2, wmult, -1))
+                    aux = reduce_array(aux, reduction=reduction, axis=3).reshape((-1, wmult))
+                elif is_rec_array:
+                    aux = np.zeros(cov_map_out.nfine_per_cov, dtype=dtype_out)
+                    for key, value in sparse_map_out.dtype.fields.items():
+                        auxf = pix_data[key].astype(np.float64)
+                        auxf[pix_data[key] == sentinel] = np.nan
+                        auxf = auxf.reshape((1, (nside_out//nside_coverage)**2, -1))
+                        auxf = reduce_array(auxf, reduction=reduction, weights=weight_values)
+                        auxf[np.isnan(auxf)] = sentinel_out
+                        aux[key] = auxf
+                elif issubclass(dtype_out.type, np.integer):
+                    # No weights because this is going to be a bit-wise operation.
+                    aux = pix_data.reshape((1, (nside_out//nside_coverage)**2, -1))
+                    aux = reduce_array(aux, reduction=reduction)
+                else:
+                    aux = pix_data.astype(dtype_out)
+                    aux[pix_data == sentinel] = np.nan
+                    aux = aux.reshape((1, (nside_out//nside_coverage)**2, -1))
+                    aux = reduce_array(aux, reduction=reduction, weights=weight_values)
+                    aux[np.isnan(aux)] = sentinel_out
+
+                sparse_map_out[cov_index_out_temp[pix]:
+                               cov_index_out_temp[pix] + cov_map_out.nfine_per_cov] = aux
+
+        if use_weightfile:
+            wfits.close()
+
+        return cov_map_out, sparse_map_out, nside_out, primary, sentinel_out
 
     @staticmethod
     def convert_healpix_map(healpix_map, nside_coverage, nest=True, sentinel=hp.UNSEEN):
@@ -1254,18 +1492,43 @@ class HealSparseMap(object):
         bit_shift = _compute_bitshift(self.nside_coverage, nside_out)
         nfine_per_cov = 2**bit_shift
 
+        # Check weights and add guards
+        weight_values = None
+        if weights is not None:
+            if reduction != 'wmean':
+                raise Warning('Weights only used with wmean reduction.  Ignoring weights.')
+            else:
+                # Check format/size of weight-map here.
+                if not isinstance(weights, HealSparseMap):
+                    raise ValueError("weights must be a HealSparseMap.")
+                if weights.is_rec_array or weights.is_wide_mask_map or weights.is_integer_map:
+                    raise ValueError("weights must be a floating-point map.")
+                bad_map = ((weights.nside_sparse != self.nside_sparse) or
+                           (weights.nside_coverage != self.nside_coverage) or
+                           (not np.array_equal(weights.valid_pixels, self.valid_pixels)))
+                if bad_map:
+                    raise ValueError('weights dimensions must be the same as this map.')
+
+                weight_values = weights._sparse_map
+                # Set to zero weight those pixels that are not observed
+                # This is valid for all types of maps because they share the same valid_pixels.
+                weight_values[weight_values == weights._sentinel] = 0.0
+                weight_values = weight_values.reshape((npop_pix + 1,
+                                                       (nside_out//self.nside_coverage)**2, -1))
+        elif reduction == 'wmean':
+            raise ValueError('Must specify weights when using wmean reduction.')
+        # At this point, the weight map has been checked and will only be used if
+        # the reduction is set to wmean.
+
         # Work with wide masks
         if self._is_wide_mask:
             if reduction not in ['and', 'or']:
                 raise NotImplementedError('Cannot degrade a wide_mask map with this \
                 reduction operation, try and/or.')
             else:
-                if weights is not None:
-                    raise Warning('Weights cannot be used with `wide_mask`. \
-                    Ignoring weights.')
                 nbits = self._sparse_map.shape[1]
                 aux = self._sparse_map.reshape((npop_pix+1, (nside_out//self.nside_coverage)**2, nbits, -1))
-                new_sparse_map = reduce_array(aux, reduction=reduction, axis=3).reshape((-1, nbits))
+                sparse_map_out = reduce_array(aux, reduction=reduction, axis=3).reshape((-1, nbits))
                 sentinel_out = self._sentinel
 
         # Work with RecArray (we have to change the resolution to all maps...)
@@ -1273,80 +1536,47 @@ class HealSparseMap(object):
             dtype = []
             sentinel_out = hp.UNSEEN
             # We should avoid integers
-            if weights is not None:
-                if reduction == 'wmean':
-                    bad_map = ((weights.nside_sparse != self.nside_sparse) or
-                               (weights.nside_coverage != self.nside_coverage) or
-                               (not np.array_equal(weights.valid_pixels, self.valid_pixels)))
-                    if bad_map:
-                        raise ValueError('weights dimensions should be the same as this maps.')
-                    else:
-                        weights = weights._sparse_map
-                        # Set to zero weight those pixels that are not observed
-                        weights[self._sparse_map[self._primary] == self._sentinel] = 0.
-                        weights = weights.reshape((npop_pix + 1,
-                                                  (nside_out//self.nside_coverage)**2, -1))
-                else:
-                    raise Warning('Not using weights because only \
-                    `wmean` uses weights.')
-                    weights = None
             for key, value in self._sparse_map.dtype.fields.items():
                 if issubclass(self._sparse_map[key].dtype.type, np.integer):
                     dtype.append((key, np.float64))
                 else:
                     dtype.append((key, value[0]))
             # Allocate new map
-            new_sparse_map = np.zeros((npop_pix + 1)*nfine_per_cov, dtype=dtype)
-            for key, value in new_sparse_map.dtype.fields.items():
+            sparse_map_out = np.zeros((npop_pix + 1)*nfine_per_cov, dtype=dtype)
+            for key, value in sparse_map_out.dtype.fields.items():
                 aux = self._sparse_map[key].astype(np.float64)
                 aux[self._sparse_map[self._primary] == self._sentinel] = np.nan
                 aux = aux.reshape((npop_pix + 1, (nside_out//self.nside_coverage)**2, -1))
                 # Perform the reduction operation (check utils.reduce_array)
-                aux = reduce_array(aux, reduction=reduction, weights=weights)
+                aux = reduce_array(aux, reduction=reduction, weights=weight_values)
                 # Transform back to sentinel value
                 aux[np.isnan(aux)] = sentinel_out
-                new_sparse_map[key] = aux
+                sparse_map_out[key] = aux
 
         # Work with int array and ndarray
         elif (issubclass(self._sparse_map.dtype.type, np.integer)) and (reduction in ['and', 'or']):
-            if weights is not None:
-                raise Warning('Ignoring weights because only `wmean` uses weights.')
-                weights = None
             aux = self._sparse_map.reshape((npop_pix+1, (nside_out//self.nside_coverage)**2, -1))
-            new_sparse_map = reduce_array(aux, reduction=reduction)
+            sparse_map_out = reduce_array(aux, reduction=reduction)
             sentinel_out = self._sentinel
         else:
             if issubclass(self._sparse_map.dtype.type, np.integer):
                 aux_dtype = np.float64
             else:
                 aux_dtype = self._sparse_map.dtype
-            if weights is not None:
-                if reduction == 'wmean':
-                    bad_map = ((weights.nside_sparse != self.nside_sparse) or
-                               (weights.nside_coverage != self.nside_coverage) or
-                               (not np.array_equal(weights.valid_pixels, self.valid_pixels)))
-                    if bad_map:
-                        raise ValueError('weights dimensions should be the same as this maps.')
-                    else:
-                        weights = weights._sparse_map
-                        # Set to zero weight those pixels that are not observed
-                        weights[self._sparse_map == self._sentinel] = 0.
-                        weights = weights.reshape((npop_pix + 1,
-                                                  (nside_out//self.nside_coverage)**2, -1))
             sentinel_out = hp.UNSEEN
             aux = self._sparse_map.astype(aux_dtype)
             aux[self._sparse_map == self._sentinel] = np.nan
             aux = aux.reshape((npop_pix + 1, (nside_out//self.nside_coverage)**2, -1))
-            aux = reduce_array(aux, reduction=reduction, weights=weights)
+            aux = reduce_array(aux, reduction=reduction, weights=weight_values)
             # NaN are converted to UNSEEN
             aux[np.isnan(aux)] = sentinel_out
-            new_sparse_map = aux
+            sparse_map_out = aux
 
         # The coverage index map is now offset, we have to build a new one
         new_cov_map = HealSparseCoverage.make_from_pixels(self.nside_coverage,
                                                           nside_out,
                                                           np.where(self.coverage_mask)[0])
-        return HealSparseMap(cov_map=new_cov_map, sparse_map=new_sparse_map,
+        return HealSparseMap(cov_map=new_cov_map, sparse_map=sparse_map_out,
                              nside_sparse=nside_out, primary=self._primary, sentinel=sentinel_out)
 
     def apply_mask(self, mask_map, mask_bits=None, mask_bit_arr=None, in_place=True):
