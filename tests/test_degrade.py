@@ -48,6 +48,28 @@ class DegradeMapTestCase(unittest.TestCase):
 
         testing.assert_almost_equal(deg_map, new_map2.generate_healpix_map())
 
+    def test_degrade_map_float_outoforder(self):
+        """
+        Test HealSparse.degrade functionality with float quantities and
+        an out-of-order map.
+        """
+        nside_coverage = 32
+        nside_map = 1024
+        nside_new = 256
+
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
+                                                         np.float32)
+        sparse_map[100000: 110000] = 1.0
+        sparse_map[10000: 20000] = 2.0
+
+        full_map = sparse_map.generate_healpix_map()
+
+        deg_map = hp.ud_grade(full_map, nside_out=nside_new, order_in='NESTED', order_out='NESTED')
+
+        new_map = sparse_map.degrade(nside_out=nside_new)
+
+        testing.assert_almost_equal(deg_map, new_map.generate_healpix_map())
+
     def test_degrade_map_int(self):
         """
         Test HealSparse.degrade functionality with int quantities
