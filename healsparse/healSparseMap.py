@@ -1573,9 +1573,10 @@ class HealSparseMap(object):
             sparse_map_out = aux
 
         # The coverage index map is now offset, we have to build a new one
+        # Note that we need to keep the same order of the coverage map
         new_cov_map = HealSparseCoverage.make_from_pixels(self.nside_coverage,
                                                           nside_out,
-                                                          np.where(self.coverage_mask)[0])
+                                                          self._cov_map._block_to_cov_index)
         return HealSparseMap(cov_map=new_cov_map, sparse_map=sparse_map_out,
                              nside_sparse=nside_out, primary=self._primary, sentinel=sentinel_out)
 
