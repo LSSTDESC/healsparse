@@ -1013,7 +1013,7 @@ class HealSparseMap(object):
             if self._is_rec_array:
                 return (values[self._primary] != self._sentinel)
             elif self._is_wide_mask:
-                return (values > 0).sum(axis=1, dtype=np.bool)
+                return (values > 0).sum(axis=1, dtype=np.bool_)
             else:
                 return (values != self._sentinel)
         else:
@@ -1041,7 +1041,7 @@ class HealSparseMap(object):
         Returns
         -------
         bit_flags : `np.ndarray`
-           Array of `np.bool` flags on whether any of the input bits were
+           Array of `np.bool_` flags on whether any of the input bits were
            set
         """
         return self.check_bits_pix(hp.ang2pix(self._nside_sparse,
@@ -1065,7 +1065,7 @@ class HealSparseMap(object):
         Returns
         -------
         bit_flags : `np.ndarray`
-           Array of `np.bool` flags on whether any of the input bits were
+           Array of `np.bool_` flags on whether any of the input bits were
            set
         """
         values = self.get_values_pix(pixels, nest=nest)
@@ -1993,7 +1993,7 @@ class HealSparseMap(object):
                 raise NotImplementedError("Can only use an integer constant with the %s operation" % (name))
 
         if self._is_wide_mask:
-            valid_sparse_pixels = (self._sparse_map != self._sentinel).sum(axis=1, dtype=np.bool)
+            valid_sparse_pixels = (self._sparse_map != self._sentinel).sum(axis=1, dtype=np.bool_)
 
             other_value = np.zeros(self._wide_mask_width, self._sparse_map.dtype)
             for bit in other:
