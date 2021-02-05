@@ -58,7 +58,7 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
                 nside_coverage_out = cov_map.nside_coverage
 
             cov_mask_summary = np.zeros((len(file_list), hp.nside2npix(nside_coverage_out)),
-                                        dtype=np.bool)
+                                        dtype=np.bool_)
             nside_sparse = cov_map.nside_sparse
         else:
             if cov_map.nside_sparse != nside_sparse:

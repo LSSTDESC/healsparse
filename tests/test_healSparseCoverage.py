@@ -27,7 +27,7 @@ class HealSparseCoverageTestCase(unittest.TestCase):
         sparse_map.write(os.path.join(self.test_dir, 'healsparse_map_test.hs'))
 
         # Generate a coverage mask from the 0: 20000
-        cov_mask_test = np.zeros(hp.nside2npix(nside_coverage), dtype=np.bool)
+        cov_mask_test = np.zeros(hp.nside2npix(nside_coverage), dtype=np.bool_)
         theta, phi = hp.pix2ang(nside_map, np.arange(20000), nest=True)
         ipnest = np.unique(hp.ang2pix(nside_coverage, theta, phi, nest=True))
         cov_mask_test[ipnest] = True

@@ -46,7 +46,7 @@ class WideMasksTestCase(unittest.TestCase):
         pospix = hp.ang2pix(nside_map, ra, dec, lonlat=True, nest=True)
         inds = np.searchsorted(pixel, pospix)
         b, = np.where((inds > 0) & (inds < pixel.size))
-        comp_arr = np.zeros(pospix.size, dtype=np.bool)
+        comp_arr = np.zeros(pospix.size, dtype=np.bool_)
         comp_arr[b] = True
         testing.assert_array_equal(sparse_map.check_bits_pos(ra, dec, [4], lonlat=True), comp_arr)
 
@@ -134,7 +134,7 @@ class WideMasksTestCase(unittest.TestCase):
         pospix = hp.ang2pix(nside_map, ra, dec, lonlat=True, nest=True)
         inds = np.searchsorted(pixel, pospix)
         b, = np.where((inds > 0) & (inds < pixel.size))
-        comp_arr = np.zeros(pospix.size, dtype=np.bool)
+        comp_arr = np.zeros(pospix.size, dtype=np.bool_)
         comp_arr[b] = True
         testing.assert_array_equal(sparse_map_in.check_bits_pos(ra, dec, [5], lonlat=True), comp_arr)
 

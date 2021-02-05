@@ -24,7 +24,7 @@ class GenerateHealpixMapTestCase(unittest.TestCase):
         value = np.random.random(n_rand)
 
         # Create a HEALPix map
-        healpix_map = np.zeros(hp.nside2npix(nside_map), dtype=np.float) + hp.UNSEEN
+        healpix_map = np.zeros(hp.nside2npix(nside_map), dtype=np.float64) + hp.UNSEEN
         idx = hp.ang2pix(nside_map, np.pi/2 - np.radians(dec), np.radians(ra), nest=True)
         healpix_map[idx] = value
         # Create a HealSparseMap
@@ -114,7 +114,7 @@ class GenerateHealpixMapTestCase(unittest.TestCase):
         value = np.random.random(n_rand)
 
         # Create a HEALPix map
-        healpix_map = np.zeros(hp.nside2npix(nside_map), dtype=np.float) + hp.UNSEEN
+        healpix_map = np.zeros(hp.nside2npix(nside_map), dtype=np.float64) + hp.UNSEEN
         idx = hp.ang2pix(nside_map, np.pi/2 - np.radians(dec), np.radians(ra), nest=True)
         healpix_map[idx] = value
         # Create a HealSparseMap

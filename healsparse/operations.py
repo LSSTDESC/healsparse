@@ -414,7 +414,7 @@ def _apply_operation(map_list, func, filler_value, union=False, int_only=False):
         combined_sparse_map = np.zeros((cov_pix.size + 1)*cov_map.nfine_per_cov, dtype=dtype) + filler_value
 
     if union:
-        combined_sparse_map_touched = np.zeros(len(combined_sparse_map), dtype=np.bool)
+        combined_sparse_map_touched = np.zeros(len(combined_sparse_map), dtype=np.bool_)
     else:
         combined_sparse_map_ntouch = np.zeros(len(combined_sparse_map), dtype=np.int32)
     for m in map_list:
