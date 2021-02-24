@@ -385,7 +385,7 @@ class HealSparseMap(object):
 
             # Which pixels are in the coverage map?
             cov_pix, = np.where(cov_map.coverage_mask)
-            sub = np.clip(np.searchsorted(cov_pix, _pixels), 0, cov_pix.size)
+            sub = np.clip(np.searchsorted(cov_pix, _pixels), 0, cov_pix.size - 1)
             ok, = np.where(cov_pix[sub] == _pixels)
             if ok.size == 0:
                 raise RuntimeError("None of the specified pixels are in the coverage map.")
