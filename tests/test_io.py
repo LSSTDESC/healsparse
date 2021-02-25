@@ -100,6 +100,12 @@ class IoTestCase(unittest.TestCase):
 
         testing.assert_almost_equal(sparse_map_small.get_values_pix(ipnest), test_values2)
 
+        # Read in healsparse format (all pixels)
+        sparse_map_full = healsparse.HealSparseMap.read(os.path.join(self.test_dir,
+                                                                     'healsparse_map.hs'),
+                                                        pixels=np.arange(hp.nside2npix(nside_coverage)))
+        testing.assert_almost_equal(sparse_map_full.get_values_pix(ipnest), test_values)
+
     def test_read_outoforder(self):
         """
         Test reading maps that have been written with out-of-order pixels
