@@ -75,8 +75,23 @@ class WideMasksTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [15]), False)
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [4, 12]), True)
 
-        sparse_map.set_bits_pix(pixel, [5, 15])
+        sparse_map.set_bits_pix(pixel, [2, 3, 5, 15])
+        testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [2]), True)
+        testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [3]), True)
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [5]), True)
+        testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [15]), True)
+        testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [14]), False)
+
+        # Clear a bit in the lower field, ensure upper field is untouched.
+        sparse_map.clear_bits_pix(pixel, [5])
+        testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [5]), False)
+        testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [15]), True)
+        testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [14]), False)
+
+        # Clear multiple bits in the lower field, ensure upper field is untouched.
+        sparse_map.clear_bits_pix(pixel, [2, 3])
+        testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [2]), False)
+        testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [3]), False)
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [15]), True)
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [14]), False)
 

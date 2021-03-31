@@ -948,9 +948,10 @@ class HealSparseMap(object):
         value = self._sparse_map[0].copy()
         for bit in bits:
             field, bitval = _get_field_and_bitval(bit)
-            value[field] |= ~bitval
+            value[field] |= bitval
 
-        self.update_values_pix(pixels, value, nest=nest, operation='and')
+        # A bit reset is performed with &= ~(bit1 | bit2)
+        self.update_values_pix(pixels, ~value, nest=nest, operation='and')
 
     def get_values_pos(self, theta_or_ra, phi_or_dec, lonlat=True, valid_mask=False):
         """
