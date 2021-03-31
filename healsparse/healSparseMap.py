@@ -620,8 +620,8 @@ class HealSparseMap(object):
                     weight_values = None
 
                 if is_wide_mask:
-                    aux = pix_data.reshape((1, (nside_out//nside_coverage)**2, wmult, -1))
-                    aux = reduce_array(aux, reduction=reduction, axis=3).reshape((-1, wmult))
+                    aux = pix_data.reshape((1, (nside_out//nside_coverage)**2, -1, wmult))
+                    aux = reduce_array(aux, reduction=reduction, axis=2).reshape((-1, wmult))
                 elif is_rec_array:
                     aux = np.zeros(cov_map_out.nfine_per_cov, dtype=dtype_out)
                     for key, value in sparse_map_out.dtype.fields.items():
@@ -948,9 +948,10 @@ class HealSparseMap(object):
         value = self._sparse_map[0].copy()
         for bit in bits:
             field, bitval = _get_field_and_bitval(bit)
-            value[field] |= ~bitval
+            value[field] |= bitval
 
-        self.update_values_pix(pixels, value, nest=nest, operation='and')
+        # A bit reset is performed with &= ~(bit1 | bit2)
+        self.update_values_pix(pixels, ~value, nest=nest, operation='and')
 
     def get_values_pos(self, theta_or_ra, phi_or_dec, lonlat=True, valid_mask=False):
         """
@@ -1527,8 +1528,8 @@ class HealSparseMap(object):
                 reduction operation, try and/or.')
             else:
                 nbits = self._sparse_map.shape[1]
-                aux = self._sparse_map.reshape((npop_pix+1, (nside_out//self.nside_coverage)**2, nbits, -1))
-                sparse_map_out = reduce_array(aux, reduction=reduction, axis=3).reshape((-1, nbits))
+                aux = self._sparse_map.reshape((npop_pix+1, (nside_out//self.nside_coverage)**2, -1, nbits))
+                sparse_map_out = reduce_array(aux, reduction=reduction, axis=2).reshape((-1, nbits))
                 sentinel_out = self._sentinel
 
         # Work with RecArray (we have to change the resolution to all maps...)
