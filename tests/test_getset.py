@@ -12,13 +12,13 @@ class GetSetTestCase(unittest.TestCase):
         """
         Test __getitem__ single value
         """
-        np.random.seed(12345)
+        random.seed(12345)
 
         nside_coverage = 32
         nside_map = 128
 
         full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
-        full_map[0: 5000] = np.random.random(size=5000)
+        full_map[0: 5000] = random.random(size=5000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
 
@@ -41,8 +41,8 @@ class GetSetTestCase(unittest.TestCase):
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype, primary='col1')
         pixel = np.arange(5000)
         values = np.zeros_like(pixel, dtype=dtype)
-        values['col1'] = np.random.random(size=pixel.size)
-        values['col2'] = np.random.random(size=pixel.size)
+        values['col1'] = random.random(size=pixel.size)
+        values['col2'] = random.random(size=pixel.size)
         sparse_map.update_values_pix(pixel, values)
 
         # Test name access
@@ -63,13 +63,13 @@ class GetSetTestCase(unittest.TestCase):
         """
         Test __getitem__ using slices
         """
-        np.random.seed(12345)
+        random.seed(12345)
 
         nside_coverage = 32
         nside_map = 128
 
         full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
-        full_map[0: 5000] = np.random.random(size=5000)
+        full_map[0: 5000] = random.random(size=5000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
 
@@ -90,13 +90,13 @@ class GetSetTestCase(unittest.TestCase):
         """
         Test __getitem__ using an array
         """
-        np.random.seed(12345)
+        random.seed(12345)
 
         nside_coverage = 32
         nside_map = 128
 
         full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
-        full_map[0: 5000] = np.random.random(size=5000)
+        full_map[0: 5000] = random.random(size=5000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
 
@@ -112,13 +112,13 @@ class GetSetTestCase(unittest.TestCase):
         """
         Test __getitem__ using list/tuple
         """
-        np.random.seed(12345)
+        random.seed(12345)
 
         nside_coverage = 32
         nside_map = 128
 
         full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
-        full_map[0: 5000] = np.random.random(size=5000)
+        full_map[0: 5000] = random.random(size=5000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
 
@@ -132,13 +132,13 @@ class GetSetTestCase(unittest.TestCase):
         """
         Test __getitem__ using something else
         """
-        np.random.seed(12345)
+        random.seed(12345)
 
         nside_coverage = 32
         nside_map = 128
 
         full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
-        full_map[0: 5000] = np.random.random(size=5000)
+        full_map[0: 5000] = random.random(size=5000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
 
@@ -152,13 +152,13 @@ class GetSetTestCase(unittest.TestCase):
         """
         Test __setitem__ single value
         """
-        np.random.seed(12345)
+        random.seed(12345)
 
         nside_coverage = 32
         nside_map = 128
 
         full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
-        full_map[0: 5000] = np.random.random(size=5000)
+        full_map[0: 5000] = random.random(size=5000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
 
@@ -185,8 +185,8 @@ class GetSetTestCase(unittest.TestCase):
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype, primary='col1')
         pixel = np.arange(5000)
         values = np.zeros_like(pixel, dtype=dtype)
-        values['col1'] = np.random.random(size=pixel.size)
-        values['col2'] = np.random.random(size=pixel.size)
+        values['col1'] = random.random(size=pixel.size)
+        values['col2'] = random.random(size=pixel.size)
         values['col3'] = np.ones(pixel.size, dtype=np.int32)
         sparse_map.update_values_pix(pixel, values)
 
@@ -238,13 +238,13 @@ class GetSetTestCase(unittest.TestCase):
         """
         Test __setitem__ slice
         """
-        np.random.seed(12345)
+        random.seed(12345)
 
         nside_coverage = 32
         nside_map = 128
 
         full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
-        full_map[0: 5000] = np.random.random(size=5000)
+        full_map[0: 5000] = random.random(size=5000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
 
@@ -274,13 +274,13 @@ class GetSetTestCase(unittest.TestCase):
         """
         Test __setitem__ array
         """
-        np.random.seed(12345)
+        random.seed(12345)
 
         nside_coverage = 32
         nside_map = 128
 
         full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
-        full_map[0: 5000] = np.random.random(size=5000)
+        full_map[0: 5000] = random.random(size=5000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
 
@@ -309,13 +309,13 @@ class GetSetTestCase(unittest.TestCase):
         """
         Test __setitem__ list
         """
-        np.random.seed(12345)
+        random.seed(12345)
 
         nside_coverage = 32
         nside_map = 128
 
         full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
-        full_map[0: 5000] = np.random.random(size=5000)
+        full_map[0: 5000] = random.random(size=5000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
 
@@ -338,13 +338,13 @@ class GetSetTestCase(unittest.TestCase):
         """
         Test __setitem__ using something else
         """
-        np.random.seed(12345)
+        random.seed(12345)
 
         nside_coverage = 32
         nside_map = 128
 
         full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
-        full_map[0: 5000] = np.random.random(size=5000)
+        full_map[0: 5000] = random.random(size=5000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
 
@@ -353,6 +353,26 @@ class GetSetTestCase(unittest.TestCase):
 
         indices = 5.0
         self.assertRaises(IndexError, sparse_map.__setitem__, indices, 1.0)
+
+    def test_setitem_integer(self):
+        """
+        Test __setitem__ for integer HealSparseMaps
+        """
+        random.seed(12345)
+        nside_coverage = 32
+        nside_map = 128
+        pxnums = np.arange(0, 2000)
+        pxvalues = pxnums
+        full_map = np.zeros(hp.nside2npix(nside_map), dtype=pxvalues.dtype)
+        full_map[pxnums] = pxvalues
+
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage=nside_coverage,
+                                                         nside_sparse=nside_map, dtype=pxvalues.dtype)
+        sparse_map[pxnums[0]] = pxvalues[0]
+        testing.assert_equal(sparse_map[pxnums[0]], full_map[pxnums[0]])
+
+        sparse_map[pxnums] = pxvalues
+        testing.assert_array_almost_equal(sparse_map[pxnums], full_map[pxnums])
 
 
 if __name__ == '__main__':
