@@ -120,9 +120,9 @@ class DegradeMapTestCase(unittest.TestCase):
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype, primary='col1')
         pixel = np.arange(20000)
         values = np.zeros_like(pixel, dtype=dtype)
-        values['col1'] = np.random.random(size=pixel.size)
-        values['col2'] = np.random.random(size=pixel.size)
-        values['col3'] = np.random.poisson(size=pixel.size, lam=2)
+        values['col1'] = random.random(size=pixel.size)
+        values['col2'] = random.random(size=pixel.size)
+        values['col3'] = random.poisson(size=pixel.size, lam=2)
         sparse_map.update_values_pix(pixel, values)
 
         theta, phi = hp.pix2ang(nside_map, pixel, nest=True)
@@ -542,62 +542,64 @@ class DegradeMapTestCase(unittest.TestCase):
         Test HealSparse.degrade in the case where the target resolution
         is smaller than the original coverage resolution (nside_out < nside_coverage)
         """
-
+        random.seed(12345)
         nside_coverage = 32
         nside_map = 256
         nside_out = 8
         pxnums = np.arange(2000)
-        pxvalues = np.random.random(size=2000).astype(np.float64)
-        weights = 0.5+0.5*np.random.random(size=2000).astype(np.float64)
-        for method in ['mean', 'std', 'max', 'mean', 'median', 'wmean',
-                       'sum', 'prod']:
-            if method == 'wmean':
-                wgt = weights
-            else:
+        pxvalues = random.random(size=2000).astype(np.float64)
+        weights = 0.5+0.5*random.random(size=2000).astype(np.float64)
+        methods = ['mean', 'std', 'max', 'mean', 'median', 'wmean', 'sum', 'prod']
+        for method in methods:
+            if method != 'wmean':
                 wgt = None
+                wgt2 = None
+            else:
+                wgt = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype=np.float64)
+                wgt2 = healsparse.HealSparseMap.make_empty(nside_out, nside_map, dtype=np.float64)
+                wgt[pxnums] = weights
+                wgt2[pxnums] = weights
             sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype=np.float64)
             sparse_map2 = healsparse.HealSparseMap.make_empty(nside_out, nside_map, dtype=np.float64)
             sparse_map.update_values_pix(pxnums, pxvalues)
             sparse_map2.update_values_pix(pxnums, pxvalues)
-            # Check that a warning is raised
-            # testing.assert_raises(ResourceWarning, sparse_map.degrade,
-            #                      nside_out, reduction=method, weights=weights)
-            with testing.assert_raises(ResourceWarning):
+            sparse_map2 = sparse_map2.degrade(nside_out, reduction=method, weights=wgt2)
+            with self.assertWarns(ResourceWarning):
                 sparse_map = sparse_map.degrade(nside_out, reduction=method, weights=wgt)
-                sparse_map2 = sparse_map2.degrade(nside_out, reduction=method, weights=wgt)
-                testing.assert_almost_equal(sparse_map.coverage_map, sparse_map2.coverage_map)
-                testing.assert_almost_equal(sparse_map._sparse_map, sparse_map2._sparse_map)
+            testing.assert_almost_equal(sparse_map.coverage_map, sparse_map2.coverage_map)
+            testing.assert_almost_equal(sparse_map._sparse_map, sparse_map2._sparse_map)
 
     def test_degrade_lowres_int(self):
         """
         Test HealSparse.degrade in the case where the target resolution
         is smaller than the original coverage resolution (nside_out < nside_coverage)
         """
-
+        random.seed(12345)
         nside_coverage = 32
         nside_map = 256
         nside_out = 8
         pxnums = np.arange(2000)
-        pxvalues = np.random.randint(1, 5, size=2000)
-        weights = 0.5+0.5*np.random.random(size=2000).astype(np.float64)
-        for method in ['mean', 'std', 'max', 'mean', 'median', 'wmean',
-                       'sum', 'prod', 'and', 'or']:
-            if method == 'wmean':
-                wgt = weights
-            else:
+        pxvalues = random.randint(1, 5, size=2000)
+        weights = 0.5+0.5*random.random(size=2000).astype(np.float64)
+        methods = ['mean', 'std', 'max', 'mean', 'median', 'wmean', 'sum', 'prod', 'and', 'or']
+        for method in methods:
+            if method != 'wmean':
                 wgt = None
+                wgt2 = None
+            else:
+                wgt = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype=np.float64)
+                wgt2 = healsparse.HealSparseMap.make_empty(nside_out, nside_map, dtype=np.float64)
+                wgt[pxnums] = weights
+                wgt2[pxnums] = weights
             sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype=pxvalues.dtype)
             sparse_map2 = healsparse.HealSparseMap.make_empty(nside_out, nside_map, dtype=pxvalues.dtype)
             sparse_map.update_values_pix(pxnums, pxvalues)
             sparse_map2.update_values_pix(pxnums, pxvalues)
-            # Check that a warning is raised
-            # testing.assert_raises(ResourceWarning, sparse_map.degrade,
-            #                      nside_out, reduction=method, weights=weights)
-            with testing.assert_raises(ResourceWarning):
+            sparse_map2 = sparse_map2.degrade(nside_out, reduction=method, weights=wgt2)
+            with self.assertWarns(ResourceWarning):
                 sparse_map = sparse_map.degrade(nside_out, reduction=method, weights=wgt)
-                sparse_map2 = sparse_map2.degrade(nside_out, reduction=method, weights=wgt)
-                testing.assert_almost_equal(sparse_map.coverage_map, sparse_map2.coverage_map)
-                testing.assert_almost_equal(sparse_map._sparse_map, sparse_map2._sparse_map)
+            testing.assert_almost_equal(sparse_map.coverage_map, sparse_map2.coverage_map)
+            testing.assert_almost_equal(sparse_map._sparse_map, sparse_map2._sparse_map)
 
     def test_degrade_lowres_wide(self):
         """
@@ -618,14 +620,11 @@ class DegradeMapTestCase(unittest.TestCase):
 
             sparse_map.set_bits_pix(pixel, [4])
             sparse_map2.set_bits_pix(pixel, [4])
-            # Check that a warning is raised
-            # testing.assert_raises(ResourceWarning, sparse_map.degrade,
-            #                      nside_out, reduction=method, weights=weights)
-            with testing.assert_raises(ResourceWarning):
+            sparse_map2 = sparse_map2.degrade(nside_out, reduction=method)
+            with self.assertWarns(ResourceWarning):
                 sparse_map = sparse_map.degrade(nside_out, reduction=method)
-                sparse_map2 = sparse_map2.degrade(nside_out, reduction=method)
-                testing.assert_almost_equal(sparse_map.coverage_map, sparse_map2.coverage_map)
-                testing.assert_almost_equal(sparse_map._sparse_map, sparse_map2._sparse_map)
+            testing.assert_almost_equal(sparse_map.coverage_map, sparse_map2.coverage_map)
+            testing.assert_almost_equal(sparse_map._sparse_map, sparse_map2._sparse_map)
 
     def setUp(self):
         self.test_dir = None

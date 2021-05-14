@@ -7,6 +7,7 @@ from .healSparseCoverage import HealSparseCoverage
 from .utils import reduce_array, check_sentinel, _get_field_and_bitval, WIDE_NBIT, WIDE_MASK
 from .utils import is_integer_value, _compute_bitshift
 from .fits_shim import HealSparseFits, _make_header, _write_filename
+import warnings
 
 
 class HealSparseMap(object):
@@ -1465,41 +1466,6 @@ class HealSparseMap(object):
         else:
             return hp.pix2ang(self.nside_sparse, self.valid_pixels, lonlat=lonlat, nest=True)
 
-    def degrade(self, nside_out, reduction='mean', weights=None):
-        """
-        Method to reduce the resolution, i.e., increase the pixel size
-        of a given sparse map.
-
-        Parameters
-        ----------
-        nside_out : `int`
-           Output Nside resolution parameter.
-        reduction : `str`
-           Reduction method (mean, median, std, max, min, and, or, sum, prod, wmean).
-        weights : `healSparseMap`
-           If the reduction is `wmean` this is the map with the weights to use.
-           It should have the same characteristics as the original map.
-
-        Returns
-        -------
-        healSparseMap : `HealSparseMap`
-           New map, at the desired resolution.
-        """
-        if nside_out < self.nside_coverage:
-            # The way we do the reduction requires nside_out to be >= nside_coverage
-            # we allocate a new map with the required nside_out
-            # CAUTION: This may require a lot of memory!!
-            raise ResourceWarning("`nside_out` < `nside_coverage`. \
-                                  Allocating new map with nside_coverage=nside_out")
-            sparse_map_out = HealSparseMap.make_empty_like(self,
-                                                           nside_coverage=nside_out)
-            sparse_map_out.update_values_pix(self.valid_pixels,
-                                             self.get_values_pix(self.valid_pixels))
-            sparse_map_out = sparse_map_out._degrade(nside_out, reduction=reduction, weights=weights)
-        else:
-            sparse_map_out = self._degrade(nside_out, reduction=reduction, weights=weights)
-        return sparse_map_out
-
     def _degrade(self, nside_out, reduction='mean', weights=None):
         """
         Auxiliary method to reduce the resolution, i.e., increase the pixel size
@@ -1615,6 +1581,47 @@ class HealSparseMap(object):
                                                           self._cov_map._block_to_cov_index)
         return HealSparseMap(cov_map=new_cov_map, sparse_map=sparse_map_out,
                              nside_sparse=nside_out, primary=self._primary, sentinel=sentinel_out)
+
+    def degrade(self, nside_out, reduction='mean', weights=None):
+        """
+        Method to reduce the resolution, i.e., increase the pixel size
+        of a given sparse map.
+
+        Parameters
+        ----------
+        nside_out : `int`
+           Output Nside resolution parameter.
+        reduction : `str`
+           Reduction method (mean, median, std, max, min, and, or, sum, prod, wmean).
+        weights : `HealSparseMap`
+           If the reduction is `wmean` this is the map with the weights to use.
+           It should have the same characteristics as the original map.
+
+        Returns
+        -------
+        healSparseMap : `HealSparseMap`
+           New map, at the desired resolution.
+        """
+        if nside_out < self.nside_coverage:
+            # The way we do the reduction requires nside_out to be >= nside_coverage
+            # we allocate a new map with the required nside_out
+            # CAUTION: This may require a lot of memory!!
+            warnings.warn("`nside_out` < `nside_coverage`. \
+                            Allocating new map with nside_coverage=nside_out",
+                          ResourceWarning)
+            sparse_map_out = HealSparseMap.make_empty_like(self,
+                                                           nside_coverage=nside_out)
+            if weights is not None:
+                wgt_valid = weights.valid_pixels
+                _weights = HealSparseMap.make_empty_like(weights, nside_coverage=nside_out)
+                _weights[wgt_valid] = weights[wgt_valid]
+                weights = _weights
+            valid_pixels = self.valid_pixels
+            sparse_map_out[valid_pixels] = self[valid_pixels]
+            sparse_map_out = sparse_map_out._degrade(nside_out, reduction=reduction, weights=weights)
+        else:
+            sparse_map_out = self._degrade(nside_out, reduction=reduction, weights=weights)
+        return sparse_map_out
 
     def apply_mask(self, mask_map, mask_bits=None, mask_bit_arr=None, in_place=True):
         """
