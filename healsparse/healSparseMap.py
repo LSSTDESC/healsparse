@@ -1467,8 +1467,43 @@ class HealSparseMap(object):
 
     def degrade(self, nside_out, reduction='mean', weights=None):
         """
-        Reduce the resolution, i.e., increase the pixel size
+        Method to reduce the resolution, i.e., increase the pixel size
         of a given sparse map.
+
+        Parameters
+        ----------
+        nside_out : `int`
+           Output Nside resolution parameter.
+        reduction : `str`
+           Reduction method (mean, median, std, max, min, and, or, sum, prod, wmean).
+        weights : `healSparseMap`
+           If the reduction is `wmean` this is the map with the weights to use.
+           It should have the same characteristics as the original map.
+
+        Returns
+        -------
+        healSparseMap : `HealSparseMap`
+           New map, at the desired resolution.
+        """
+        if nside_out < self.nside_coverage:
+            # The way we do the reduction requires nside_out to be >= nside_coverage
+            # we allocate a new map with the required nside_out
+            # CAUTION: This may require a lot of memory!!
+            raise ResourceWarning("`nside_out` < `nside_coverage`. \
+                                  Allocating new map with nside_coverage=nside_out")
+            sparse_map_out = HealSparseMap.make_empty_like(self,
+                                                           nside_coverage=nside_out)
+            sparse_map_out.update_values_pix(self.valid_pixels,
+                                             self.get_values_pix(self.valid_pixels))
+            sparse_map_out = sparse_map_out._degrade(nside_out, reduction=reduction, weights=weights)
+        else:
+            sparse_map_out = self._degrade(nside_out, reduction=reduction, weights=weights)
+        return sparse_map_out
+
+    def _degrade(self, nside_out, reduction='mean', weights=None):
+        """
+        Auxiliary method to reduce the resolution, i.e., increase the pixel size
+        of a given sparse map (which is called by `degrade`).
 
         Parameters
         ----------

@@ -8,6 +8,7 @@ import os
 import shutil
 import healsparse
 from healsparse import WIDE_MASK
+import warnings
 
 
 class DegradeMapTestCase(unittest.TestCase):
@@ -536,6 +537,36 @@ class DegradeMapTestCase(unittest.TestCase):
         testing.assert_raises(NotImplementedError,
                               sparse_map.degrade, nside_out=nside_out, reduction='wmean',
                               weights=weights)
+
+    def test_degrade_lowres(self):
+        """
+        Test HealSparse.degrade in the case where the target resolution
+        is smaller than the original coverage resolution (nside_out < nside_coverage)
+        """
+
+        nside_coverage = 32
+        nside_map = 256
+        nside_out = 8
+        pxnums = np.arange(2000)
+        pxvalues = np.random.random(size=2000).astype(np.float64)
+        weights = 0.5+0.5*np.random.random(size=2000).astype(np.float64)
+        for method in ['mean', 'std', 'max', 'mean', 'median', 'wmean']:
+            if method == 'wmean':
+                wgt = weights
+            else:
+                wgt = None
+            sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype=np.float64)
+            sparse_map2 = healsparse.HealSparseMap.make_empty(nside_out, nside_map, dtype=np.float64)
+            sparse_map.update_values_pix(pxnums, pxvalues)
+            sparse_map2.update_values_pix(pxnums, pxvalues)
+            # Check that a warning is raised
+            # testing.assert_raises(ResourceWarning, sparse_map.degrade,
+            #                      nside_out, reduction=method, weights=weights)
+            with testing.assert_raises(ResourceWarning):
+                sparse_map = sparse_map.degrade(nside_out, reduction=method, weights=wgt)
+                sparse_map2 = sparse_map2.degrade(nside_out, reduction=method, weights=wgt)
+                testing.assert_almost_equal(sparse_map.coverage_map, sparse_map2.coverage_map)
+                testing.assert_almost_equal(sparse_map._sparse_map, sparse_map2._sparse_map)
 
     def setUp(self):
         self.test_dir = None
