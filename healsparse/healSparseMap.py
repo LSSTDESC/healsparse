@@ -1723,7 +1723,7 @@ class HealSparseMap(object):
         """
         Set part of a healpix map
         """
-        if isinstance(key, int):
+        if isinstance(key, numbers.Integral):
             # Set a single pixel
             return self.update_values_pix(np.array([key]), value)
         elif isinstance(key, slice):
