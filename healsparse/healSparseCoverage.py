@@ -77,7 +77,7 @@ class HealSparseCoverage(object):
            HealSparseCoverage from file
         """
         if nside_coverage >= 128:
-            warnings.warn('Using `nside_coverage` >= 128 may allocate large arrays in memory!') 
+            warnings.warn('Using `nside_coverage` >= 128 may allocate large arrays in memory!')
         bit_shift = _compute_bitshift(nside_coverage, nside_sparse)
         nfine_per_cov = 2**bit_shift
 
@@ -105,7 +105,7 @@ class HealSparseCoverage(object):
            HealSparseCoverage from file
         """
         if nside_coverage >= 128:
-            warnings.warn('Using `nside_coverage` >= 128 may allocate large arrays in memory!') 
+            warnings.warn('Using `nside_coverage` >= 128 may allocate large arrays in memory!')
         cov_map = cls.make_empty(nside_coverage, nside_sparse)
         cov_map.initialize_pixels(cov_pixels)
 
