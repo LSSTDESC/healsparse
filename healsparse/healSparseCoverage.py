@@ -1,5 +1,6 @@
 import numpy as np
 import healpy as hp
+import warnings
 
 from .utils import _compute_bitshift
 from .fits_shim import HealSparseFits
@@ -75,6 +76,8 @@ class HealSparseCoverage(object):
         healSparseCoverage : `HealSparseCoverage`
            HealSparseCoverage from file
         """
+        if nside_coverage >= 128:
+            warnings.warn('Using `nside_coverage` >= 128 may allocate large arrays in memory!') 
         bit_shift = _compute_bitshift(nside_coverage, nside_sparse)
         nfine_per_cov = 2**bit_shift
 
@@ -101,6 +104,8 @@ class HealSparseCoverage(object):
         healSparseCoverage : `HealSparseCoverage`
            HealSparseCoverage from file
         """
+        if nside_coverage >= 128:
+            warnings.warn('Using `nside_coverage` >= 128 may allocate large arrays in memory!') 
         cov_map = cls.make_empty(nside_coverage, nside_sparse)
         cov_map.initialize_pixels(cov_pixels)
 
