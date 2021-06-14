@@ -140,11 +140,11 @@ class CoverageMapTestCase(unittest.TestCase):
         values of nside_coverage
         """
 
-        nside_coverage = 128
+        nside_coverage = 256
         nside_map = 512
 
         # Generate sparse map and check that it rasises a warning
-        testing.assert_warns(UserWarning, healsparse.HealSparseMap.make_empty, nside_sparse=nside_map,
+        testing.assert_warns(ResourceWarning, healsparse.HealSparseMap.make_empty, nside_sparse=nside_map,
                              nside_coverage=nside_coverage, dtype=np.float32)
 
 
