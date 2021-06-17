@@ -53,13 +53,20 @@ class GenerateHealpixMapTestCase(unittest.TestCase):
         ra = np.random.random(n_rand) * 360.0
         dec = np.random.random(n_rand) * 180.0 - 90.0
         value = np.random.random(n_rand)
+
+        # Make sure our pixels are unique
+        ipnest = hp.ang2pix(nside_map, ra, dec, lonlat=True, nest=True)
+        _, uind = np.unique(ipnest, return_index=True)
+        ra = ra[uind]
+        dec = dec[uind]
+        value = value[uind]
+
         # Create empty healpix map
         healpix_map = np.zeros(hp.nside2npix(nside_map), dtype='f4') + hp.UNSEEN
         healpix_map2 = np.zeros(hp.nside2npix(nside_map), dtype='f8') + hp.UNSEEN
-        healpix_map[hp.ang2pix(nside_map, np.pi/2 - np.radians(dec),
-                               np.radians(ra), nest=True)] = value
-        healpix_map2[hp.ang2pix(nside_map, np.pi/2 - np.radians(dec),
-                                np.radians(ra), nest=True)] = value
+        healpix_map[hp.ang2pix(nside_map, ra, dec, lonlat=True, nest=True)] = value
+        healpix_map2[hp.ang2pix(nside_map, ra, dec, lonlat=True, nest=True)] = value
+
         # Create an empty map
         dtype = [('col1', 'f4'), ('col2', 'f8')]
 
