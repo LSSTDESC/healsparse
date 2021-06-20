@@ -24,6 +24,14 @@ _image_bitpix2npy = {
     -64: 'f8'}
 
 
+FITS_RESERVED = ['TFIELDS', 'TTYPE1', 'TFORM1', 'ZIMAGE',
+                 'ZTENSION', 'ZBITPIX', 'ZNAXIS', 'ZNAXIS1',
+                 'ZPCOUNT', 'ZGCOUNT', 'ZTILE1', 'ZCMPTYPE',
+                 'ZNAME1', 'ZVAL1', 'ZQUANTIZ',
+                 'SIMPLE', 'BITPIX', 'NAXIS', 'NAXIS1', 'NAXIS2',
+                 'PCOUNT', 'GCOUNT']
+
+
 class HealSparseFits(object):
     """
     Wrapper class to handle fitsio or astropy.io.fits
@@ -220,7 +228,8 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map,
 
     hdu = fits.PrimaryHDU(data=cov_index_map, header=fits.Header())
     for n in c_hdr:
-        hdu.header[n] = c_hdr[n]
+        if n not in FITS_RESERVED:
+            hdu.header[n] = c_hdr[n]
     hdu_list.append(hdu)
 
     if compress:
@@ -235,7 +244,8 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map,
             hdu = fits.ImageHDU(data=sparse_map, header=fits.Header())
 
     for n in s_hdr:
-        hdu.header[n] = s_hdr[n]
+        if n not in FITS_RESERVED:
+            hdu.header[n] = s_hdr[n]
     hdu_list.append(hdu)
 
     hdu_list.writeto(filename, overwrite=True)
