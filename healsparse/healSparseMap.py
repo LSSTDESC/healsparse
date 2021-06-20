@@ -771,16 +771,16 @@ class HealSparseMap(object):
         # Fill with blank values
         self._sparse_map[oldsize:] = self._sparse_map[0]
 
-    def update_values_pos(self, theta_or_ra, phi_or_dec, values,
+    def update_values_pos(self, ra_or_theta, dec_or_phi, values,
                           lonlat=True, operation='replace'):
         """
         Update the values in the sparsemap for a list of positions.
 
         Parameters
         ----------
-        theta_or_ra : `float`, array-like
+        ra_or_theta : `float`, array-like
            Angular coordinates of points on a sphere.
-        phi_or_dec : `float`, array-like
+        dec_or_phi : `float`, array-like
            Angular coordinates of points on a sphere.
         values : `np.ndarray`
            Value or Array of values.  Must be same type as sparse_map.
@@ -797,8 +797,8 @@ class HealSparseMap(object):
            positions and operation is 'replace'.
         """
         return self.update_values_pix(hp.ang2pix(self._nside_sparse,
-                                                 theta_or_ra,
-                                                 phi_or_dec,
+                                                 ra_or_theta,
+                                                 dec_or_phi,
                                                  lonlat=lonlat, nest=True),
                                       values,
                                       operation=operation)
@@ -1009,7 +1009,7 @@ class HealSparseMap(object):
         # A bit reset is performed with &= ~(bit1 | bit2)
         self.update_values_pix(pixels, ~value, nest=nest, operation='and')
 
-    def get_values_pos(self, theta_or_ra, phi_or_dec, lonlat=True, valid_mask=False):
+    def get_values_pos(self, ra_or_theta, dec_or_phi, lonlat=True, valid_mask=False):
         """
         Get the map value for the position.  Positions may be theta/phi
         co-latitude and longitude in radians, or longitude and latitude in
@@ -1017,9 +1017,9 @@ class HealSparseMap(object):
 
         Parameters
         ----------
-        theta_or_ra : `float`, array-like
+        ra_or_theta : `float`, array-like
            Angular coordinates of points on a sphere.
-        phi_or_dec : `float`, array-like
+        dec_or_phi : `float`, array-like
            Angular coordinates of points on a sphere.
         lonlat : `bool`, optional
            If True, input angles are longitude and latitude in degrees.
@@ -1032,7 +1032,7 @@ class HealSparseMap(object):
         values : `np.ndarray`
            Array of values/validity from the map.
         """
-        return self.get_values_pix(hp.ang2pix(self._nside_sparse, theta_or_ra, phi_or_dec,
+        return self.get_values_pix(hp.ang2pix(self._nside_sparse, ra_or_theta, dec_or_phi,
                                               lonlat=lonlat, nest=True),
                                    valid_mask=valid_mask)
 
@@ -1077,7 +1077,7 @@ class HealSparseMap(object):
             # Just return the values
             return values
 
-    def check_bits_pos(self, theta_or_ra, phi_or_dec, bits, lonlat=True):
+    def check_bits_pos(self, ra_or_theta, dec_or_phi, bits, lonlat=True):
         """
         Check the bits at the map for an array of positions.  Positions may be
         theta/phi co-latitude and longitude in radians, or longitude and
@@ -1085,9 +1085,9 @@ class HealSparseMap(object):
 
         Parameters
         ----------
-        theta_or_ra : `float`, array-like
+        ra_or_theta : `float`, array-like
            Angular coordinates of points on a sphere.
-        phi_or_dec : `float`, array-like
+        dec_or_phi : `float`, array-like
            Angular coordinates of points on a sphere.
         lonlat : `bool`, optional
            If True, input angles are longitude and latitude in degrees.
@@ -1102,7 +1102,7 @@ class HealSparseMap(object):
            set
         """
         return self.check_bits_pix(hp.ang2pix(self._nside_sparse,
-                                              theta_or_ra, phi_or_dec,
+                                              ra_or_theta, dec_or_phi,
                                               lonlat=lonlat, nest=True),
                                    bits)
 
