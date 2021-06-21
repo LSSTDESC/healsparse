@@ -209,21 +209,26 @@ class Circle(GeomBase):
         Parameters
         ----------
         ra: float
-            ra in degrees
+            ra in degrees (scalar-only)
         dec: float
-            dec in degrees
+            dec in degrees (scalar-only)
         radius: float
-            radius in degrees
+            radius in degrees (scalar-only)
         value: number
-            Value for pixels in the map
+            Value for pixels in the map (scalar or list of bits for `wide_mask`)
         """
-
         self._ra = ra
         self._dec = dec
         self._radius = radius
-        self._radius_rad = np.deg2rad(radius)
-        self._vec = hp.ang2vec(ra, dec, lonlat=True)
         self._value = value
+        sc_ra = np.isscalar(self._ra)
+        sc_dec = np.isscalar(self._dec)
+        sc_radius = np.isscalar(self._radius)
+        if (not sc_ra) or (not sc_dec) or (not sc_radius):
+            raise ValueError('Circle only accepts scalar inputs for ra, dec, and radius')
+        else:
+            self._radius_rad = np.deg2rad(radius)
+            self._vec = hp.ang2vec(ra, dec, lonlat=True)
 
     @property
     def ra(self):
@@ -292,7 +297,6 @@ class Polygon(GeomBase):
             raise ValueError('ra/dec different sizes')
         if ra.size < 3:
             raise ValueError('a polygon must have at least 3 vertices')
-
         self._ra = ra
         self._dec = dec
         self._vertices = hp.ang2vec(ra, dec, lonlat=True)

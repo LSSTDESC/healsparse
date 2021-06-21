@@ -178,6 +178,18 @@ class GeomTestCase(unittest.TestCase):
         testing.assert_array_equal(smap.valid_pixels, smap2.valid_pixels)
         testing.assert_array_equal(smap2.get_values_pix(smap2.valid_pixels), 2.0)
 
+    def test_bad_values(self):
+        """
+        test that we can only set Circles with scalars
+        and that the values should be either scalar or bits if the map is
+        a wide-mask
+        """
+        ra = [1., 2.]
+        dec = 1.
+        radius = 1.
+        value = 1.
+        testing.assert_raises(ValueError, Circle, ra=ra, dec=dec, radius=radius, value=value)
+
     def test_polygon_smoke(self):
         """
         just test we can make a polygon and a map from it
