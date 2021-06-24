@@ -223,3 +223,30 @@ These maps can be useful in conjunction with a degraded map to easily determine 
 
 In order to translate a :code:`fracdet_map` to lower resolution, the :code:`degrade()` method should be used with the default "mean" reduction operation.
 If one tries to compute the :code:`fracdet_map` of an existing :code:`fracdet_map` then you will not get the expected output, because this is the fractional coverage of the :code:`fracdet_map` itself, not of the original sparse map.
+
+
+Basic Visualization
+-------------------
+
+:code:`healsparse` does not provide any built-in visualization tools. However, it is possible to perform quick visualizations of a
+:code:`HealSparseMap` using the :code:`matplotlib` package. For example, we can take render our map as a collection of hexagonal
+cells using :code:`matplotlib.pyplot.hexbin`:
+
+.. code-block :: python
+
+    import healsparse
+    import matplotlib.pyplot as plt
+
+    nside_coverage = 32
+    nside_sparse = 4096
+
+    # Generation of the map
+    hsp_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse, np.float32)
+    idx = np.arange(2000, 3000)
+    hsp_map[idx] = 3.0
+
+    # Visualization of the map
+    vpix, ra, dec = hsp_map.valid_pixels_pos(return_pixels=True)
+    plt.hexbin(ra, dec, C=hsp_map[vpix])
+    plt.colorbar()
+    plt.show()
