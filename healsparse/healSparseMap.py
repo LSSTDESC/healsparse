@@ -823,7 +823,6 @@ class HealSparseMap(object):
         ValueError : Raised if positions do not resolve to unique
            positions and operation is 'replace'.
         """
-
         if operation != 'replace':
             if operation != 'or' and operation != 'and':
                 raise ValueError("Only replace, or, and and are supported operations")
@@ -832,8 +831,9 @@ class HealSparseMap(object):
 
         if operation == 'replace':
             # Check for unique pixel positions
-            if len(np.unique(pixels)) < len(pixels):
-                raise ValueError("List of pixels must be unique if operation='replace'")
+            if hasattr(pixels, "__len__"):
+                if len(np.unique(pixels)) < len(pixels):
+                    raise ValueError("List of pixels must be unique if operation='replace'")
 
         # If _not_ recarray, we can use a single int/float
         is_single_value = False
@@ -865,6 +865,13 @@ class HealSparseMap(object):
         # First, check if these are the same type
         if not is_single_value and not isinstance(_values, np.ndarray):
             raise ValueError("Values are not a numpy ndarray")
+
+        if hasattr(pixels, "__len__") and len(pixels) == 0:
+            if not is_single_value:
+                raise ValueError("Shape mismatch: cannot set an array of values "
+                                 "to a zero-length list of pixels.")
+            # Nothing to do
+            return
 
         if not nest:
             _pix = hp.ring2nest(self._nside_sparse, pixels)
@@ -1054,6 +1061,9 @@ class HealSparseMap(object):
         values : `np.ndarray`
            Array of values/validity from the map.
         """
+        if hasattr(pixels, "__len__") and len(pixels) == 0:
+            return np.array([], dtype=self.dtype)
+
         if not nest:
             _pix = hp.ring2nest(self._nside_sparse, pixels)
         else:
@@ -1768,12 +1778,15 @@ class HealSparseMap(object):
             return self.get_values_pix(np.arange(start, stop, step))
         elif isinstance(key, np.ndarray):
             # Make sure that it's integers
-            if not is_integer_value(key[0]):
+            test_value = np.zeros(1, key.dtype)[0]
+            if not is_integer_value(test_value):
                 raise IndexError("Numpy array indices must be integers for __getitem__")
             return self.get_values_pix(key)
         elif isinstance(key, list):
             # Make sure that it's integers
-            arr = np.array(key)
+            arr = np.atleast_1d(key)
+            if len(arr) == 0:
+                return np.array([], dtype=self.dtype)
             if not is_integer_value(arr[0]):
                 raise IndexError("List array indices must be integers for __getitem__")
             return self.get_values_pix(arr)
@@ -1796,12 +1809,13 @@ class HealSparseMap(object):
             return self.update_values_pix(np.arange(start, stop, step),
                                           value)
         elif isinstance(key, np.ndarray):
-            if not is_integer_value(key[0]):
+            test_value = np.zeros(1, key.dtype)[0]
+            if not is_integer_value(test_value):
                 raise IndexError("Numpy array indices must be integers for __setitem__")
             return self.update_values_pix(key, value)
         elif isinstance(key, list):
-            arr = np.array(key)
-            if not is_integer_value(arr[0]):
+            arr = np.atleast_1d(key)
+            if len(arr) > 0 and not is_integer_value(arr[0]):
                 raise IndexError("List/Tuple array indices must be integers for __setitem__")
             return self.update_values_pix(arr, value)
         else:
