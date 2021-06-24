@@ -244,7 +244,7 @@ cells using :code:`matplotlib.pyplot.hexbin`:
     hsp_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse, np.float32)
     idx = np.arange(2000, 6000)
     hsp_map[idx] = np.random.uniform(size=idx.size).astype(np.float32)
-    
+
     # Visualization of the map
     vpix, ra, dec = hsp_map.valid_pixels_pos(return_pixels=True)
     plt.hexbin(ra, dec, C=hsp_map[vpix])
