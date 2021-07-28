@@ -164,7 +164,7 @@ class HealSparseMap(object):
                     row = fits.read_ext_data(1, row_range=[0, 1])
                     dtype = row[0][0][0].dtype.type
 
-            healpix_map = hp.read_map(filename, nest=True, verbose=False, dtype=dtype)
+            healpix_map = hp.read_map(filename, nest=True, dtype=dtype)
             healsparse_map = cls(healpix_map=healpix_map, nside_coverage=nside_coverage, nest=True)
 
             if degrade_nside is not None:
