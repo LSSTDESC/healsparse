@@ -1531,6 +1531,21 @@ class HealSparseMap(object):
         else:
             return hp.pix2ang(self.nside_sparse, self.valid_pixels, lonlat=lonlat, nest=True)
 
+    def get_valid_area(self, degrees=False):
+        """
+        Get the area covered by valid pixels
+
+        Parameters
+        ----------
+        degrees : `bool` If True returns the area in degrees,
+        if False (default) it returns the area in sterradians
+
+        Returns
+        -------
+        valid_area : `float`
+        """
+        return len(self.valid_pixels)*hp.nside2pixarea(self._nside_sparse, degrees=degrees)
+
     def _degrade(self, nside_out, reduction='mean', weights=None):
         """
         Auxiliary method to reduce the resolution, i.e., increase the pixel size
