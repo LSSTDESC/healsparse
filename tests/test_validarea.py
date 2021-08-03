@@ -32,4 +32,5 @@ class ValidAreaTestCase(unittest.TestCase):
 
             # Fill up the maps
             sparse_map.update_values_pix(r_indices, np.ones(n_rand, dtype=dt))
-            testing.assert_equal(sparse_map.get_valid_area(), n_rand*hp.nside2pixarea(nside_map))
+            testing.assert_equal(sparse_map.get_valid_area(), n_rand*hp.nside2pixarea(nside_map,
+                                 degrees=True))

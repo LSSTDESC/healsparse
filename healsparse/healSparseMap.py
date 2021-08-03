@@ -1531,14 +1531,14 @@ class HealSparseMap(object):
         else:
             return hp.pix2ang(self.nside_sparse, self.valid_pixels, lonlat=lonlat, nest=True)
 
-    def get_valid_area(self, degrees=False):
+    def get_valid_area(self, degrees=True):
         """
         Get the area covered by valid pixels
 
         Parameters
         ----------
-        degrees : `bool` If True returns the area in degrees,
-        if False (default) it returns the area in sterradians
+        degrees : `bool` If True (default) returns the area in square degrees,
+        if False it returns the area in steradians
 
         Returns
         -------
