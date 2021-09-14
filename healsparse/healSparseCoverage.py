@@ -3,25 +3,26 @@ import healpy as hp
 import warnings
 
 from .utils import _compute_bitshift
-from .fits_shim import HealSparseFits
+from .io_coverage import _read_coverage
 
 
 class HealSparseCoverage(object):
     """
-    Class to define a HealSparseCoverage map
+    Class to define a HealSparseCoverage map.
+
+    Parameters
+    ----------
+    cov_index_map : `np.ndarray`
+        Coverage map with pixel indices.
+    nside_sparse : `int`
+        Healpix nside of the sparse map.
+
+    Returns
+    -------
+    cov_map : `HealSparseCoverage`
+        HealSparseCoverage map.
     """
-
     def __init__(self, cov_index_map, nside_sparse):
-        """
-        Instantiate a HealSparseCoverage map.
-
-        Parameters
-        ----------
-
-        Returns
-        -------
-        healSparseCoverage : `HealSparseCoverage`
-        """
         self._nside_coverage = hp.npix2nside(cov_index_map.size)
         self._nside_sparse = nside_sparse
         self._cov_index_map = cov_index_map
@@ -32,32 +33,21 @@ class HealSparseCoverage(object):
     @classmethod
     def read(cls, filename_or_fits):
         """
-        Read in HealSparseCoverage.
+        Read in a HealSparseCoverage map from a file.
 
         Parameters
         ----------
+        coverage_class : `type`
+            Type value of the HealSparseCoverage class.
+        filename_or_fits : `str` or `HealSparseFits`
+            Name of filename or already open `HealSparseFits` object.
 
         Returns
         -------
-        healSparseCoverage : `HealSparseCoverage`
-           HealSparseCoverage from file
+        cov_map : `HealSparseCoverage`
+            HealSparseCoverage map from file.
         """
-        if isinstance(filename_or_fits, str):
-            fits = HealSparseFits(filename_or_fits)
-        else:
-            fits = filename_or_fits
-
-        try:
-            cov_index_map = fits.read_ext_data('COV')
-        except (OSError, KeyError):
-            raise RuntimeError("File is not a HealSparseMap")
-
-        s_hdr = fits.read_ext_header('SPARSE')
-
-        if isinstance(filename_or_fits, str):
-            fits.close()
-
-        return cls(cov_index_map, s_hdr['NSIDE'])
+        return _read_coverage(cls, filename_or_fits)
 
     @classmethod
     def make_empty(cls, nside_coverage, nside_sparse):
