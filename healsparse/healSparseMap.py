@@ -328,7 +328,7 @@ class HealSparseMap(object):
 
     def write(self, filename, clobber=False, nocompress=False, format='fits'):
         """
-        Write heal HealSparseMap to filename.  Use the `metadata` property from
+        Write a HealSparseMap to a file.  Use the `metadata` property from
         the map to persist additional information in the fits header.
 
         Parameters
@@ -343,6 +343,10 @@ class HealSparseMap(object):
             This option only applies if format='fits'.
         format : `str`, optional
             File format.  Currently only 'fits' is supported.
+
+        Raises
+        ------
+        NotImplementedError if file format is not supported.
         """
         _write_map(self, filename, clobber=clobber, nocompress=nocompress, format=format)
 

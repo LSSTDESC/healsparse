@@ -8,20 +8,21 @@ from .io_coverage import _read_coverage
 
 class HealSparseCoverage(object):
     """
-    Class to define a HealSparseCoverage map
+    Class to define a HealSparseCoverage map.
+
+    Parameters
+    ----------
+    cov_index_map : `np.ndarray`
+        Coverage map with pixel indices.
+    nside_sparse : `int`
+        Healpix nside of the sparse map.
+
+    Returns
+    -------
+    cov_map : `HealSparseCoverage`
+        HealSparseCoverage map.
     """
-
     def __init__(self, cov_index_map, nside_sparse):
-        """
-        Instantiate a HealSparseCoverage map.
-
-        Parameters
-        ----------
-
-        Returns
-        -------
-        healSparseCoverage : `HealSparseCoverage`
-        """
         self._nside_coverage = hp.npix2nside(cov_index_map.size)
         self._nside_sparse = nside_sparse
         self._cov_index_map = cov_index_map
@@ -32,15 +33,19 @@ class HealSparseCoverage(object):
     @classmethod
     def read(cls, filename_or_fits):
         """
-        Read in HealSparseCoverage.
+        Read in a HealSparseCoverage map from a file.
 
         Parameters
         ----------
+        coverage_class : `type`
+            Type value of the HealSparseCoverage class.
+        filename_or_fits : `str` or `HealSparseFits`
+            Name of filename or already open `HealSparseFits` object.
 
         Returns
         -------
-        healSparseCoverage : `HealSparseCoverage`
-           HealSparseCoverage from file
+        cov_map : `HealSparseCoverage`
+            HealSparseCoverage map from file.
         """
         return _read_coverage(cls, filename_or_fits)
 

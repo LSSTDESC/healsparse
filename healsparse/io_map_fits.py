@@ -9,6 +9,40 @@ from .healSparseCoverage import HealSparseCoverage
 
 def _read_map_fits(healsparse_class, filename, nside_coverage=None, pixels=None, header=False,
                    degrade_nside=None, weightfile=None, reduction='mean'):
+    """
+    Internal function to read in a HealSparseMap from a fits file.
+
+    Parameters
+    ----------
+    healsparse_class : `type`
+        Type value of the HealSparseMap class.
+    filename : `str`
+        Name of the file to read.  May be either a regular HEALPIX
+        map or a HealSparseMap
+    nside_coverage : `int`, optional
+        Nside of coverage map to generate if input file is healpix map.
+    pixels : `list`, optional
+        List of coverage map pixels to read.  Only used if input file
+        is a HealSparseMap
+    header : `bool`, optional
+        Return the fits header metadata as well as map?  Default is False.
+    degrade_nside : `int`, optional
+        Degrade map to this nside on read.  None means leave as-is.
+    weightfile : `str`, optional
+        Floating-point map to supply weights for degrade wmean.  Must
+        be a HealSparseMap (weighted degrade not supported for
+        healpix degrade-on-read).
+    reduction : `str`, optional
+        Reduction method with degrade-on-read.
+        (mean, median, std, max, min, and, or, sum, prod, wmean).
+
+    Returns
+    -------
+    healSparseMap : `HealSparseMap`
+        HealSparseMap from file, covered by pixels
+    header : `fitsio.FITSHDR` or `astropy.io.fits` (if header=True)
+        Fits header for the map file.
+    """
     with HealSparseFits(filename) as fits:
         hdr = fits.read_ext_header(1)
 
@@ -79,22 +113,22 @@ def _read_healsparse_fits_file(filename, pixels=None):
     Parameters
     ----------
     filename : `str`
-       Name of the file to read.
+        Name of the file to read.
     pixels : `list`, optional
-       List of integer pixels from the coverage map
+        List of integer pixels from the coverage map
 
     Returns
     -------
     cov_map : `HealSparseCoverage`
-       Coverage map with index values
+        Coverage map with index values
     sparse_map : `np.ndarray`
-       Sparse map with map dtype
+        Sparse map with map dtype
     nside_sparse : `int`
-       Nside of the coverage map
+        Nside of the coverage map
     primary : `str`
-       Primary key field for recarray map.  Default is None.
+        Primary key field for recarray map.  Default is None.
     sentinel : `float` or `int`
-       Sentinel value for null.  Usually hp.UNSEEN
+        Sentinel value for null.  Usually hp.UNSEEN
     """
     cov_map = HealSparseCoverage.read(filename)
     primary = None
@@ -182,16 +216,16 @@ def _read_healsparse_fits_file_and_degrade(filename, pixels, nside_out, reductio
     Parameters
     ----------
     filename : `str`
-       Name of the file to read.
+        Name of the file to read.
     pixels : `list`
-       List of integer pixels from the coverage map.  May be None (full map).
+        List of integer pixels from the coverage map.  May be None (full map).
     nside_out : `int`
-       Degrade map to this nside on read.
+        Degrade map to this nside on read.
     reduction : `str`
-       Reduction method with degrade-on-read.
-       (mean, median, std, max, min, and, or, sum, prod, wmean).
+        Reduction method with degrade-on-read.
+        (mean, median, std, max, min, and, or, sum, prod, wmean).
     weightfile : `str`
-       File containing weights.  May be None (no weights).
+        File containing weights.  May be None (no weights).
 
     Returns
     -------
@@ -386,6 +420,30 @@ def _read_healsparse_fits_file_and_degrade(filename, pixels, nside_out, reductio
 
 
 def _write_map_fits(hsp_map, filename, clobber=False, nocompress=False):
+    """
+    Internal method to write a HealSparseMap to a fits file.
+    Use the `metadata` property from the map to persist additional
+    information in the fits header.
+
+    Parameters
+    ----------
+    hsp_map : `HealSparseMap`
+        HealSparseMap to write to a file.
+    filename : `str`
+        Name of file to save
+    clobber : `bool`, optional
+        Clobber existing file?  Default is False.
+    nocompress : `bool`, optional
+        If this is False, then integer maps will be compressed losslessly.
+        Note that `np.int64` maps cannot be compressed in the FITS standard.
+        This option only applies if format='fits'.
+    format : `str`, optional
+        File format.  Currently only 'fits' is supported.
+
+    Raises
+    ------
+    RuntimeError if file exists and clobber is False.
+    """
     if os.path.isfile(filename) and not clobber:
         raise RuntimeError("Filename %s exists and clobber is False." % (filename))
 
