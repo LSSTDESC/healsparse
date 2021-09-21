@@ -12,10 +12,10 @@ import os
 import healsparse
 
 
-class IoTestCase(unittest.TestCase):
-    def test_writeread(self):
+class FitsIoTestCase(unittest.TestCase):
+    def test_fits_writeread(self):
         """
-        Test i/o functionality
+        Test fits i/o functionality
         """
         random.seed(seed=12345)
 
@@ -106,9 +106,9 @@ class IoTestCase(unittest.TestCase):
                                                         pixels=np.arange(hp.nside2npix(nside_coverage)))
         testing.assert_almost_equal(sparse_map_full.get_values_pix(ipnest), test_values)
 
-    def test_read_outoforder(self):
+    def test_fits_read_outoforder(self):
         """
-        Test reading maps that have been written with out-of-order pixels
+        Test reading fits maps that have been written with out-of-order pixels
         """
         random.seed(seed=12345)
 
@@ -162,9 +162,9 @@ class IoTestCase(unittest.TestCase):
 
         testing.assert_almost_equal(sparse_map_small.get_values_pix(ipnest), test_values_small)
 
-    def test_writeread_withheader(self):
+    def test_fits_writeread_withheader(self):
         """
-        Test i/o functionality with a header
+        Test fits i/o functionality with a header
         """
         random.seed(seed=12345)
 
@@ -191,9 +191,9 @@ class IoTestCase(unittest.TestCase):
 
         self.assertEqual(hdr['TESTING'], ret_hdr['TESTING'])
 
-    def test_writeread_highres(self):
+    def test_fits_writeread_highres(self):
         """
-        Test i/o functionality at very high resolution
+        Test fits i/o functionality at very high resolution
         """
         random.seed(seed=12345)
 
@@ -228,9 +228,9 @@ class IoTestCase(unittest.TestCase):
         testing.assert_array_equal(valid_pixels2, pixels)
         testing.assert_array_equal(sparse_map2.get_values_pix(valid_pixels2), values)
 
-    def test_write_compression_int(self):
+    def test_fits_write_compression_int(self):
         """
-        Test writing integer maps with and without compression
+        Test fits writing integer maps with and without compression
         """
         self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
 
@@ -271,9 +271,9 @@ class IoTestCase(unittest.TestCase):
             testing.assert_array_equal(sparse_map[0: 10],
                                        sparse_map_in_comp[0: 10])
 
-    def test_write_compression_float(self):
+    def test_fits_write_compression_float(self):
         """
-        Test writing floating point maps with and without compression
+        Test fits writing floating point maps with and without compression
         """
         self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
 

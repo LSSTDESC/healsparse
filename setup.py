@@ -18,6 +18,7 @@ setup(
     author_email='erykoff@stanford.edu',
     url='https://github.com/lsstdesc/healsparse',
     install_requires=['numpy', 'healpy', 'astropy'],
+    extras_require={'parquet': ['pyarrow>=5.0.0']},
     use_scm_version=True,
     setup_requires=['setuptools_scm', 'setuptools_scm_git_archive'],
 )

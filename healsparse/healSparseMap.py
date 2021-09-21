@@ -326,7 +326,7 @@ class HealSparseMap(object):
 
         return cov_map, sparse_map
 
-    def write(self, filename, clobber=False, nocompress=False, format='fits'):
+    def write(self, filename, clobber=False, nocompress=False, format='fits', nside_io=4):
         """
         Write a HealSparseMap to a file.  Use the `metadata` property from
         the map to persist additional information in the fits header.
@@ -341,6 +341,9 @@ class HealSparseMap(object):
             If this is False, then integer maps will be compressed losslessly.
             Note that `np.int64` maps cannot be compressed in the FITS standard.
             This option only applies if format='fits'.
+        nside_io : `int`, optional
+            The healpix nside to partition the output map files in parquet.
+            This option only applies if format='parquet'.
         format : `str`, optional
             File format.  Currently only 'fits' is supported.
 
@@ -348,7 +351,8 @@ class HealSparseMap(object):
         ------
         NotImplementedError if file format is not supported.
         """
-        _write_map(self, filename, clobber=clobber, nocompress=nocompress, format=format)
+        _write_map(self, filename, clobber=clobber, nocompress=nocompress, format=format,
+                   nside_io=nside_io)
 
     def _reserve_cov_pix(self, new_cov_pix):
         """
