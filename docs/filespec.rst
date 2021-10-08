@@ -207,7 +207,7 @@ Parquet Coverage Map
 
 The coverage map is a Parquet file with the name :code:`_coverage.parquet`, stored in the dataset directory.
 The coverage map has two columns:
-* :code:`cov_pix`: Valid coverage pixeld (:code:`nside = nside_coverage`) for the sparse map.
+* :code:`cov_pix`: Valid coverage pixels (:code:`nside = nside_coverage`) for the sparse map.
 * :code:`row_group`: The row group index within the appropriate i/o pixel file to find the sparse data for the given coverage map.
 
 Parquet Map Files
@@ -241,7 +241,7 @@ Instead, on read this is filled in with the :code:`sentinel` value from the Parq
 **Sparse Map Wide Mask**
 
 If the sparse map is a wide mask map, the schema is the same as for a regular sparse map image.
-In this case, as with the FITS serialization, the sparse map is stored as a flattened version of the in-memry :code:`wide_mask_width * npix` array.
+In this case, as with the FITS serialization, the sparse map is stored as a flattened version of the in-memory :code:`wide_mask_width * npix` array.
 This means that there will be :code:`wide_mask_width * nfine_per_cov` rows per row group in each wide mask Parquet file.
 
 **Sparse Map Table**

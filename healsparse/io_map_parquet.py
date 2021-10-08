@@ -19,7 +19,8 @@ except ImportError:
 
 
 def _read_map_parquet(healsparse_class, filepath, pixels=None, header=False,
-                      degrade_nside=None, weightfile=None, reduction='mean'):
+                      degrade_nside=None, weightfile=None, reduction='mean',
+                      use_threads=False):
     """
     Internal function to read in a HealSparseMap from a parquet dataset.
 
@@ -45,6 +46,8 @@ def _read_map_parquet(healsparse_class, filepath, pixels=None, header=False,
         Reduction method with degrade-on-read.
         (mean, median, std, max, min, and, or, sum, prod, wmean).
         Not yet implemented for parquet.
+    use_threads : `bool`, optional
+        Use multithreaded reading.
 
     Returns
     -------
@@ -74,7 +77,7 @@ def _read_map_parquet(healsparse_class, filepath, pixels=None, header=False,
     nside_io = int(md['healsparse::nside_io'])
     bitshift_io = _compute_bitshift(nside_io, nside_coverage)
 
-    cov_tab = parquet.read_table(cov_fname, use_threads=False)
+    cov_tab = parquet.read_table(cov_fname, use_threads=use_threads)
     cov_pixels = cov_tab['cov_pix'].to_numpy()
     row_groups = cov_tab['row_group'].to_numpy()
 
@@ -148,7 +151,7 @@ def _read_map_parquet(healsparse_class, filepath, pixels=None, header=False,
 
     if _pixels_io is None:
         # Read the full table
-        tab = ds.to_table(columns=columns, use_threads=False)
+        tab = ds.to_table(columns=columns, use_threads=use_threads)
     else:
         _pixels_io_unique = list(np.unique(_pixels_io))
 
@@ -162,7 +165,7 @@ def _read_map_parquet(healsparse_class, filepath, pixels=None, header=False,
                 group_fragments.append(groups[_row_groups_io[ind]])
 
         ds2 = dataset.FileSystemDataset(group_fragments, schema, ds.format)
-        tab = ds2.to_table(columns=columns, use_threads=False)
+        tab = ds2.to_table(columns=columns, use_threads=use_threads)
 
     if is_rec_array:
         for name in columns:
@@ -204,13 +207,24 @@ def _write_map_parquet(hsp_map, filepath, clobber=False, nside_io=4):
         Name of dataset to save
     clobber : `bool`, optional
         Clobber existing file?  Not supported.
+    nside_io : `int`, optional
+        The healpix nside to partition the output map files in parquet.
+        Must be less than or equal to nside_coverage, and not greater than 16.
 
     Raises
     ------
     RuntimeError if file exists.
+    ValueError if nside_io is out of range.
     """
     if os.path.isfile(filepath) or os.path.isdir(filepath):
         raise RuntimeError("Filepath %s exists and clobber is not supported." % (filepath))
+
+    if nside_io > hsp_map.nside_coverage:
+        raise ValueError("nside_io must be <= nside_coverage.")
+    elif nside_io > 16:
+        raise ValueError("nside_io must be <= 16")
+    elif nside_io < 0:
+        raise ValueError("nside_io must be >= 0")
 
     # Make the path
     os.makedirs(filepath)

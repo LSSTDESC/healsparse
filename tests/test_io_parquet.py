@@ -202,6 +202,41 @@ class ParquetIoTestCase(unittest.TestCase):
         testing.assert_array_equal(valid_pixels2, pixels)
         testing.assert_array_equal(sparse_map2.get_values_pix(valid_pixels2), values)
 
+    def test_write_bad_nside_io(self):
+        """
+        Test raising when trying to write with bad nside_io values.
+        """
+        random.seed(seed=12345)
+
+        nside_coverage = 8
+        nside_map = 64
+
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        # Generate a random map
+
+        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map[0: 20000] = np.random.random(size=20000)
+
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage,
+                                                         nside_map,
+                                                         full_map.dtype)
+        u, = np.where(full_map > hp.UNSEEN)
+        sparse_map[u] = full_map[u]
+
+        fname = os.path.join(self.test_dir, 'healsparse_map.hsparquet')
+
+        # This nside_io is larger than the nside_coverage
+        self.assertRaises(ValueError, sparse_map.write, fname,
+                          format='parquet', nside_io=16)
+
+        sparse_map2 = healsparse.HealSparseMap.make_empty(64, nside_map, full_map.dtype)
+        sparse_map2[u] = full_map[u]
+
+        # This nside_io is larger than 16
+        self.assertRaises(ValueError, sparse_map2.write, fname,
+                          format='parquet', nside_io=32)
+
     def setUp(self):
         self.test_dir = None
 

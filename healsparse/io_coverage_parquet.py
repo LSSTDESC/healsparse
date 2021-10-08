@@ -9,7 +9,7 @@ except ImportError:
     pass
 
 
-def _read_coverage_parquet(coverage_class, filepath):
+def _read_coverage_parquet(coverage_class, filepath, use_threads=False):
     """
     Internal method to read in a HealSparseCoverage map from
     a parquet dataset.
@@ -20,6 +20,9 @@ def _read_coverage_parquet(coverage_class, filepath):
         Type value of the HealSparseCoverage class.
     filepath : `str`
         Name of filepath.
+    use_threads : `bool`
+        Use multithreaded reading.  This should not be necessary
+        with coverage maps.
 
     Returns
     -------
@@ -41,7 +44,7 @@ def _read_coverage_parquet(coverage_class, filepath):
     nside_sparse = int(md['healsparse::nside_sparse'])
     nside_coverage = int(md['healsparse::nside_coverage'])
 
-    cov_tab = parquet.read_table(cov_fname, use_threads=False, columns=['cov_pix'])
+    cov_tab = parquet.read_table(cov_fname, use_threads=use_threads, columns=['cov_pix'])
     cov_pixels = cov_tab['cov_pix'].to_numpy()
 
     cov_map = coverage_class.make_from_pixels(nside_coverage, nside_sparse, cov_pixels)

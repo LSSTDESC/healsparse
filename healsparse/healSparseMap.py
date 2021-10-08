@@ -106,7 +106,8 @@ class HealSparseMap(object):
 
     @classmethod
     def read(cls, filename, nside_coverage=None, pixels=None, header=False,
-             degrade_nside=None, weightfile=None, reduction='mean'):
+             degrade_nside=None, weightfile=None, reduction='mean',
+             use_threads=False):
         """
         Read in a HealSparseMap.
 
@@ -124,13 +125,18 @@ class HealSparseMap(object):
            Return the fits header metadata as well as map?  Default is False.
         degrade_nside : `int`, optional
            Degrade map to this nside on read.  None means leave as-is.
+           Not yet implemented for parquet files.
         weightfile : `str`, optional
            Floating-point map to supply weights for degrade wmean.  Must
            be a HealSparseMap (weighted degrade not supported for
            healpix degrade-on-read).
+           Not yet implemented for parquet files.
         reduction : `str`, optional
            Reduction method with degrade-on-read.
            (mean, median, std, max, min, and, or, sum, prod, wmean).
+           Not yet implemented for parquet files.
+        use_threads : `bool`, optional
+           Use multithreaded reading for parquet files.
 
         Returns
         -------
@@ -141,7 +147,7 @@ class HealSparseMap(object):
         """
         return _read_map(cls, filename, nside_coverage=nside_coverage, pixels=pixels,
                          header=header, degrade_nside=degrade_nside,
-                         weightfile=weightfile, reduction=reduction)
+                         weightfile=weightfile, reduction=reduction, use_threads=use_threads)
 
     @classmethod
     def make_empty(cls, nside_coverage, nside_sparse, dtype, primary=None, sentinel=None,
@@ -343,6 +349,7 @@ class HealSparseMap(object):
             This option only applies if format='fits'.
         nside_io : `int`, optional
             The healpix nside to partition the output map files in parquet.
+            Must be less than or equal to nside_coverage, and not greater than 16.
             This option only applies if format='parquet'.
         format : `str`, optional
             File format.  Currently only 'fits' is supported.
@@ -350,6 +357,7 @@ class HealSparseMap(object):
         Raises
         ------
         NotImplementedError if file format is not supported.
+        ValueError if nside_io is out of range.
         """
         _write_map(self, filename, clobber=clobber, nocompress=nocompress, format=format,
                    nside_io=nside_io)

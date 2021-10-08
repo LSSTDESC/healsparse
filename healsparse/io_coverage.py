@@ -4,7 +4,7 @@ from .io_coverage_parquet import _read_coverage_parquet
 from .parquet_shim import check_parquet_dataset
 
 
-def _read_coverage(coverage_class, filename_or_fits):
+def _read_coverage(coverage_class, filename_or_fits, use_threads=False):
     """
     Internal method to read in a HealSparseCoverage map and check
     file format.
@@ -16,6 +16,9 @@ def _read_coverage(coverage_class, filename_or_fits):
     filename_or_fits : `str` or `HealSparseFits`
         Name of fits/parquet filename or already open `HealSparseFits`
         object.
+    use_threads : `bool`
+        Use multithreaded reading for parquet files.  This should not
+        be necessary with coverage maps.
 
     Returns
     -------
@@ -43,6 +46,6 @@ def _read_coverage(coverage_class, filename_or_fits):
     if is_fits:
         return _read_coverage_fits(coverage_class, filename_or_fits)
     elif is_parquet_file:
-        return _read_coverage_parquet(coverage_class, filename_or_fits)
+        return _read_coverage_parquet(coverage_class, filename_or_fits, use_threads=use_threads)
     else:
         raise NotImplementedError("HealSparse only supports fits and parquet files.")

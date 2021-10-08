@@ -5,7 +5,7 @@ from .io_map_parquet import _read_map_parquet, _write_map_parquet
 
 
 def _read_map(healsparse_class, filename, nside_coverage=None, pixels=None, header=False,
-              degrade_nside=None, weightfile=None, reduction='mean'):
+              degrade_nside=None, weightfile=None, reduction='mean', use_threads=False):
     """
     Internal function to check the map filetype and read in a HealSparseMap.
 
@@ -32,6 +32,8 @@ def _read_map(healsparse_class, filename, nside_coverage=None, pixels=None, head
     reduction : `str`, optional
         Reduction method with degrade-on-read.
         (mean, median, std, max, min, and, or, sum, prod, wmean).
+    use_threads : `bool`, optional
+        Use multithreaded reading for parquet files.
 
     Returns
     -------
@@ -60,7 +62,8 @@ def _read_map(healsparse_class, filename, nside_coverage=None, pixels=None, head
     elif is_parquet_file:
         return _read_map_parquet(healsparse_class, filename,
                                  pixels=pixels, header=header, degrade_nside=degrade_nside,
-                                 weightfile=weightfile, reduction=reduction)
+                                 weightfile=weightfile, reduction=reduction,
+                                 use_threads=use_threads)
     else:
         raise NotImplementedError("HealSparse only supports fits and parquet files (with pyarrow)."
                                   % (filename))
@@ -87,12 +90,14 @@ def _write_map(hsp_map, filename, clobber=False, nocompress=False, format='fits'
     nside_io : `int`, optional
         The healpix nside to partition the output map files in parquet.
         This option only applies if format='parquet'.
+        Must be less than or equal to nside_coverage, and not greater than 16.
     format : `str`, optional
         File format.  May be 'fits' or 'parquet'.
 
     Raises
     ------
     NotImplementedError if file format is not supported.
+    ValueError if nside_io is out of range.
     """
     if format == 'fits':
         _write_map_fits(hsp_map, filename, clobber=clobber, nocompress=nocompress)
