@@ -40,7 +40,7 @@ def _read_map_fits(healsparse_class, filename, nside_coverage=None, pixels=None,
     -------
     healSparseMap : `HealSparseMap`
         HealSparseMap from file, covered by pixels
-    header : `fitsio.FITSHDR` or `astropy.io.fits` (if header=True)
+    header : `astropy.io.fits.Header` (if header=True)
         Fits header for the map file.
     """
     with HealSparseFits(filename) as fits:
@@ -437,8 +437,6 @@ def _write_map_fits(hsp_map, filename, clobber=False, nocompress=False):
         If this is False, then integer maps will be compressed losslessly.
         Note that `np.int64` maps cannot be compressed in the FITS standard.
         This option only applies if format='fits'.
-    format : `str`, optional
-        File format.  Currently only 'fits' is supported.
 
     Raises
     ------

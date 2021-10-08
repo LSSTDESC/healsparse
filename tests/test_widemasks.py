@@ -6,6 +6,7 @@ from numpy import random
 import tempfile
 import os
 import shutil
+import pytest
 
 import healsparse
 from healsparse import WIDE_MASK
@@ -111,9 +112,9 @@ class WideMasksTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [20]), True)
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [21]), False)
 
-    def test_wide_mask_map_io(self):
+    def test_wide_mask_map_fits_io(self):
         """
-        Test i/o with wide mask maps.
+        Test fits i/o with wide mask maps.
         """
         random.seed(seed=12345)
 
@@ -207,9 +208,106 @@ class WideMasksTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map_in_partial.check_bits_pix(pixel_sub, [4]), False)
         testing.assert_array_equal(sparse_map_in_partial.check_bits_pix(pixel_sub, [12]), False)
 
-    def test_wide_mask_map_io_compression(self):
+    @pytest.mark.skipif(not healsparse.parquet_shim.use_pyarrow, reason='Requires pyarrow')
+    def test_wide_mask_map_parquet_io(self):
         """
-        Test wide mask io with and without compression.
+        Test parquet i/o with wide mask maps.
+        """
+        random.seed(seed=12345)
+
+        nside_coverage = 32
+        nside_map = 64
+
+        n_rand = 1000
+        ra = np.random.random(n_rand) * 360.0
+        dec = np.random.random(n_rand) * 180.0 - 90.0
+
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        # Test with single-wide
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
+                                                         WIDE_MASK, wide_mask_maxbits=8)
+        pixel = np.arange(4000, 20000)
+        sparse_map.set_bits_pix(pixel, [5])
+
+        fname = os.path.join(self.test_dir, 'healsparse_map.hsparquet')
+        sparse_map.write(fname, format='parquet')
+        sparse_map_in = healsparse.HealSparseMap.read(fname)
+
+        self.assertTrue(sparse_map_in.is_wide_mask_map)
+        self.assertEqual(sparse_map_in.wide_mask_maxbits, 8)
+        self.assertEqual(sparse_map_in._sparse_map.shape[1], 1)
+        self.assertEqual(sparse_map_in._wide_mask_width, 1)
+        self.assertEqual(sparse_map_in._sentinel, 0)
+
+        testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [5]), True)
+        testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [7]), False)
+        testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [5, 7]), True)
+
+        pospix = hp.ang2pix(nside_map, ra, dec, lonlat=True, nest=True)
+        inds = np.searchsorted(pixel, pospix)
+        b, = np.where((inds > 0) & (inds < pixel.size))
+        comp_arr = np.zeros(pospix.size, dtype=np.bool_)
+        comp_arr[b] = True
+        testing.assert_array_equal(sparse_map_in.check_bits_pos(ra, dec, [5], lonlat=True), comp_arr)
+
+        # And read a partial map
+        sparse_map_in_partial = healsparse.HealSparseMap.read(fname, pixels=[1000, 1002])
+
+        self.assertTrue(sparse_map_in_partial.is_wide_mask_map)
+        self.assertEqual(sparse_map_in_partial.wide_mask_maxbits, 8)
+        self.assertEqual(sparse_map_in_partial._sparse_map.shape[1], 1)
+        self.assertEqual(sparse_map_in_partial._wide_mask_width, 1)
+        self.assertEqual(sparse_map_in_partial._sentinel, 0)
+
+        cov_pixels = sparse_map._cov_map.cov_pixels(pixel)
+        pixel_sub = pixel[(cov_pixels == 1000) | (cov_pixels == 1002)]
+
+        testing.assert_array_equal(sparse_map_in_partial.check_bits_pix(pixel_sub, [5]), True)
+        testing.assert_array_equal(sparse_map_in_partial.check_bits_pix(pixel_sub, [7]), False)
+        testing.assert_array_equal(sparse_map_in_partial.check_bits_pix(pixel_sub, [5, 7]), True)
+
+        # Test with double-wide
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
+                                                         WIDE_MASK, wide_mask_maxbits=16)
+        pixel = np.arange(4000, 20000)
+        sparse_map.set_bits_pix(pixel, [5, 10])
+
+        fname = os.path.join(self.test_dir, 'healsparse_map2.hsparquet')
+        sparse_map.write(fname, format='parquet')
+        sparse_map_in = healsparse.HealSparseMap.read(fname)
+
+        self.assertTrue(sparse_map_in.is_wide_mask_map)
+        self.assertEqual(sparse_map_in.wide_mask_maxbits, 16)
+        self.assertEqual(sparse_map_in._sparse_map.shape[1], 2)
+        self.assertEqual(sparse_map_in._wide_mask_width, 2)
+        self.assertEqual(sparse_map_in._sentinel, 0)
+
+        testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [5]), True)
+        testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [10]), True)
+        testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [4]), False)
+        testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [12]), False)
+
+        # And read a partial double-wide map
+        sparse_map_in_partial = healsparse.HealSparseMap.read(fname, pixels=[1000, 1002])
+
+        self.assertTrue(sparse_map_in_partial.is_wide_mask_map)
+        self.assertEqual(sparse_map_in_partial.wide_mask_maxbits, 16)
+        self.assertEqual(sparse_map_in_partial._sparse_map.shape[1], 2)
+        self.assertEqual(sparse_map_in_partial._wide_mask_width, 2)
+        self.assertEqual(sparse_map_in_partial._sentinel, 0)
+
+        cov_pixels = sparse_map._cov_map.cov_pixels(pixel)
+        pixel_sub = pixel[(cov_pixels == 1000) | (cov_pixels == 1002)]
+
+        testing.assert_array_equal(sparse_map_in_partial.check_bits_pix(pixel_sub, [5]), True)
+        testing.assert_array_equal(sparse_map_in_partial.check_bits_pix(pixel_sub, [10]), True)
+        testing.assert_array_equal(sparse_map_in_partial.check_bits_pix(pixel_sub, [4]), False)
+        testing.assert_array_equal(sparse_map_in_partial.check_bits_pix(pixel_sub, [12]), False)
+
+    def test_wide_mask_map_fits_io_compression(self):
+        """
+        Test wide mask fits io with and without compression.
         """
         nside_coverage = 32
         nside_map = 4096

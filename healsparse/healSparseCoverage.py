@@ -31,7 +31,7 @@ class HealSparseCoverage(object):
         self._compute_block_to_cov_index()
 
     @classmethod
-    def read(cls, filename_or_fits):
+    def read(cls, filename_or_fits, use_threads=False):
         """
         Read in a HealSparseCoverage map from a file.
 
@@ -41,13 +41,16 @@ class HealSparseCoverage(object):
             Type value of the HealSparseCoverage class.
         filename_or_fits : `str` or `HealSparseFits`
             Name of filename or already open `HealSparseFits` object.
+        use_threads : `bool`, optional
+            Use multithreaded reading for parquet files.  Should not
+            be necessary for coverage maps.
 
         Returns
         -------
         cov_map : `HealSparseCoverage`
             HealSparseCoverage map from file.
         """
-        return _read_coverage(cls, filename_or_fits)
+        return _read_coverage(cls, filename_or_fits, use_threads=use_threads)
 
     @classmethod
     def make_empty(cls, nside_coverage, nside_sparse):

@@ -156,11 +156,17 @@ Wide Masks
 Writing Maps
 ------------
 
-Writing a :code:`HealSparseMap` is easy:
+Writing a :code:`HealSparseMap` is easy.  To write a map in the default FITS format:
 
 .. code-block :: python
 
     map3.write('output_file.hs', clobber=False)
+
+And to write a map in the Parquet format with ``pyarrow``:
+
+.. code-block :: python
+
+    map3.write('output_file.hsparquet', clobber=False, format='parquet')
 
 
 Metadata
