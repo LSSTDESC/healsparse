@@ -43,6 +43,8 @@ class WideMasksTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [4]), True)
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [6]), False)
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [4, 6]), True)
+        testing.assert_array_equal(sparse_map.valid_pixels, pixel)
+        testing.assert_equal(sparse_map.n_valid, len(pixel))
 
         pospix = hp.ang2pix(nside_map, ra, dec, lonlat=True, nest=True)
         inds = np.searchsorted(pixel, pospix)
@@ -58,6 +60,8 @@ class WideMasksTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [4]), True)
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [6]), True)
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [7]), False)
+        testing.assert_array_equal(sparse_map.valid_pixels, pixel)
+        testing.assert_equal(sparse_map.n_valid, len(pixel))
 
         # This just makes sure that the size is correct
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
@@ -88,6 +92,8 @@ class WideMasksTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [5]), False)
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [15]), True)
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [14]), False)
+        testing.assert_array_equal(sparse_map.valid_pixels, pixel)
+        testing.assert_equal(sparse_map.n_valid, len(pixel))
 
         # Clear multiple bits in the lower field, ensure upper field is untouched.
         sparse_map.clear_bits_pix(pixel, [2, 3])
@@ -95,6 +101,8 @@ class WideMasksTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [3]), False)
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [15]), True)
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [14]), False)
+        testing.assert_array_equal(sparse_map.valid_pixels, pixel)
+        testing.assert_equal(sparse_map.n_valid, len(pixel))
 
         # This makes sure the inferred size is correct
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
@@ -111,6 +119,8 @@ class WideMasksTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [10]), True)
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [20]), True)
         testing.assert_array_equal(sparse_map.check_bits_pix(pixel, [21]), False)
+        testing.assert_array_equal(sparse_map.valid_pixels, pixel)
+        testing.assert_equal(sparse_map.n_valid, len(pixel))
 
     def test_wide_mask_map_fits_io(self):
         """

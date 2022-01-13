@@ -1148,6 +1148,25 @@ class HealSparseMap(object):
         else:
             return hp.pix2ang(self.nside_sparse, self.valid_pixels, lonlat=lonlat, nest=True)
 
+    @property
+    def n_valid(self):
+        """
+        Get the number of valid pixels in the map.
+
+        Returns
+        -------
+        n_valid : `int`
+        """
+        # This is more memory efficient to work with bits rather than
+        # integer indices.
+        if self._is_rec_array:
+            n_valid = np.sum(self._sparse_map[self._primary] != self._sentinel)
+        elif self._is_wide_mask:
+            n_valid = np.sum(np.any(self._sparse_map != self._sentinel, axis=1))
+        else:
+            n_valid = np.sum(self._sparse_map != self._sentinel)
+        return n_valid
+
     def get_valid_area(self, degrees=True):
         """
         Get the area covered by valid pixels
@@ -1161,7 +1180,7 @@ class HealSparseMap(object):
         -------
         valid_area : `float`
         """
-        return len(self.valid_pixels)*hp.nside2pixarea(self._nside_sparse, degrees=degrees)
+        return self.n_valid*hp.nside2pixarea(self._nside_sparse, degrees=degrees)
 
     def _degrade(self, nside_out, reduction='mean', weights=None):
         """
