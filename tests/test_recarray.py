@@ -58,6 +58,7 @@ class RecArrayTestCase(unittest.TestCase):
         # Test the list of valid pixels
         valid_pixels = sparse_map.valid_pixels
         testing.assert_equal(valid_pixels, pixel)
+        testing.assert_equal(sparse_map.n_valid, len(pixel))
 
         # Read in a partial map...
         sparse_map_small = healsparse.HealSparseMap.read(fname, pixels=[0, 1])
