@@ -1,7 +1,6 @@
 import unittest
 import numpy.testing as testing
 import numpy as np
-import healpy as hp
 import healsparse
 from healsparse import WIDE_MASK
 
