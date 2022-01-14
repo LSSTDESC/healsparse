@@ -270,3 +270,11 @@ class HealSparseCoverage(object):
 
     def __setitem__(self, key, value):
         self._cov_index_map[key] = value
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
+        descr = 'HealSparseCoverage: nside_coverage = %d, nside_sparse = %d' % (self._nside_coverage,
+                                                                                self._nside_sparse)
+        return descr

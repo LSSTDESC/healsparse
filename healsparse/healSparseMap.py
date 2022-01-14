@@ -660,23 +660,29 @@ class HealSparseMap(object):
                                               lonlat=lonlat, nest=True),
                                    valid_mask=valid_mask)
 
-    def get_values_pix(self, pixels, nest=True, valid_mask=False):
+    def get_values_pix(self, pixels, nest=True, valid_mask=False, nside=None):
         """
-        Get the map value for a set of pixelx.
+        Get the map value for a set of pixels.
+
+        This routine will optionally convert from a higher resolution nside
+        to the nside of the sparse map.
 
         Parameters
         ----------
         pixel : `np.ndarray`
-           Integer array of healpix pixels.
+            Integer array of healpix pixels.
         nest : `bool`, optional
-           Are the pixels in nest scheme?  Default is True.
+            Are the pixels in nest scheme?  Default is True.
         valid_mask : `bool`, optional
-           Return mask of True/False instead of values
+            Return mask of True/False instead of values
+        nside : `int`, optional
+            nside of pixels, if different from native.
+            Must be greater than the native nside.
 
         Returns
         -------
         values : `np.ndarray`
-           Array of values/validity from the map.
+            Array of values/validity from the map.
         """
         if hasattr(pixels, "__len__") and len(pixels) == 0:
             return np.array([], dtype=self.dtype)
@@ -685,6 +691,13 @@ class HealSparseMap(object):
             _pix = hp.ring2nest(self._nside_sparse, pixels)
         else:
             _pix = pixels
+
+        if nside is not None:
+            if nside < self._nside_sparse:
+                raise ValueError("nside must be higher resolution than the sparse map.")
+            # Convert pixels to sparse map resolution
+            bit_shift = _compute_bitshift(self._nside_sparse, nside)
+            _pix = np.right_shift(_pix, np.abs(bit_shift))
 
         ipnest_cov = self._cov_map.cov_pixels(_pix)
 
@@ -739,7 +752,7 @@ class HealSparseMap(object):
 
         Parameters
         ----------
-        pixel : `np.ndarray`
+        pixels : `np.ndarray`
            Integer array of healpix pixels.
         nest : `bool`, optional
            Are the pixels in nest scheme?  Default is True.
@@ -752,7 +765,7 @@ class HealSparseMap(object):
            Array of `np.bool_` flags on whether any of the input bits were
            set
         """
-        values = self.get_values_pix(pixels, nest=nest)
+        values = self.get_values_pix(np.atleast_1d(pixels), nest=nest)
         bit_flags = None
         for bit in bits:
             field, bitval = _get_field_and_bitval(bit)
@@ -1300,24 +1313,26 @@ class HealSparseMap(object):
 
     def degrade(self, nside_out, reduction='mean', weights=None):
         """
-        Method to reduce the resolution, i.e., increase the pixel size
-        of a given sparse map.
+        Decrease the resolution of the map, i.e., increase the pixel size.
 
         Parameters
         ----------
         nside_out : `int`
-           Output Nside resolution parameter.
-        reduction : `str`
-           Reduction method (mean, median, std, max, min, and, or, sum, prod, wmean).
-        weights : `HealSparseMap`
-           If the reduction is `wmean` this is the map with the weights to use.
-           It should have the same characteristics as the original map.
+            Output nside resolution parameter.
+        reduction : `str`, optional
+            Reduction method (mean, median, std, max, min, and, or, sum, prod, wmean).
+        weights : `HealSparseMap`, optional
+            If the reduction is `wmean` this is the map with the weights to use.
+            It should have the same characteristics as the original map.
 
         Returns
         -------
         healSparseMap : `HealSparseMap`
            New map, at the desired resolution.
         """
+        if nside_out > self._nside_sparse:
+            raise ValueError("To increase the resolution of the map, use ``upgrade``.")
+
         if nside_out < self.nside_coverage:
             # The way we do the reduction requires nside_out to be >= nside_coverage
             # we allocate a new map with the required nside_out
@@ -1336,8 +1351,51 @@ class HealSparseMap(object):
             sparse_map_out[valid_pixels] = self[valid_pixels]
             sparse_map_out = sparse_map_out._degrade(nside_out, reduction=reduction, weights=weights)
         else:
-            sparse_map_out = self._degrade(nside_out, reduction=reduction, weights=weights)
+            if self._nside_sparse == nside_out:
+                sparse_map_out = self
+            else:
+                # Regular degrade
+                sparse_map_out = self._degrade(nside_out,
+                                               reduction=reduction,
+                                               weights=weights)
+
         return sparse_map_out
+
+    def upgrade(self, nside_out):
+        """
+        Increase the resolution of the map, i.e., decrease the pixel size.
+
+        All covering pixels will be duplicated at the higher resolution.
+
+        Parameters
+        ----------
+        nside_out : `int`
+            Output nside resolution parameter.
+
+        Returns
+        -------
+        healSparseMap : `HealSparseMap`
+            New map, at the desired resolution.
+        """
+        if self._nside_sparse >= nside_out:
+            raise ValueError("To decrease the resolution of the map, use ``degrade``.")
+
+        if self._is_wide_mask:
+            raise NotImplementedError("Upgrading wide masks is not supported.")
+
+        # Make an order preserving coverage map.
+        new_cov_map = HealSparseCoverage.make_from_pixels(self.nside_coverage,
+                                                          nside_out,
+                                                          self._cov_map._block_to_cov_index)
+        # And a new sparse map
+        bit_shift = _compute_bitshift(self._nside_sparse, nside_out)
+        nout_per_self = 2**bit_shift
+        # Nest maps at higher resolution are just repeats of the same values
+        new_sparse_map = np.repeat(self._sparse_map, nout_per_self)
+
+        return HealSparseMap(cov_map=new_cov_map, sparse_map=new_sparse_map,
+                             nside_sparse=nside_out, primary=self._primary,
+                             sentinel=self._sentinel)
 
     def apply_mask(self, mask_map, mask_bits=None, mask_bit_arr=None, in_place=True):
         """
@@ -1475,7 +1533,7 @@ class HealSparseMap(object):
 
     def get_single(self, key, sentinel=None, copy=False):
         """
-        Get a single healpix map out of a recarray map, with the ability to
+        Get a single healsparse map out of a recarray map, with the ability to
         override a sentinel value.
 
         Parameters
@@ -1484,8 +1542,11 @@ class HealSparseMap(object):
            Field for the recarray
         sentinel : `int` or `float` or None, optional
            Override the default sentinel value.  Default is None (use default)
-        """
 
+        Returns
+        -------
+        single_map : `HealSparseMap`
+        """
         if not self._is_rec_array:
             raise TypeError("HealSparseMap is not a recarray map")
 
@@ -1514,6 +1575,65 @@ class HealSparseMap(object):
 
         return HealSparseMap(cov_map=self._cov_map, sparse_map=new_sparse_map,
                              nside_sparse=self._nside_sparse, sentinel=_sentinel)
+
+    def get_single_covpix_map(self, covpix):
+        """
+        Get a healsparse map for a single coverage pixel.
+
+        Note that this makes a copy of the data.
+
+        Parameters
+        ----------
+        covpix : `int`
+            Coverage pixel to copy
+
+        Returns
+        -------
+        single_pixel_map : `HealSparseMap`
+            Copy of map with a single coverage pixel.
+        """
+        nfine_per_cov = self._cov_map._nfine_per_cov
+
+        if self._cov_map[covpix] + covpix*nfine_per_cov < nfine_per_cov:
+            # Pixel is not in the coverage map; return an empty map
+            return HealSparseMap.make_empty_like(self)
+
+        new_cov_map = HealSparseCoverage.make_from_pixels(self.nside_coverage,
+                                                          self._nside_sparse,
+                                                          [covpix])
+        if self._is_wide_mask:
+            new_sparse_map = np.zeros((2*nfine_per_cov, self._wide_mask_width), dtype=self.dtype)
+            # Copy overflow bin
+            new_sparse_map[0: nfine_per_cov, :] = self._sparse_map[0: nfine_per_cov, :]
+            # Copy the pixel
+            new_sparse_map[nfine_per_cov: 2*nfine_per_cov, :] = self._sparse_map[
+                self._cov_map[covpix] + covpix*nfine_per_cov:
+                self._cov_map[covpix] + covpix*nfine_per_cov + nfine_per_cov, :]
+        else:
+            new_sparse_map = np.zeros(2*nfine_per_cov, dtype=self.dtype)
+            # Copy overflow bin
+            new_sparse_map[0: nfine_per_cov] = self._sparse_map[0: nfine_per_cov]
+            # Copy the pixel
+            new_sparse_map[nfine_per_cov: 2*nfine_per_cov] = self._sparse_map[
+                self._cov_map[covpix] + covpix*nfine_per_cov:
+                self._cov_map[covpix] + covpix*nfine_per_cov + nfine_per_cov]
+
+        return HealSparseMap(cov_map=new_cov_map, sparse_map=new_sparse_map,
+                             nside_sparse=self._nside_sparse, primary=self._primary,
+                             sentinel=self._sentinel)
+
+    def get_covpix_maps(self):
+        """
+        Get all single covpixel maps, one at a time.
+
+        Yields
+        ------
+        single_pixel_map : `HealSparseMap`
+        """
+        cov_pixels, = np.where(self._cov_map.coverage_mask)
+
+        for cov_pix in cov_pixels:
+            yield self.get_single_covpix_map(cov_pix)
 
     def astype(self, dtype, sentinel=None):
         """

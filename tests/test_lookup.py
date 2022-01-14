@@ -47,6 +47,17 @@ class LookupTestCase(unittest.TestCase):
         comp_values = sparse_map.get_values_pix(ipring, nest=False)
         testing.assert_almost_equal(comp_values, test_values)
 
+        # Test pixel lookup (higher nside)
+        comp_values = sparse_map.get_values_pix(
+            hp.ang2pix(4096, ra, dec, lonlat=True, nest=True),
+            nside=4096
+        )
+        testing.assert_almost_equal(comp_values, test_values)
+
+        # Test pixel lookup (lower nside)
+        lowres_pix = hp.ang2pix(256, ra, dec, lonlat=True, nest=True)
+        self.assertRaises(ValueError, sparse_map.get_values_pix, lowres_pix, nside=256)
+
         # Test the theta/phi lookup
         comp_values = sparse_map.get_values_pos(theta, phi, lonlat=False)
         testing.assert_almost_equal(comp_values, test_values)
