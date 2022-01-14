@@ -660,23 +660,28 @@ class HealSparseMap(object):
                                               lonlat=lonlat, nest=True),
                                    valid_mask=valid_mask)
 
-    def get_values_pix(self, pixels, nest=True, valid_mask=False):
+    def get_values_pix(self, pixels, nest=True, valid_mask=False, nside=None):
         """
-        Get the map value for a set of pixelx.
+        Get the map value for a set of pixels.
+
+        This routine will optionally convert the nside of the input pixels
+        to the nside of the sparse map.
 
         Parameters
         ----------
         pixel : `np.ndarray`
-           Integer array of healpix pixels.
+            Integer array of healpix pixels.
         nest : `bool`, optional
-           Are the pixels in nest scheme?  Default is True.
+            Are the pixels in nest scheme?  Default is True.
         valid_mask : `bool`, optional
-           Return mask of True/False instead of values
+            Return mask of True/False instead of values
+        nside : `int`, optional
+            nside of pixels, if different from native.
 
         Returns
         -------
         values : `np.ndarray`
-           Array of values/validity from the map.
+            Array of values/validity from the map.
         """
         if hasattr(pixels, "__len__") and len(pixels) == 0:
             return np.array([], dtype=self.dtype)
@@ -685,6 +690,14 @@ class HealSparseMap(object):
             _pix = hp.ring2nest(self._nside_sparse, pixels)
         else:
             _pix = pixels
+
+        if nside is not None:
+            # Convert pixels to sparse map resolution
+            bit_shift = _compute_bitshift(nside, self._nside_sparse)
+            if bit_shift < 0:
+                _pix = np.right_shift(_pix, np.abs(bit_shift))
+            else:
+                _pix = np.left_shift(_pix, bit_shift)
 
         ipnest_cov = self._cov_map.cov_pixels(_pix)
 
