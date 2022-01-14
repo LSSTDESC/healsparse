@@ -68,7 +68,7 @@ class DegradeMapTestCase(unittest.TestCase):
 
         new_map = sparse_map.degrade(nside_out=nside_new)
 
-        testing.assert_almost_equal(deg_map, new_map.generate_healpix_map())
+        testing.assert_almost_equal(new_map.generate_healpix_map(), deg_map)
 
     def test_degrade_map_int(self):
         """
@@ -125,9 +125,7 @@ class DegradeMapTestCase(unittest.TestCase):
         values['col3'] = random.poisson(size=pixel.size, lam=2)
         sparse_map.update_values_pix(pixel, values)
 
-        theta, phi = hp.pix2ang(nside_map, pixel, nest=True)
-        ra = np.degrees(phi)
-        dec = 90.0 - np.degrees(theta)
+        ra, dec = hp.pix2ang(nside_map, pixel, nest=True, lonlat=True)
 
         # Make the test values
         hpmap_col1 = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
@@ -141,7 +139,7 @@ class DegradeMapTestCase(unittest.TestCase):
         hpmap_col1 = hp.ud_grade(hpmap_col1, nside_out=nside_new, order_in='NESTED', order_out='NESTED')
         hpmap_col2 = hp.ud_grade(hpmap_col2, nside_out=nside_new, order_in='NESTED', order_out='NESTED')
         hpmap_col3 = hp.ud_grade(hpmap_col3, nside_out=nside_new, order_in='NESTED', order_out='NESTED')
-        ipnest_test = hp.ang2pix(nside_new, theta, phi, nest=True)
+        ipnest_test = hp.ang2pix(nside_new, ra, dec, nest=True, lonlat=True)
 
         # Degrade the old map
         new_map = sparse_map.degrade(nside_out=nside_new)
