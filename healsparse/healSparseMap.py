@@ -1313,8 +1313,7 @@ class HealSparseMap(object):
 
     def degrade(self, nside_out, reduction='mean', weights=None):
         """
-        Method to reduce the resolution (increase the pixel size) or
-        increase the resolution (decrease the pixel size) of the map.
+        Decrease the resolution of the map, i.e., increase the pixel size.
 
         Parameters
         ----------
@@ -1322,17 +1321,18 @@ class HealSparseMap(object):
             Output nside resolution parameter.
         reduction : `str`, optional
             Reduction method (mean, median, std, max, min, and, or, sum, prod, wmean).
-            Ignored if upgrading resolution of the map.
         weights : `HealSparseMap`, optional
             If the reduction is `wmean` this is the map with the weights to use.
             It should have the same characteristics as the original map.
-            Ignored if upgrading resolution of the map.
 
         Returns
         -------
         healSparseMap : `HealSparseMap`
            New map, at the desired resolution.
         """
+        if nside_out > self._nside_sparse:
+            raise ValueError("To increase the resolution of the map, use ``upgrade``.")
+
         if nside_out < self.nside_coverage:
             # The way we do the reduction requires nside_out to be >= nside_coverage
             # we allocate a new map with the required nside_out
@@ -1351,24 +1351,19 @@ class HealSparseMap(object):
             sparse_map_out[valid_pixels] = self[valid_pixels]
             sparse_map_out = sparse_map_out._degrade(nside_out, reduction=reduction, weights=weights)
         else:
-            if self._nside_sparse > nside_out:
+            if self._nside_sparse == nside_out:
+                sparse_map_out = self
+            else:
                 # Regular degrade
                 sparse_map_out = self._degrade(nside_out,
                                                reduction=reduction,
                                                weights=weights)
-            elif self._nside_sparse < nside_out:
-                # Upgrade map
-                sparse_map_out = self._upgrade(nside_out)
-            else:
-                # This is the same!
-                sparse_map_out = self
 
         return sparse_map_out
 
-    def _upgrade(self, nside_out):
+    def upgrade(self, nside_out):
         """
-        Method to increase the resolution, i.e., decrease the pixel size
-        of a given sparse map.
+        Increase the resolution of the map, i.e., decrease the pixel size.
 
         All covering pixels will be duplicated at the higher resolution.
 
@@ -1383,7 +1378,7 @@ class HealSparseMap(object):
             New map, at the desired resolution.
         """
         if self._nside_sparse >= nside_out:
-            raise ValueError("nside_out should be larger than nside for the sparse_map.")
+            raise ValueError("To decrease the resolution of the map, use ``degrade``.")
 
         if self._is_wide_mask:
             raise NotImplementedError("Upgrading wide masks is not supported.")

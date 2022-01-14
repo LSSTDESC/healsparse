@@ -23,7 +23,7 @@ class UpgradeMapTestCase(unittest.TestCase):
         # Upgrade original map
         upg_map = hp.ud_grade(full_map, nside_out=nside_new, order_in='NESTED', order_out='NESTED')
         # Upgrade sparse map and compare
-        new_map = sparse_map.degrade(nside_out=nside_new)
+        new_map = sparse_map.upgrade(nside_out=nside_new)
 
         testing.assert_almost_equal(upg_map, new_map.generate_healpix_map())
 
@@ -44,7 +44,7 @@ class UpgradeMapTestCase(unittest.TestCase):
 
         deg_map = hp.ud_grade(full_map, nside_out=nside_new, order_in='NESTED', order_out='NESTED')
 
-        new_map = sparse_map.degrade(nside_out=nside_new)
+        new_map = sparse_map.upgrade(nside_out=nside_new)
 
         testing.assert_almost_equal(new_map.generate_healpix_map(), deg_map)
 
@@ -77,14 +77,14 @@ class UpgradeMapTestCase(unittest.TestCase):
         hpmap_col2[pixel] = values['col2']
         hpmap_col3[pixel] = values['col3']
 
-        # Degrade healpix maps
+        # Upgrade healpix maps
         hpmap_col1 = hp.ud_grade(hpmap_col1, nside_out=nside_new, order_in='NESTED', order_out='NESTED')
         hpmap_col2 = hp.ud_grade(hpmap_col2, nside_out=nside_new, order_in='NESTED', order_out='NESTED')
         hpmap_col3 = hp.ud_grade(hpmap_col3, nside_out=nside_new, order_in='NESTED', order_out='NESTED')
         ipnest_test = hp.ang2pix(nside_new, ra, dec, nest=True, lonlat=True)
 
         # Upgrade the old map
-        new_map = sparse_map.degrade(nside_out=nside_new)
+        new_map = sparse_map.upgrade(nside_out=nside_new)
         testing.assert_almost_equal(new_map.get_values_pos(ra, dec, lonlat=True)['col1'],
                                     hpmap_col1[ipnest_test])
         testing.assert_almost_equal(new_map.get_values_pos(ra, dec, lonlat=True)['col2'],
@@ -102,7 +102,7 @@ class UpgradeMapTestCase(unittest.TestCase):
         nside_map2 = 256
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map,
                                                          healsparse.WIDE_MASK, wide_mask_maxbits=7)
-        self.assertRaises(NotImplementedError, sparse_map.degrade, nside_map2)
+        self.assertRaises(NotImplementedError, sparse_map.upgrade, nside_map2)
 
 
 if __name__ == '__main__':
