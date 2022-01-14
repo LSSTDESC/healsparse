@@ -752,7 +752,7 @@ class HealSparseMap(object):
 
         Parameters
         ----------
-        pixel : `np.ndarray`
+        pixels : `np.ndarray`
            Integer array of healpix pixels.
         nest : `bool`, optional
            Are the pixels in nest scheme?  Default is True.
@@ -765,7 +765,7 @@ class HealSparseMap(object):
            Array of `np.bool_` flags on whether any of the input bits were
            set
         """
-        values = self.get_values_pix(pixels, nest=nest)
+        values = self.get_values_pix(np.atleast_1d(pixels), nest=nest)
         bit_flags = None
         for bit in bits:
             field, bitval = _get_field_and_bitval(bit)
@@ -1538,7 +1538,7 @@ class HealSparseMap(object):
 
     def get_single(self, key, sentinel=None, copy=False):
         """
-        Get a single healpix map out of a recarray map, with the ability to
+        Get a single healsparse map out of a recarray map, with the ability to
         override a sentinel value.
 
         Parameters
@@ -1547,8 +1547,11 @@ class HealSparseMap(object):
            Field for the recarray
         sentinel : `int` or `float` or None, optional
            Override the default sentinel value.  Default is None (use default)
-        """
 
+        Returns
+        -------
+        single_map : `HealSparseMap`
+        """
         if not self._is_rec_array:
             raise TypeError("HealSparseMap is not a recarray map")
 
@@ -1577,6 +1580,65 @@ class HealSparseMap(object):
 
         return HealSparseMap(cov_map=self._cov_map, sparse_map=new_sparse_map,
                              nside_sparse=self._nside_sparse, sentinel=_sentinel)
+
+    def get_single_covpix_map(self, covpix):
+        """
+        Get a healsparse map for a single coverage pixel.
+
+        Note that this makes a copy of the data.
+
+        Parameters
+        ----------
+        covpix : `int`
+            Coverage pixel to copy
+
+        Returns
+        -------
+        single_pixel_map : `HealSparseMap`
+            Copy of map with a single coverage pixel.
+        """
+        nfine_per_cov = self._cov_map._nfine_per_cov
+
+        if self._cov_map[covpix] + covpix*nfine_per_cov < nfine_per_cov:
+            # Pixel is not in the coverage map; return an empty map
+            return HealSparseMap.make_empty_like(self)
+
+        new_cov_map = HealSparseCoverage.make_from_pixels(self.nside_coverage,
+                                                          self._nside_sparse,
+                                                          [covpix])
+        if self._is_wide_mask:
+            new_sparse_map = np.zeros((2*nfine_per_cov, self._wide_mask_width), dtype=self.dtype)
+            # Copy overflow bin
+            new_sparse_map[0: nfine_per_cov, :] = self._sparse_map[0: nfine_per_cov, :]
+            # Copy the pixel
+            new_sparse_map[nfine_per_cov: 2*nfine_per_cov, :] = self._sparse_map[
+                self._cov_map[covpix] + covpix*nfine_per_cov:
+                self._cov_map[covpix] + covpix*nfine_per_cov + nfine_per_cov, :]
+        else:
+            new_sparse_map = np.zeros(2*nfine_per_cov, dtype=self.dtype)
+            # Copy overflow bin
+            new_sparse_map[0: nfine_per_cov] = self._sparse_map[0: nfine_per_cov]
+            # Copy the pixel
+            new_sparse_map[nfine_per_cov: 2*nfine_per_cov] = self._sparse_map[
+                self._cov_map[covpix] + covpix*nfine_per_cov:
+                self._cov_map[covpix] + covpix*nfine_per_cov + nfine_per_cov]
+
+        return HealSparseMap(cov_map=new_cov_map, sparse_map=new_sparse_map,
+                             nside_sparse=self._nside_sparse, primary=self._primary,
+                             sentinel=self._sentinel)
+
+    def get_covpix_maps(self):
+        """
+        Get all single covpixel maps, one at a time.
+
+        Yields
+        ------
+        single_pixel_map : `HealSparseMap`
+        """
+        cov_pixels, = np.where(self._cov_map.coverage_mask)
+
+        for cov_pix in cov_pixels:
+            yield self.get_single_covpix_map(cov_pix)
 
     def astype(self, dtype, sentinel=None):
         """
