@@ -664,7 +664,7 @@ class HealSparseMap(object):
         """
         Get the map value for a set of pixels.
 
-        This routine will optionally convert the nside of the input pixels
+        This routine will optionally convert from a higher resolution nside
         to the nside of the sparse map.
 
         Parameters
@@ -677,6 +677,7 @@ class HealSparseMap(object):
             Return mask of True/False instead of values
         nside : `int`, optional
             nside of pixels, if different from native.
+            Must be greater than the native nside.
 
         Returns
         -------
@@ -692,12 +693,11 @@ class HealSparseMap(object):
             _pix = pixels
 
         if nside is not None:
+            if nside < self._nside_sparse:
+                raise ValueError("nside must be higher resolution than the sparse map.")
             # Convert pixels to sparse map resolution
-            bit_shift = _compute_bitshift(nside, self._nside_sparse)
-            if bit_shift < 0:
-                _pix = np.right_shift(_pix, np.abs(bit_shift))
-            else:
-                _pix = np.left_shift(_pix, bit_shift)
+            bit_shift = _compute_bitshift(self._nside_sparse, nside)
+            _pix = np.right_shift(_pix, np.abs(bit_shift))
 
         ipnest_cov = self._cov_map.cov_pixels(_pix)
 
