@@ -132,6 +132,7 @@ def _read_healsparse_fits_file(filename, pixels=None):
     """
     cov_map = HealSparseCoverage.read(filename)
     primary = None
+    is_boolean = False
 
     if pixels is None:
         # Read the full map
@@ -139,6 +140,7 @@ def _read_healsparse_fits_file(filename, pixels=None):
             sparse_map = fits.read_ext_data('SPARSE')
             s_hdr = fits.read_ext_header('SPARSE')
         nside_sparse = s_hdr['NSIDE']
+        is_boolean = s_hdr.get('BOOLEAN', False)
         if 'PRIMARY' in s_hdr:
             primary = s_hdr['PRIMARY'].rstrip()
         # If SENTINEL is not there then it should be UNSEEN
@@ -164,6 +166,7 @@ def _read_healsparse_fits_file(filename, pixels=None):
             s_hdr = fits.read_ext_header('SPARSE')
 
             nside_sparse = s_hdr['NSIDE']
+            is_boolean = s_hdr.get('BOOLEAN', False)
             nside_coverage = cov_map.nside_coverage
 
             if 'SENTINEL' in s_hdr:
@@ -205,6 +208,9 @@ def _read_healsparse_fits_file(filename, pixels=None):
             cov_map = HealSparseCoverage.make_from_pixels(nside_coverage,
                                                           nside_sparse,
                                                           _pixels)
+
+    if is_boolean:
+        sparse_map = sparse_map.astype(np.bool_)
 
     return cov_map, sparse_map, nside_sparse, primary, sentinel
 
@@ -445,11 +451,12 @@ def _write_map_fits(hsp_map, filename, clobber=False, nocompress=False):
     if os.path.isfile(filename) and not clobber:
         raise RuntimeError("Filename %s exists and clobber is False." % (filename))
 
+    """
     if hsp_map.dtype.type is np.bool_:
         raise RuntimeError("Boolean maps must be converted to ``numpy.int8`` "
                            "(astropy>=5) or ``numpy.int16`` (astropy<5) "
                            "prior to serialization with FITS.")
-
+    """
     # Note that we put the requested header information in each of the extensions.
     c_hdr = _make_header(hsp_map.metadata)
     c_hdr['PIXTYPE'] = 'HEALSPARSE'
@@ -459,6 +466,8 @@ def _write_map_fits(hsp_map, filename, clobber=False, nocompress=False):
     s_hdr['PIXTYPE'] = 'HEALSPARSE'
     s_hdr['NSIDE'] = hsp_map._nside_sparse
     s_hdr['SENTINEL'] = hsp_map._sentinel
+    is_boolean = (hsp_map._sparse_map.dtype == np.bool_)
+    s_hdr['BOOLEAN'] = is_boolean
     if hsp_map._is_rec_array:
         s_hdr['PRIMARY'] = hsp_map._primary
     if hsp_map._is_wide_mask:
@@ -468,6 +477,19 @@ def _write_map_fits(hsp_map, filename, clobber=False, nocompress=False):
         _write_filename(filename, c_hdr, s_hdr, hsp_map._cov_map[:], hsp_map._sparse_map.ravel(),
                         compress=not nocompress,
                         compress_tilesize=hsp_map._wide_mask_width*hsp_map._cov_map.nfine_per_cov)
+    elif is_boolean:
+        # Boolean maps need to be converted to a small integer and can be compressed.
+        # Some versions of astropy can't use int8 so try and then do int16
+        try:
+            _write_filename(filename, c_hdr, s_hdr, hsp_map._cov_map[:],
+                            hsp_map._sparse_map.astype(np.int8),
+                            compress=not nocompress,
+                            compress_tilesize=hsp_map._cov_map.nfine_per_cov)
+        except KeyError:
+            _write_filename(filename, c_hdr, s_hdr, hsp_map._cov_map[:],
+                            hsp_map._sparse_map.astype(np.int16),
+                            compress=not nocompress,
+                            compress_tilesize=hsp_map._cov_map.nfine_per_cov)
     elif ((hsp_map.is_integer_map and hsp_map._sparse_map[0].dtype.itemsize < 8) or
           (not hsp_map.is_integer_map and not hsp_map._is_rec_array)):
         # Integer maps < 64 bit (8 byte) can be compressed, as can

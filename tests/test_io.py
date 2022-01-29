@@ -323,18 +323,19 @@ class FitsIoTestCase(unittest.TestCase):
         sparse_map[20000: 50000] = True
 
         fname_comp = os.path.join(self.test_dir, 'test_bool_map_compressed.hsp')
-
-        self.assertRaises(RuntimeError, sparse_map.write, fname_comp)
-
-        sparse_map2 = sparse_map.astype(np.int16)
-        sparse_map2.write(fname_comp, clobber=True, nocompress=False)
+        sparse_map.write(fname_comp, clobber=True, nocompress=False)
         fname_nocomp = os.path.join(self.test_dir, 'test_bool_map_notcompressed.hsp')
-        sparse_map2.write(fname_nocomp, clobber=True, nocompress=True)
+        sparse_map.write(fname_nocomp, clobber=True, nocompress=True)
 
         self.assertGreater(os.path.getsize(fname_nocomp), os.path.getsize(fname_comp))
 
-        sparse_map_in_comp = healsparse.HealSparseMap.read(fname_comp).astype(np.bool_)
-        sparse_map_in_nocomp = healsparse.HealSparseMap.read(fname_nocomp).astype(np.bool_)
+        sparse_map_in_comp = healsparse.HealSparseMap.read(fname_comp)
+        sparse_map_in_nocomp = healsparse.HealSparseMap.read(fname_nocomp)
+
+        self.assertEqual(sparse_map_in_comp.dtype, np.bool_)
+        self.assertEqual(sparse_map_in_nocomp.dtype, np.bool_)
+        self.assertTrue(isinstance(sparse_map_in_comp._sentinel, bool))
+        self.assertTrue(isinstance(sparse_map_in_nocomp._sentinel, bool))
 
         testing.assert_array_equal(sparse_map_in_comp.valid_pixels, sparse_map.valid_pixels)
         testing.assert_array_equal(sparse_map_in_nocomp.valid_pixels, sparse_map.valid_pixels)
