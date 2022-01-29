@@ -132,9 +132,9 @@ class HealSparseFits(object):
         else:
             hdu = self.fits_object[extension]
             if row_range is None:
-                return hdu.data.view(np.ndarray)
+                return hdu.data.view(np.ndarray, memmap=False)
             else:
-                return hdu.data[slice(row_range[0], row_range[1])].view(np.ndarray)
+                return hdu.data[slice(row_range[0], row_range[1])].view(np.ndarray, memmap=False)
 
     def ext_is_image(self, extension):
         """
