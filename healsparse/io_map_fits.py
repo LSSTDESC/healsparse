@@ -472,14 +472,7 @@ def _write_map_fits(hsp_map, filename, clobber=False, nocompress=False):
                         compress=not nocompress,
                         compress_tilesize=hsp_map._wide_mask_width*hsp_map._cov_map.nfine_per_cov)
     elif is_boolean:
-        # Boolean maps need to be converted to a small integer and can be compressed.
-        # Some versions of astropy can't use int8 so try and then do int16
-        # try:
-        #     _write_filename(filename, c_hdr, s_hdr, hsp_map._cov_map[:],
-        #                     hsp_map._sparse_map.astype(np.int8),
-        #                     compress=not nocompress,
-        #                     compress_tilesize=hsp_map._cov_map.nfine_per_cov)
-        # except KeyError:
+        # Fits support for 16 bit integers is much better than 8 bit.
         _write_filename(filename, c_hdr, s_hdr, hsp_map._cov_map[:],
                         hsp_map._sparse_map.astype(np.int16),
                         compress=not nocompress,
