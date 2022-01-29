@@ -446,7 +446,9 @@ def _write_map_fits(hsp_map, filename, clobber=False, nocompress=False):
         raise RuntimeError("Filename %s exists and clobber is False." % (filename))
 
     if hsp_map.dtype.type is np.bool_:
-        raise RuntimeError("Boolean maps cannot be serialized with FITS.")
+        raise RuntimeError("Boolean maps must be converted to ``numpy.int8`` "
+                           "(astropy>=5) or ``numpy.int16`` (astropy<5) "
+                           "prior to serialization with FITS.")
 
     # Note that we put the requested header information in each of the extensions.
     c_hdr = _make_header(hsp_map.metadata)
