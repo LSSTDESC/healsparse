@@ -451,12 +451,6 @@ def _write_map_fits(hsp_map, filename, clobber=False, nocompress=False):
     if os.path.isfile(filename) and not clobber:
         raise RuntimeError("Filename %s exists and clobber is False." % (filename))
 
-    """
-    if hsp_map.dtype.type is np.bool_:
-        raise RuntimeError("Boolean maps must be converted to ``numpy.int8`` "
-                           "(astropy>=5) or ``numpy.int16`` (astropy<5) "
-                           "prior to serialization with FITS.")
-    """
     # Note that we put the requested header information in each of the extensions.
     c_hdr = _make_header(hsp_map.metadata)
     c_hdr['PIXTYPE'] = 'HEALSPARSE'
@@ -480,16 +474,16 @@ def _write_map_fits(hsp_map, filename, clobber=False, nocompress=False):
     elif is_boolean:
         # Boolean maps need to be converted to a small integer and can be compressed.
         # Some versions of astropy can't use int8 so try and then do int16
-        try:
-            _write_filename(filename, c_hdr, s_hdr, hsp_map._cov_map[:],
-                            hsp_map._sparse_map.astype(np.int8),
-                            compress=not nocompress,
-                            compress_tilesize=hsp_map._cov_map.nfine_per_cov)
-        except KeyError:
-            _write_filename(filename, c_hdr, s_hdr, hsp_map._cov_map[:],
-                            hsp_map._sparse_map.astype(np.int16),
-                            compress=not nocompress,
-                            compress_tilesize=hsp_map._cov_map.nfine_per_cov)
+        # try:
+        #     _write_filename(filename, c_hdr, s_hdr, hsp_map._cov_map[:],
+        #                     hsp_map._sparse_map.astype(np.int8),
+        #                     compress=not nocompress,
+        #                     compress_tilesize=hsp_map._cov_map.nfine_per_cov)
+        # except KeyError:
+        _write_filename(filename, c_hdr, s_hdr, hsp_map._cov_map[:],
+                        hsp_map._sparse_map.astype(np.int16),
+                        compress=not nocompress,
+                        compress_tilesize=hsp_map._cov_map.nfine_per_cov)
     elif ((hsp_map.is_integer_map and hsp_map._sparse_map[0].dtype.itemsize < 8) or
           (not hsp_map.is_integer_map and not hsp_map._is_rec_array)):
         # Integer maps < 64 bit (8 byte) can be compressed, as can
