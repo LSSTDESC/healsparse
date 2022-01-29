@@ -445,6 +445,9 @@ def _write_map_fits(hsp_map, filename, clobber=False, nocompress=False):
     if os.path.isfile(filename) and not clobber:
         raise RuntimeError("Filename %s exists and clobber is False." % (filename))
 
+    if hsp_map.dtype.type is np.bool_:
+        raise RuntimeError("Boolean maps cannot be serialized with FITS.")
+
     # Note that we put the requested header information in each of the extensions.
     c_hdr = _make_header(hsp_map.metadata)
     c_hdr['PIXTYPE'] = 'HEALSPARSE'

@@ -311,6 +311,21 @@ class FitsIoTestCase(unittest.TestCase):
             testing.assert_array_almost_equal(sparse_map[0: 10],
                                               sparse_map_in_comp[0: 10])
 
+    def test_fits_write_boolean(self):
+        """
+        Test fits writing boolean maps (which is not supported).
+        """
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        random.seed(seed=12345)
+
+        sparse_map = healsparse.HealSparseMap.make_empty(32, 4096, np.bool_)
+        sparse_map[20000: 50000] = True
+
+        fname = os.path.join(self.test_dir, 'test_bool_map.hsp')
+
+        self.assertRaises(RuntimeError, sparse_map.write, fname)
+
     def setUp(self):
         self.test_dir = None
 
