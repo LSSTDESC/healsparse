@@ -179,6 +179,25 @@ class BuildMapsTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map2b._sparse_map['col1'], sparse_map._sentinel)
         testing.assert_array_equal(sparse_map2b._sparse_map['col2'], hp.UNSEEN)
 
+    def test_buildmaps_boolean(self):
+        """
+        Test building a boolean map
+        """
+        nside_coverage = 32
+        nside_map = 64
+
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_)
+        pixel = np.arange(4000, 20000)
+        values = np.ones(pixel.size, dtype=np.bool_)
+        sparse_map[pixel] = values
+
+        testing.assert_array_equal(sparse_map[pixel], values)
+        self.assertEqual(sparse_map.n_valid, pixel.size)
+
+        # Test reset with single value
+        sparse_map[pixel] = False
+        self.assertEqual(sparse_map.n_valid, 0)
+
 
 if __name__ == '__main__':
     unittest.main()

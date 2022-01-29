@@ -467,7 +467,7 @@ class HealSparseMap(object):
             else:
                 # Non wide_mask
                 if isinstance(values, numbers.Integral):
-                    if not self.is_integer_map:
+                    if not self.is_integer_map and self.dtype.type is not np.bool_:
                         raise ValueError("Cannot set non-integer map with an integer")
                     is_single_value = True
                     _values = np.array([values], dtype=self.dtype)

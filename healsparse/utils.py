@@ -103,6 +103,14 @@ def check_sentinel(type, sentinel):
             return sentinel
         else:
             raise ValueError("Sentinel not of integer type")
+    elif issubclass(type, np.bool_):
+        if sentinel is None:
+            return False
+        if sentinel is not True and sentinel is not False:
+            raise ValueError("Sentinel not of boolean type")
+        return sentinel
+    else:
+        raise RuntimeError("Unsupported data type; must be integer, floating, or boolean.")
 
 
 def is_integer_value(value):
