@@ -474,7 +474,7 @@ def _write_map_fits(hsp_map, filename, clobber=False, nocompress=False):
     elif is_boolean:
         # Fits support for 16 bit integers is much better than 8 bit.
         _write_filename(filename, c_hdr, s_hdr, hsp_map._cov_map[:],
-                        hsp_map._sparse_map.astype(np.int16),
+                        hsp_map._sparse_map.astype(np.uint8),
                         compress=not nocompress,
                         compress_tilesize=hsp_map._cov_map.nfine_per_cov)
     elif ((hsp_map.is_integer_map and hsp_map._sparse_map[0].dtype.itemsize < 8) or
