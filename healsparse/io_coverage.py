@@ -1,3 +1,5 @@
+import os
+
 from .fits_shim import HealSparseFits
 from .io_coverage_fits import _read_coverage_fits
 from .io_coverage_parquet import _read_coverage_parquet
@@ -47,5 +49,7 @@ def _read_coverage(coverage_class, filename_or_fits, use_threads=False):
         return _read_coverage_fits(coverage_class, filename_or_fits)
     elif is_parquet_file:
         return _read_coverage_parquet(coverage_class, filename_or_fits, use_threads=use_threads)
+    elif not os.path.isfile(filename_or_fits):
+        raise IOError("Filename %s could not be found." % (filename_or_fits))
     else:
         raise NotImplementedError("HealSparse only supports fits and parquet files.")

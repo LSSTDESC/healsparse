@@ -85,6 +85,24 @@ class HealSparseCoverageTestCase(unittest.TestCase):
         testing.assert_array_equal(cov_map[0: 100], cov_map._cov_index_map[0: 100])
         testing.assert_array_equal([cov_map[0]], [cov_map._cov_index_map[0]])
 
+    def test_read_non_fits(self):
+        """Test reading coverage from a file that isn't fits or parquet."""
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        fname = os.path.join(self.test_dir, 'NOT_A_FITS_FILE')
+        with open(fname, 'w') as f:
+            f.write('some text.')
+
+        self.assertRaises(NotImplementedError, healsparse.HealSparseCoverage.read, fname)
+
+    def test_read_missing_file(self):
+        """Test reading coverage from a file that isn't there."""
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        fname = os.path.join(self.test_dir, 'NOT_A_FILE')
+
+        self.assertRaises(IOError, healsparse.HealSparseCoverage.read, fname)
+
     def setUp(self):
         self.test_dir = None
 
