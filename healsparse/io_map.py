@@ -1,3 +1,5 @@
+import os
+
 from .fits_shim import HealSparseFits
 from .io_map_fits import _read_map_fits, _write_map_fits
 from .parquet_shim import check_parquet_dataset
@@ -64,9 +66,10 @@ def _read_map(healsparse_class, filename, nside_coverage=None, pixels=None, head
                                  pixels=pixels, header=header, degrade_nside=degrade_nside,
                                  weightfile=weightfile, reduction=reduction,
                                  use_threads=use_threads)
+    elif not os.path.isfile(filename):
+        raise IOError("Filename %s could not be found." % (filename))
     else:
-        raise NotImplementedError("HealSparse only supports fits and parquet files (with pyarrow)."
-                                  % (filename))
+        raise NotImplementedError("HealSparse only supports fits and parquet files (with pyarrow).")
 
 
 def _write_map(hsp_map, filename, clobber=False, nocompress=False, format='fits', nside_io=4):

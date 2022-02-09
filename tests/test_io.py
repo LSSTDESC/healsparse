@@ -311,6 +311,24 @@ class FitsIoTestCase(unittest.TestCase):
             testing.assert_array_almost_equal(sparse_map[0: 10],
                                               sparse_map_in_comp[0: 10])
 
+    def test_read_non_fits(self):
+        """Test reading a file that isn't a fits file or parquet file."""
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        fname = os.path.join(self.test_dir, 'NOT_A_FITS_FILE')
+        with open(fname, 'w') as f:
+            f.write('some text.')
+
+        self.assertRaises(NotImplementedError, healsparse.HealSparseMap.read, fname)
+
+    def test_read_missing_file(self):
+        """Test reading a file that isn't there."""
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        fname = os.path.join(self.test_dir, 'NOT_A_FILE')
+
+        self.assertRaises(IOError, healsparse.HealSparseMap.read, fname)
+
     def setUp(self):
         self.test_dir = None
 

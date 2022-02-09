@@ -3,6 +3,7 @@ import warnings
 use_pyarrow = False
 try:
     from pyarrow import dataset
+    from pyarrow.lib import ArrowInvalid
     use_pyarrow = True
 except ImportError:
     pass
@@ -33,7 +34,7 @@ def check_parquet_dataset(filepath):
 
     try:
         ds = dataset.dataset(filepath, format='parquet', partitioning='hive')
-    except IOError:
+    except (IOError, ArrowInvalid):
         return False
 
     del ds
