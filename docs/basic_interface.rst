@@ -7,9 +7,13 @@ Basic HealSparse Interface
 Getting Started
 ---------------
 
-To conserve memory, `HealSparse` uses a dual-map approach, where a low-resolution full-sky "coverage map" is combined with a high resolution map containing the pixel data where it is available.  The resolution of the coverage map is controlled by the :code:`nside_coverage` parameter, and the resolution of the high-resolution map is controlled by the :code:`nside_sparse` parameter.  Behind the scenes, `HealSparse` uses clever indexing to allow the user to treat these as contiguous maps with minimal overhead.  **All HealSparse maps use HEALPix nest indexing behind the scenes, should be treated as nest-indexed maps.**
+To conserve memory, `HealSparse` uses a dual-map approach, where a low-resolution full-sky "coverage map" is combined with a high resolution map containing the pixel data where it is available.
+The resolution of the coverage map is controlled by the :code:`nside_coverage` parameter, and the resolution of the high-resolution map is controlled by the :code:`nside_sparse` parameter.
+Behind the scenes, `HealSparse` uses clever indexing to allow the user to treat these as contiguous maps with minimal overhead.
+**All HealSparse maps use HEALPix nest indexing behind the scenes, should be treated as nest-indexed maps.**
 
-There are 3 basic ways to make a :code:`HealSparseMap`.  First, one can read in an existing `HEALPix` map; second, one can read in an existing :code:`HealSparseMap`; and third, one can create a new map.
+There are 3 basic ways to make a :code:`HealSparseMap`.
+First, one can read in an existing `HEALPix` map; second, one can read in an existing :code:`HealSparseMap`; and third, one can create a new map.
 
 .. code-block :: python
 
@@ -51,7 +55,8 @@ To retrieve values from the map, you can use simple indexing or the explicit API
     >>> 51.0
 
 
-A :code:`HealSparseMap` has the concept of "valid pixels", the pixels over which the map is defined (as opposed to :code:`healpy.UNSEEN` in the case of floating point maps).  You can retrieve the array of valid pixels or the associated positions of the valid pixels easily:
+A :code:`HealSparseMap` has the concept of "valid pixels", the pixels over which the map is defined (as opposed to :code:`healpy.UNSEEN` in the case of floating point maps).
+You can retrieve the array of valid pixels or the associated positions of the valid pixels easily:
 
 .. code-block :: python
 
@@ -65,7 +70,9 @@ A :code:`HealSparseMap` has the concept of "valid pixels", the pixels over which
     >>> [0.00932548 ... 0.81134431]
 
 
-You can convert a :code:`HealSparseMap` to a :code:`healpy` map (:code:`numpy` array) either by using a full slice (:code:`[:]`) or with the :code:`generate_healpix_map()` method.  Do watch out, at high resolution this can blow away your memory!  In these cases, :code:`generate_healpix_map()` can degrade the map before conversion, using a reduction function (over valid pixels) of your choosing, including :code:`mean`, :code:`median`, :code:`std`, :code:`max`, :code:`min`, :code: `and`, :code: `or`, :code: `sum`, :code: `prod` (product), and :code: `wmean` (weighted mean).
+You can convert a :code:`HealSparseMap` to a :code:`healpy` map (:code:`numpy` array) either by using a full slice (:code:`[:]`) or with the :code:`generate_healpix_map()` method.
+Do watch out, at high resolution this can blow away your memory!
+In these cases, :code:`generate_healpix_map()` can degrade the map before conversion, using a reduction function (over valid pixels) of your choosing, including :code:`mean`, :code:`median`, :code:`std`, :code:`max`, :code:`min`, :code:`and`, :code:`or`, :code:`sum`, :code:`prod` (product), and :code:`wmean` (weighted mean).
 
 .. code-block :: python
 
@@ -76,7 +83,9 @@ You can convert a :code:`HealSparseMap` to a :code:`healpy` map (:code:`numpy` a
 Integer Maps
 ------------
 
-In addition to floating-point maps, which are natively supported by :code:`healpy`, :code:`HealSparseMap` supports integer maps.  The "sentinel" value of these maps (equivalent to :code:`healpy.UNSEEN`) is either :code:`-MAXINT` or :code:`0`, depending on the desired use of the map (e.g., integer values or positive bitmasks).  Note that these maps cannot be trivially converted to :code:`healpy` maps because `HEALPix` has no concept of sentinel values that are not :code:`healpy.UNSEEN`, which is a very large negative floating-point value.
+In addition to floating-point maps, which are natively supported by :code:`healpy`, :code:`HealSparseMap` supports integer maps.
+The "sentinel" value of these maps (equivalent to :code:`healpy.UNSEEN`) is either :code:`-MAXINT` or :code:`0`, depending on the desired use of the map (e.g., integer values or positive bitmasks).
+Note that these maps cannot be trivially converted to :code:`healpy` maps because `HEALPix` has no concept of sentinel values that are not :code:`healpy.UNSEEN`, which is a very large negative floating-point value.
 
 .. code-block :: python
 
@@ -96,7 +105,11 @@ In addition to floating-point maps, which are natively supported by :code:`healp
 Recarray Maps
 -------------
 
-:code:`HealSparseMap` also supports maps made up of :code:`numpy` record arrays.  These recarray maps will have one field that is the "primary" field which is used to test if a pixel has a valid value or not.  Therefore, these recarray maps should be used to describe associated values that share the exact same valid footprint.  Each field in the recarray can be treated as its own :code:`HealSparseMap`.  For example,
+:code:`HealSparseMap` also supports maps made up of :code:`numpy` record arrays.
+These recarray maps will have one field that is the "primary" field which is used to test if a pixel has a valid value or not.
+Therefore, these recarray maps should be used to describe associated values that share the exact same valid footprint.
+Each field in the recarray can be treated as its own :code:`HealSparseMap`.
+For example,
 
 .. code-block :: python
 
@@ -127,7 +140,10 @@ can only be used to change pixel values.
 Wide Masks
 ----------
 
-`HealSparse` has support for "wide" bit masks with an arbitrary number of bits that are referred to by bit position rather than value.  This is useful, for example, when constructing a coadd coverage map where every pixel can uniquely identify the set of input exposures that contributed at the location of that pixel.  In the case of >64 input exposures you can no longer use a simple 64-bit integer bit mask.  Wide mask bits are always specified by giving a list of integer positions rather than values (e.g., use :code:`10` to set the 10th bit instead of :code:`1024 = 2**10`).
+`HealSparse` has support for "wide" bit masks with an arbitrary number of bits that are referred to by bit position rather than value.
+This is useful, for example, when constructing a coadd coverage map where every pixel can uniquely identify the set of input exposures that contributed at the location of that pixel.
+In the case of >64 input exposures you can no longer use a simple 64-bit integer bit mask.
+Wide mask bits are always specified by giving a list of integer positions rather than values (e.g., use :code:`10` to set the 10th bit instead of :code:`1024 = 2**10`).
 
 .. code-block :: python
 
@@ -172,7 +188,9 @@ And to write a map in the Parquet format with ``pyarrow``:
 Metadata
 --------
 
-You can also set key/value metadata to a map that will be stored in the fits header of the file and read back in.  The keys must confirm to FITS header key standards (strings, upper case).  The metadata will be stored as a Python dictionary, and can be accessed with the :code:`metadata` property.
+You can also set key/value metadata to a map that will be stored in the fits header of the file and read back in.
+The keys must confirm to FITS header key standards (strings, upper case).
+The metadata will be stored as a Python dictionary, and can be accessed with the :code:`metadata` property.
 
 .. code-block :: python
 
@@ -185,7 +203,8 @@ You can also set key/value metadata to a map that will be stored in the fits hea
 Coverage Masks
 --------------
 
-A :code:`HealSparseMap` contains a coverage map that defines the coarse coverage over the sky.  You can retrieve a boolean array describing which pixels are covered in the map with the :code:`coverage_mask` property:
+A :code:`HealSparseMap` contains a coverage map that defines the coarse coverage over the sky.
+You can retrieve a boolean array describing which pixels are covered in the map with the :code:`coverage_mask` property:
 
 .. code-block :: python
 
@@ -207,7 +226,10 @@ It is also possible to read the coverage map of a :code:`HealSparseMap` on its o
     cov_mask = cov_map.coverage_mask
 
 
-In some cases, you may me building a map and you already know the coverage when it will be finished.  In this case, it can be faster to initialize the memory at the beginning.  In this case, you can add :code:`cov_pixels` to the :code:`make_empty` call.  Be aware this may make the map larger than your actual coverage.
+In some cases, you may me building a map and you already know the coverage when it will be finished.
+In this case, it can be faster to initialize the memory at the beginning.
+In this case, you can add :code:`cov_pixels` to the :code:`make_empty` call.
+Be aware this may make the map larger than your actual coverage.
 
 .. code-block :: python
 
@@ -234,9 +256,9 @@ If one tries to compute the :code:`fracdet_map` of an existing :code:`fracdet_ma
 Basic Visualization
 -------------------
 
-:code:`healsparse` does not provide any built-in visualization tools. However, it is possible to perform quick visualizations of a
-:code:`HealSparseMap` using the :code:`matplotlib` package. For example, we can take render our map as a collection of hexagonal
-cells using :code:`matplotlib.pyplot.hexbin`:
+:code:`healsparse` does not provide any built-in visualization tools.
+However, it is possible to perform quick visualizations of a :code:`HealSparseMap` using the :code:`matplotlib` package.
+For example, we can take render our map as a collection of hexagonal cells using :code:`matplotlib.pyplot.hexbin`:
 
 .. code-block :: python
 
