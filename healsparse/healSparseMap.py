@@ -1229,7 +1229,8 @@ class HealSparseMap(object):
         weight_values = None
         if weights is not None:
             if reduction != 'wmean':
-                raise Warning('Weights only used with wmean reduction.  Ignoring weights.')
+                warnings.warn('Weights only used with wmean reduction.  Ignoring weights.',
+                              UserWarning)
             else:
                 # Check format/size of weight-map here.
                 if not isinstance(weights, HealSparseMap):
