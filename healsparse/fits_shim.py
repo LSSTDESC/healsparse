@@ -299,3 +299,31 @@ def _make_header(metadata):
         hdr = fits.Header(metadata)
 
     return hdr
+
+
+def _write_healpix_filename(filename, hdr, output_struct):
+    """
+    Write to a filename, HEALPix EXPLICIT format, using astropy.io.fits.
+
+    This assumes that you want to overwrite any existing file (as should be
+    checked in the calling function.)
+
+    Parameters
+    ----------
+    filename : `str`
+        Name of file to write to.
+    hdr : `astropy.io.fits.Header`
+        Correctly formatted header.
+    output_struct : `numpy.recarray`
+        Correctly formatted output struct.
+    """
+    hdu_list = fits.HDUList()
+
+    hdu = fits.BinTableHDU(data=output_struct, header=fits.Header())
+
+    for n in hdr:
+        if n not in FITS_RESERVED:
+            hdu.header[n] = hdr[n]
+    hdu_list.append(hdu)
+
+    hdu_list.writeto(filename, overwrite=True)

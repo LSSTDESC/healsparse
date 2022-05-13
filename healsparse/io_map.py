@@ -4,6 +4,7 @@ from .fits_shim import HealSparseFits
 from .io_map_fits import _read_map_fits, _write_map_fits
 from .parquet_shim import check_parquet_dataset
 from .io_map_parquet import _read_map_parquet, _write_map_parquet
+from .io_map_healpix import _write_map_healpix
 
 
 def _read_map(healsparse_class, filename, nside_coverage=None, pixels=None, header=False,
@@ -89,13 +90,13 @@ def _write_map(hsp_map, filename, clobber=False, nocompress=False, format='fits'
     nocompress : `bool`, optional
         If this is False, then integer maps will be compressed losslessly.
         Note that `np.int64` maps cannot be compressed in the FITS standard.
-        This option only applies if format='fits'.
+        This option only applies if format=``fits``.
     nside_io : `int`, optional
         The healpix nside to partition the output map files in parquet.
-        This option only applies if format='parquet'.
+        This option only applies if format=``parquet``.
         Must be less than or equal to nside_coverage, and not greater than 16.
     format : `str`, optional
-        File format.  May be 'fits' or 'parquet'.
+        File format.  May be ``fits``, ``parquet``, or ``healpix``.
 
     Raises
     ------
@@ -106,5 +107,7 @@ def _write_map(hsp_map, filename, clobber=False, nocompress=False, format='fits'
         _write_map_fits(hsp_map, filename, clobber=clobber, nocompress=nocompress)
     elif format == 'parquet':
         _write_map_parquet(hsp_map, filename, clobber=clobber, nside_io=nside_io)
+    elif format == 'healpix':
+        _write_map_healpix(hsp_map, filename, clobber=clobber)
     else:
-        raise NotImplementedError("Only 'fits' and 'parquet' file formats are supported.")
+        raise NotImplementedError("Only 'fits', 'parquet' and 'healpix' file formats are supported.")

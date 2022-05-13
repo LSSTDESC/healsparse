@@ -346,13 +346,15 @@ class HealSparseMap(object):
         nocompress : `bool`, optional
             If this is False, then integer maps will be compressed losslessly.
             Note that `np.int64` maps cannot be compressed in the FITS standard.
-            This option only applies if format='fits'.
+            This option only applies if format=``fits``.
         nside_io : `int`, optional
             The healpix nside to partition the output map files in parquet.
             Must be less than or equal to nside_coverage, and not greater than 16.
-            This option only applies if format='parquet'.
+            This option only applies if format=``parquet``.
         format : `str`, optional
-            File format.  Currently only 'fits' is supported.
+            File format.  May be ``fits``, ``parquet``, or ``healpix``. Note that
+            the ``healpix`` EXPLICIT format does not maintain all metadata and
+            coverage information.
 
         Raises
         ------
