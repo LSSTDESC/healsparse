@@ -1,5 +1,3 @@
-from __future__ import division, absolute_import, print_function
-
 import unittest
 import numpy.testing as testing
 import numpy as np
@@ -12,10 +10,10 @@ import os
 import healsparse
 
 
-class FitsIoTestCase(unittest.TestCase):
+class HealsparseFitsIoTestCase(unittest.TestCase):
     def test_fits_writeread(self):
         """
-        Test fits i/o functionality
+        Test healsparse fits i/o functionality
         """
         random.seed(seed=12345)
 
@@ -29,42 +27,16 @@ class FitsIoTestCase(unittest.TestCase):
         self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
 
         # Generate a random map
-
         full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
         full_map[0: 20000] = np.random.random(size=20000)
 
-        theta = np.radians(90.0 - dec)
-        phi = np.radians(ra)
-        ipnest = hp.ang2pix(nside_map, theta, phi, nest=True)
+        ipnest = hp.ang2pix(nside_map, ra, dec, nest=True, lonlat=True)
 
         test_values = full_map[ipnest]
 
-        # Save it with healpy in ring
-
-        full_map_ring = hp.reorder(full_map, n2r=True)
-        hp.write_map(os.path.join(self.test_dir, 'healpix_map_ring.fits'), full_map_ring, dtype=np.float64)
-
-        # Read it with healsparse
-        # TODO Test that we raise an exception when nside_coverage isn't set
-
-        sparse_map = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healpix_map_ring.fits'),
-                                                   nside_coverage=nside_coverage)
-
-        # Check that we can do a basic lookup
-        testing.assert_almost_equal(sparse_map.get_values_pix(ipnest), test_values)
-
-        # Save map to healpy in nest
-        hp.write_map(os.path.join(self.test_dir, 'healpix_map_nest.fits'), full_map,
-                     dtype=np.float64, nest=True)
-
-        # Read it with healsparse
-        sparse_map = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healpix_map_nest.fits'),
-                                                   nside_coverage=nside_coverage)
-
-        # Check that we can do a basic lookup
-        testing.assert_almost_equal(sparse_map.get_values_pix(ipnest), test_values)
-
         # Test that we can do a basic set
+        sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage, nest=True)
+
         sparse_map[30000: 30005] = np.zeros(5, dtype=np.float64)
 
         # Write it to healsparse format
