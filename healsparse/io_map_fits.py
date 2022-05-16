@@ -54,21 +54,49 @@ def _read_map_fits(healsparse_class, filename, nside_coverage=None, pixels=None,
             raise NotImplementedError("Cannot specify a weightfile with degrade-on-read "
                                       "with a healpix map input.")
 
-        # This is a healpix format
-        # We need to determine the datatype, preserving it.
-        if hdr['OBJECT'].rstrip() == 'PARTIAL':
+        if hdr['INDXSCHM'].rstrip() == 'EXPLICIT':
+            # This is an explicit (partial) healpix map
             with HealSparseFits(filename) as fits:
-                row = fits.read_ext_data(1, row_range=[0, 1])
-                dtype = row[0]['SIGNAL'].dtype.type
-        else:
+                data = fits.read_ext_data(1)
+
+            names = set(data.dtype.names)
+            names.remove('PIXEL')
+            if len(names) > 1:
+                raise NotImplementedError("HealSparse does not support multi-column partial maps.")
+
+            signal_column = list(names)[0]
+
+            if 'BAD_DATA' in hdr:
+                sentinel = hdr['BAD_DATA']
+            else:
+                sentinel = hp.UNSEEN
+
+            healsparse_map = healsparse_class.make_empty(
+                nside_coverage,
+                hdr['NSIDE'],
+                data[0][signal_column].dtype.type,
+                sentinel=sentinel
+            )
+            if hdr['ORDERING'] == 'RING':
+                _pix = hp.ring2nest(hdr['NSIDE'], data['PIXEL'])
+            else:
+                _pix = data['PIXEL']
+            healsparse_map[_pix] = data[signal_column]
+        elif hdr['INDXSCHM'].rstrip() == 'IMPLICIT':
+            # This is an implicit (full) healpix map
+            # Figure out the datatype
             with HealSparseFits(filename) as fits:
                 row = fits.read_ext_data(1, row_range=[0, 1])
                 dtype = row[0][0][0].dtype.type
 
-        healpix_map = hp.read_map(filename, nest=True, dtype=dtype)
-        healsparse_map = healsparse_class(healpix_map=healpix_map,
-                                          nside_coverage=nside_coverage,
-                                          nest=True)
+            # Read in the map using healpy
+            healpix_map = hp.read_map(filename, nest=True, dtype=dtype)
+            # Convert to healsparse format
+            healsparse_map = healsparse_class(healpix_map=healpix_map,
+                                              nside_coverage=nside_coverage,
+                                              nest=True)
+        else:
+            raise ValueError(f"Illegal value for INDXSCHM: {hdr['INDXSCHM']}")
 
         if degrade_nside is not None:
             # Degrade this map.  Note that this could not be done on read
