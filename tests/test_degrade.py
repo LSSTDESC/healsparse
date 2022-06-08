@@ -624,6 +624,34 @@ class DegradeMapTestCase(unittest.TestCase):
             testing.assert_almost_equal(sparse_map.coverage_map, sparse_map2.coverage_map)
             testing.assert_almost_equal(sparse_map._sparse_map, sparse_map2._sparse_map)
 
+    def test_degrade_map_bool(self):
+        """
+        Test HealSparse.degrade functionality with bool quantities
+        """
+        random.seed(12345)
+        nside_coverage = 32
+        nside_map = 1024
+        nside_new = 256
+
+        full_map = np.zeros(hp.nside2npix(nside_map), dtype=bool)
+        pixels = np.random.choice(full_map.size, size=full_map.size//4, replace=False)
+        full_map[pixels] = True
+
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_)
+        sparse_map[pixels] = full_map[pixels]
+
+        # Degrade original map
+        test_map = full_map.astype(np.float64)
+        test_map[~full_map] = hp.UNSEEN
+        deg_map = hp.ud_grade(test_map, nside_out=nside_new,
+                              order_in='NESTED', order_out='NESTED')
+
+        # Degrade sparse map and compare to original
+        new_map = sparse_map.degrade(nside_out=nside_new)
+
+        # Test the coverage map generation and lookup
+        testing.assert_almost_equal(deg_map, new_map.generate_healpix_map())
+
     def setUp(self):
         self.test_dir = None
 

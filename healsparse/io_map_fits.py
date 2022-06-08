@@ -234,6 +234,10 @@ def _read_healsparse_fits_file(filename, pixels=None):
                                                           nside_sparse,
                                                           _pixels)
 
+    if isinstance(sentinel, bool):
+        # Convert back to boolean
+        sparse_map = sparse_map.astype(bool)
+
     return cov_map, sparse_map, nside_sparse, primary, sentinel
 
 
@@ -491,6 +495,12 @@ def _write_map_fits(hsp_map, filename, clobber=False, nocompress=False):
         _write_filename(filename, c_hdr, s_hdr, hsp_map._cov_map[:], hsp_map._sparse_map.ravel(),
                         compress=not nocompress,
                         compress_tilesize=hsp_map._wide_mask_width*hsp_map._cov_map.nfine_per_cov)
+    elif hsp_map._sparse_map[0].dtype == np.bool_:
+        # We must convert boolean maps to int16 maps for fits storage.
+        _write_filename(filename, c_hdr, s_hdr, hsp_map._cov_map[:], hsp_map._sparse_map.astype(np.int16),
+                        compress=not nocompress,
+                        compress_tilesize=hsp_map._cov_map.nfine_per_cov)
+
     elif ((hsp_map.is_integer_map and hsp_map._sparse_map[0].dtype.itemsize < 8) or
           (not hsp_map.is_integer_map and not hsp_map._is_rec_array)):
         # Integer maps < 64 bit (8 byte) can be compressed, as can

@@ -301,6 +301,48 @@ class HealsparseFitsIoTestCase(unittest.TestCase):
 
         self.assertRaises(IOError, healsparse.HealSparseMap.read, fname)
 
+    def test_fits_writeread_bool(self):
+        """Test writing and reading a bool map."""
+        nside_coverage = 32
+        nside_map = 64
+
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, bool)
+        sparse_map[30000: 30005] = True
+
+        # Write it to healsparse format
+        sparse_map.write(os.path.join(self.test_dir, 'healsparse_map.hs'))
+
+        # Read in healsparse format (full map)
+        sparse_map2 = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healsparse_map.hs'))
+
+        # Check that we can do a basic lookup
+        testing.assert_array_equal(sparse_map2[30000: 30005], True)
+
+        self.assertEqual(len(sparse_map2.valid_pixels), 5)
+
+        # Need to read in partial map (slightly different code path)
+        sparse_map3 = healsparse.HealSparseMap.read(
+            os.path.join(self.test_dir, 'healsparse_map.hs'),
+            pixels=sparse_map.coverage_mask.nonzero()[0],
+        )
+
+        # Check that we can do a basic lookup
+        testing.assert_array_equal(sparse_map3[30000: 30005], True)
+
+        self.assertEqual(len(sparse_map3.valid_pixels), 5)
+
+        # And degrade-on-read test ...
+        sparse_map4 = healsparse.HealSparseMap.read(
+            os.path.join(self.test_dir, 'healsparse_map.hs'),
+            degrade_nside=32
+        )
+
+        sparse_map_dg = sparse_map.degrade(32)
+
+        testing.assert_array_almost_equal(sparse_map4._sparse_map, sparse_map_dg._sparse_map)
+
     def setUp(self):
         self.test_dir = None
 

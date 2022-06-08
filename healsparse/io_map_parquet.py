@@ -128,12 +128,16 @@ def _read_map_parquet(healsparse_class, filepath, pixels=None, header=False,
 
     if md['healsparse::sentinel'] == 'UNSEEN':
         sentinel = primary_dtype(hp.UNSEEN)
+    elif md['healsparse::sentinel'] == 'False':
+        sentinel = False
+    elif md['healsparse::sentinel'] == 'True':
+        sentinel = True
     else:
         sentinel = primary_dtype(md['healsparse::sentinel'])
 
         if is_integer_value(sentinel):
             sentinel = int(sentinel)
-        else:
+        elif not isinstance(sentinel, np.bool_):
             sentinel = float(sentinel)
 
     if is_rec_array:
