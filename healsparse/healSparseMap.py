@@ -42,7 +42,7 @@ class HealSparseMap(object):
            Primary key for recarray, required if dtype has fields.
         sentinel : `int` or `float`, optional
            Sentinel value.  Default is `hp.UNSEEN` for floating-point types,
-           and minimum int for int types.
+           minimum int for int types, and False for bool types.
         nest : `bool`, optional
            If input healpix map is in nest format.  Default is True.
         metadata : `dict`-like, optional
@@ -478,6 +478,10 @@ class HealSparseMap(object):
                         raise ValueError("Cannot set non-floating point map with a floating point.")
                     is_single_value = True
                     _values = np.array([values], dtype=self.dtype)
+                elif isinstance(values, (bool, np.bool_)):
+                    is_single_value = True
+                    _values = np.array([values], dtype=bool)
+
         if isinstance(values, np.ndarray) and len(values) == 1:
             is_single_value = True
 
@@ -943,7 +947,7 @@ class HealSparseMap(object):
         if self._is_rec_array:
             return False
 
-        return issubclass(self._sparse_map.dtype.type, np.integer)
+        return issubclass(self._sparse_map.dtype.type, (np.integer, np.bool_))
 
     @property
     def is_unsigned_map(self):
@@ -1293,7 +1297,7 @@ class HealSparseMap(object):
             sparse_map_out = reduce_array(aux, reduction=reduction)
             sentinel_out = self._sentinel
         else:
-            if issubclass(self._sparse_map.dtype.type, np.integer):
+            if issubclass(self._sparse_map.dtype.type, (np.integer, np.bool_)):
                 aux_dtype = np.float64
             else:
                 aux_dtype = self._sparse_map.dtype
