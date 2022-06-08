@@ -242,10 +242,6 @@ class ParquetIoTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 64
 
-        n_rand = 1000
-        ra = np.random.random(n_rand) * 360.0
-        dec = np.random.random(n_rand) * 180.0 - 90.0
-
         self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
 
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, bool)
