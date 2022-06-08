@@ -237,6 +237,31 @@ class ParquetIoTestCase(unittest.TestCase):
         self.assertRaises(ValueError, sparse_map2.write, fname,
                           format='parquet', nside_io=32)
 
+    def test_parquet_writeread_bool(self):
+        """Test writing and reading a bool map."""
+        nside_coverage = 32
+        nside_map = 64
+
+        n_rand = 1000
+        ra = np.random.random(n_rand) * 360.0
+        dec = np.random.random(n_rand) * 180.0 - 90.0
+
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, bool)
+        sparse_map[30000: 30005] = True
+
+        # Write it to healsparse format
+        sparse_map.write(os.path.join(self.test_dir, 'healsparse_map.hsparquet'), format='parquet')
+
+        # Read in healsparse format (full map)
+        sparse_map2 = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healsparse_map.hsparquet'))
+
+        # Check that we can do a basic lookup
+        testing.assert_array_equal(sparse_map2[30000: 30005], True)
+
+        self.assertEqual(len(sparse_map2.valid_pixels), 5)
+
     def setUp(self):
         self.test_dir = None
 

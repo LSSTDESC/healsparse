@@ -77,6 +77,26 @@ class SingleDatatypesTestCase(unittest.TestCase):
         self.assertEqual(sparse_map.dtype, np.uint64)
         self.assertEqual(sparse_map._sentinel, 0)
 
+    def test_datatypes_bools(self):
+        """
+        Test making maps with boolean datatypes
+        """
+        nside_coverage = 32
+        nside_map = 64
+
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, bool)
+
+        self.assertEqual(sparse_map.dtype, np.bool_)
+        self.assertEqual(sparse_map._sentinel, False)
+
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, bool, sentinel=True)
+
+        self.assertEqual(sparse_map.dtype, np.bool_)
+        self.assertEqual(sparse_map._sentinel, True)
+
+        with self.assertRaises(ValueError):
+            sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, bool, sentinel=0)
+
 
 if __name__ == '__main__':
     unittest.main()

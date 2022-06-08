@@ -371,6 +371,33 @@ class GetSetTestCase(unittest.TestCase):
         sparse_map[pxnums[0]] = pxvalues[0]
         testing.assert_equal(sparse_map[pxnums[0]], full_map[pxnums[0]])
 
+        sparse_map[int(pxnums[1])] = int(pxvalues[1])
+        testing.assert_equal(sparse_map[pxnums[1]], full_map[pxnums[1]])
+
+        sparse_map[pxnums] = pxvalues
+        testing.assert_array_almost_equal(sparse_map[pxnums], full_map[pxnums])
+
+    def test_setitem_bool(self):
+        """
+        Test __setitem__ for boolean HealSparseMaps
+        """
+        random.seed(12345)
+        nside_coverage = 32
+        nside_map = 128
+        pxnums = np.arange(0, 2000)
+        pxvalues = np.ones(pxnums.size, dtype=bool)
+        full_map = np.zeros(hp.nside2npix(nside_map), dtype=bool)
+        full_map[pxnums] = pxvalues
+
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage=nside_coverage,
+                                                         nside_sparse=nside_map, dtype=pxvalues.dtype)
+
+        sparse_map[pxnums[0]] = pxvalues[0]
+        testing.assert_equal(sparse_map[pxnums[0]], full_map[pxnums[0]])
+
+        sparse_map[int(pxnums[1])] = bool(pxvalues[1])
+        testing.assert_equal(sparse_map[pxnums[1]], full_map[pxnums[1]])
+
         sparse_map[pxnums] = pxvalues
         testing.assert_array_almost_equal(sparse_map[pxnums], full_map[pxnums])
 
