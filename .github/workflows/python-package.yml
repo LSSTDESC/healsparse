@@ -34,6 +34,7 @@ jobs:
         flake8
     - name: Test with pytest
       run: |
+        pip install mocpy
         pytest
         pip install fitsio>=1.0.5
         pytest
