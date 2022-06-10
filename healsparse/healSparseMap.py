@@ -5,7 +5,7 @@ import numbers
 from .healSparseCoverage import HealSparseCoverage
 from .utils import reduce_array, check_sentinel, _get_field_and_bitval, WIDE_NBIT, WIDE_MASK
 from .utils import is_integer_value, _compute_bitshift
-from .io_map import _read_map, _write_map
+from .io_map import _read_map, _write_map, _write_moc
 import warnings
 
 
@@ -363,6 +363,20 @@ class HealSparseMap(object):
         """
         _write_map(self, filename, clobber=clobber, nocompress=nocompress, format=format,
                    nside_io=nside_io)
+
+    def write_moc(self, filename, clobber=False):
+        """
+        Write the valid pixels of a HealSparseMap to a multi-order component (MOC)
+        file.  Note that values of the pixels are not persisted in MOC format.
+
+        Parameters
+        ----------
+        filename : `str`
+            Name of file to save
+        clobber : `bool`, optional
+            Clobber existing file?  Default is False.
+        """
+        _write_moc(self, filename, clobber=clobber)
 
     def _reserve_cov_pix(self, new_cov_pix):
         """

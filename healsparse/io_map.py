@@ -1,7 +1,7 @@
 import os
 
 from .fits_shim import HealSparseFits
-from .io_map_fits import _read_map_fits, _write_map_fits
+from .io_map_fits import _read_map_fits, _write_map_fits, _write_moc_fits
 from .parquet_shim import check_parquet_dataset
 from .io_map_parquet import _read_map_parquet, _write_map_parquet
 from .io_map_healpix import _write_map_healpix
@@ -111,3 +111,20 @@ def _write_map(hsp_map, filename, clobber=False, nocompress=False, format='fits'
         _write_map_healpix(hsp_map, filename, clobber=clobber)
     else:
         raise NotImplementedError("Only 'fits', 'parquet' and 'healpix' file formats are supported.")
+
+
+def _write_moc(hsp_map, filename, clobber=False):
+    """
+    Write the valid pixels of a HealSparseMap to a multi-order component (MOC)
+    file.  Note that values of the pixels are not persisted in MOC format.
+
+    Parameters
+    ----------
+    hsp_map : `healsparse.HealSparseMap`
+        HealSparseMap with valid_pixels to output.
+    filename : `str`
+        Name of file to save
+    clobber : `bool`, optional
+        Clobber existing file?  Default is False.
+    """
+    _write_moc_fits(hsp_map, filename, clobber=clobber)

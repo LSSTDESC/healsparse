@@ -54,7 +54,33 @@ def _read_map_fits(healsparse_class, filename, nside_coverage=None, pixels=None,
             raise NotImplementedError("Cannot specify a weightfile with degrade-on-read "
                                       "with a healpix map input.")
 
-        if hdr['INDXSCHM'].rstrip() == 'EXPLICIT':
+        if 'ORDERING' not in hdr:
+            raise RuntimeError("Required keyword ORDERING not in header.")
+
+        if hdr['ORDERING'].rstrip() == 'NUNIQ':
+            # This is a MOC file.
+            with HealSparseFits(filename) as fits:
+                data = fits.read_ext_data(1)
+
+            order = np.round(np.log2(data['UNIQ']//4)).astype(np.int32)//2
+            index = data['UNIQ'] - 4*(4**order)
+
+            max_order = np.max(order)
+
+            healsparse_map = healsparse_class.make_empty(nside_coverage,
+                                                         2**max_order,
+                                                         dtype=bool)
+
+            # This is a very simple algorithm for unpacking the UNIQ
+            # pixels.  This can be optimized later if necessary.
+            pixel_arrays = []
+            for uniq_order, uniq_index in zip(order, index):
+                pixel_arrays.append(np.left_shift(uniq_index, 2*(max_order - uniq_order)) +
+                                    np.arange(4**(max_order - uniq_order)))
+            pixels = np.concatenate(pixel_arrays)
+            healsparse_map[np.sort(pixels)] = True
+
+        elif hdr['INDXSCHM'].rstrip() == 'EXPLICIT':
             # This is an explicit (partial) healpix map
             with HealSparseFits(filename) as fits:
                 data = fits.read_ext_data(1)
@@ -511,3 +537,62 @@ def _write_map_fits(hsp_map, filename, clobber=False, nocompress=False):
     else:
         # All other maps are not compressed.
         _write_filename(filename, c_hdr, s_hdr, hsp_map._cov_map[:], hsp_map._sparse_map)
+
+
+def _write_moc_fits(hsp_map, filename, clobber=False):
+    """
+    Write the valid pixels of a HealSparseMap to a multi-order component (MOC)
+    file.  Note that values of the pixels are not persisted in MOC format.
+
+    Parameters
+    ----------
+    hsp_map : `healsparse.HealSparseMap`
+        HealSparseMap with valid_pixels to output.
+    filename : `str`
+        Name of file to save
+    clobber : `bool`, optional
+        Clobber existing file?  Default is False.
+    """
+    import astropy.io.fits as fits
+
+    max_order = int(np.round(np.log2(hsp_map.nside_sparse)))
+    min_uniq_order = int(np.round(np.log2(hsp_map.nside_coverage)))
+
+    pixels = hsp_map.valid_pixels
+
+    uniq = 4*(4**max_order) + pixels
+
+    uniq_map = hsp_map.make_empty(hsp_map.nside_coverage, hsp_map.nside_sparse, dtype=np.float32)
+    uniq_map[pixels] = 1.0
+
+    # Loop over orders, degrade each time, and look for pixels with full coverage.
+    for uniq_order in range(max_order - 1, min_uniq_order - 1, -1):
+        uniq_map = uniq_map.degrade(2**uniq_order, reduction='sum')
+        pix_shift = np.right_shift(pixels, 2*(max_order - uniq_order))
+        # Check if any of the pixels at uniq_order have full coverage.
+        covered, = np.isclose(uniq_map[pix_shift], 4**(max_order - uniq_order)).nonzero()
+        if covered.size == 0:
+            # No pixels at uniq_order are fully covered, we're done.
+            break
+        # Replace the UNIQ pixels that are fully covered
+        uniq[covered] = 4*(4**uniq_order) + pix_shift[covered]
+
+    # Remove duplicate pixels
+    uniq = np.unique(uniq)
+
+    # Output to fits
+    tbl = np.zeros(uniq.size, dtype=[('UNIQ', 'i8')])
+    tbl['UNIQ'][:] = uniq
+
+    order = np.round(np.log2(tbl['UNIQ']//4)).astype(np.int32)//2
+    moc_order = np.max(order)
+
+    hdu = fits.BinTableHDU(tbl)
+    hdu.header['PIXTYPE'] = 'HEALPIX'
+    hdu.header['ORDERING'] = 'NUNIQ'
+    hdu.header['COORDSYS'] = 'C'
+    hdu.header['MOCORDER'] = moc_order
+    hdu.header['MOCTOOL'] = 'healsparse'
+    hdu.header['MOCVERS'] = '1.1'
+
+    hdu.writeto(filename, overwrite=clobber)
