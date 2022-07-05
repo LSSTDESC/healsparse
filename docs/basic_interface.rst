@@ -226,7 +226,7 @@ It is also possible to read the coverage map of a :code:`HealSparseMap` on its o
     cov_mask = cov_map.coverage_mask
 
 
-In some cases, you may me building a map and you already know the coverage when it will be finished.
+In some cases, you may be building a map and you already know the coverage when it will be finished.
 In this case, it can be faster to initialize the memory at the beginning.
 In this case, you can add :code:`cov_pixels` to the :code:`make_empty` call.
 Be aware this may make the map larger than your actual coverage.
