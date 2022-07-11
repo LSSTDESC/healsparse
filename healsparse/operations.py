@@ -1,7 +1,5 @@
-from __future__ import division, absolute_import, print_function
-
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 
 from .healSparseMap import HealSparseMap
 from .healSparseCoverage import HealSparseCoverage
@@ -251,7 +249,7 @@ def min_intersection(map_list):
         Element-wise minimum of maps
     """
 
-    return _apply_operation(map_list, np.fmin, -hp.UNSEEN, union=False, int_only=False)
+    return _apply_operation(map_list, np.fmin, -hpg.UNSEEN, union=False, int_only=False)
 
 
 def max_union(map_list):
@@ -287,7 +285,7 @@ def min_union(map_list):
         Element-wise minimum of maps
     """
 
-    return _apply_operation(map_list, np.fmin, -hp.UNSEEN, union=True, int_only=False)
+    return _apply_operation(map_list, np.fmin, -hpg.UNSEEN, union=True, int_only=False)
 
 
 def ufunc_intersection(map_list, func, filler_value=0):

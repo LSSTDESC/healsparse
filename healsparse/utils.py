@@ -1,5 +1,5 @@
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 import warnings
 import numbers
 
@@ -84,9 +84,9 @@ def check_sentinel(type, sentinel):
     """
 
     if issubclass(type, np.floating):
-        # If we don't have a sentinel, use hp.UNSEEN
+        # If we don't have a sentinel, use hpg.UNSEEN
         if sentinel is None:
-            return hp.UNSEEN
+            return hpg.UNSEEN
         # If input is a float, we're okay.  Otherwise, Raise.
         if isinstance(sentinel, numbers.Real) and not is_integer_value(sentinel):
             return sentinel

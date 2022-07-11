@@ -1,5 +1,5 @@
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 from .healSparseMap import HealSparseMap
 from .utils import is_integer_value
 import numbers
@@ -144,7 +144,7 @@ class GeomBase(object):
         if is_integer_value(x[0]):
             sentinel = 0
         else:
-            sentinel = hp.UNSEEN
+            sentinel = hpg.UNSEEN
 
         if isinstance(self._value, (tuple, list, np.ndarray)):
             # This is a wide mask
@@ -226,9 +226,6 @@ class Circle(GeomBase):
         sc_radius = np.isscalar(self._radius)
         if (not sc_ra) or (not sc_dec) or (not sc_radius):
             raise ValueError('Circle only accepts scalar inputs for ra, dec, and radius')
-        else:
-            self._radius_rad = np.deg2rad(radius)
-            self._vec = hp.ang2vec(ra, dec, lonlat=True)
 
     @property
     def ra(self):
@@ -260,10 +257,11 @@ class Circle(GeomBase):
         nside: int
             Nside for the pixels
         """
-        return hp.query_disc(
+        return hpg.query_circle(
             nside,
-            self._vec,
-            self._radius_rad,
+            self._ra,
+            self._dec,
+            self._radius,
             nest=True,
             inclusive=False,
         )
@@ -299,7 +297,7 @@ class Polygon(GeomBase):
             raise ValueError('a polygon must have at least 3 vertices')
         self._ra = ra
         self._dec = dec
-        self._vertices = hp.ang2vec(ra, dec, lonlat=True)
+        self._vertices = hpg.angle_to_vector(ra, dec, lonlat=True)
         self._value = value
 
         self._is_integer = is_integer_value(value)
@@ -334,19 +332,13 @@ class Polygon(GeomBase):
         nside: int
             Nside for the pixels
         """
-        try:
-
-            pixels = hp.query_polygon(
-                nside,
-                self._vertices,
-                nest=True,
-                inclusive=False,
-            )
-
-        except RuntimeError:
-            # healpy raises a RuntimeError with no information attached in the
-            # string, but this seems to always be a non-convex polygon
-            raise ValueError('polygon is not convex: %s' % repr(self))
+        pixels = hpg.query_polygon(
+            nside,
+            self._ra,
+            self._dec,
+            nest=True,
+            inclusive=False,
+        )
 
         return pixels
 

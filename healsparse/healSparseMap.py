@@ -1,5 +1,5 @@
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 import numbers
 
 from .healSparseCoverage import HealSparseCoverage
@@ -41,7 +41,7 @@ class HealSparseMap(object):
         primary : `str`, optional
            Primary key for recarray, required if dtype has fields.
         sentinel : `int` or `float`, optional
-           Sentinel value.  Default is `hp.UNSEEN` for floating-point types,
+           Sentinel value.  Default is `UNSEEN` for floating-point types,
            minimum int for int types, and False for bool types.
         nest : `bool`, optional
            If input healpix map is in nest format.  Default is True.
@@ -69,7 +69,7 @@ class HealSparseMap(object):
         elif healpix_map is not None and nside_coverage is not None:
             # this is a healpix_map input
             if sentinel is None:
-                sentinel = hp.UNSEEN
+                sentinel = hpg.UNSEEN
             if is_integer_value(healpix_map[0]) and not is_integer_value(sentinel):
                 raise ValueError("The sentinel must be set to an integer value with an integer healpix_map")
             elif not is_integer_value(healpix_map[0]) and is_integer_value(sentinel):
@@ -79,7 +79,7 @@ class HealSparseMap(object):
                                                                        nside_coverage=nside_coverage,
                                                                        nest=nest,
                                                                        sentinel=sentinel)
-            nside_sparse = hp.npix2nside(healpix_map.size)
+            nside_sparse = hpg.npixel_to_nside(healpix_map.size)
         else:
             raise RuntimeError("Must specify either cov_map/sparse_map or healpix_map/nside_coverage")
 
@@ -166,7 +166,7 @@ class HealSparseMap(object):
         primary : `str`, optional
            Primary key for recarray, required if dtype has fields.
         sentinel : `int` or `float`, optional
-           Sentinel value.  Default is `hp.UNSEEN` for floating-point types,
+           Sentinel value.  Default is `UNSEEN` for floating-point types,
            and minimum int for int types.
         wide_mask_maxbits : `int`, optional
            Create a "wide bit mask" map, with this many bits.
@@ -286,7 +286,7 @@ class HealSparseMap(object):
                               metadata=metadata, cov_pixels=cov_pixels)
 
     @staticmethod
-    def convert_healpix_map(healpix_map, nside_coverage, nest=True, sentinel=hp.UNSEEN):
+    def convert_healpix_map(healpix_map, nside_coverage, nest=True, sentinel=hpg.UNSEEN):
         """
         Convert a healpix map to a healsparsemap.
 
@@ -300,7 +300,6 @@ class HealSparseMap(object):
            Is the input map in nest format?  Default is True.
         sentinel : `float`, optional
            Sentinel value for null values in the sparse_map.
-           Default is hp.UNSEEN
 
         Returns
         -------
@@ -311,14 +310,24 @@ class HealSparseMap(object):
         """
         if not nest:
             # must convert map to ring format
-            healpix_map = hp.reorder(healpix_map, r2n=True)
+            nside = hpg.npix_to_nside(healpix_map.size)
+            if (nside > 128):
+                groupsize = npix // 24
+            else:
+                groupsize = npix
+
+            healpix_map_nest = np.zeros_like(healpix_map)
+            for group in range(npix // groupsize):
+                pixels = np.arange(group*groupsize, (group + 1)*groupsize)
+                healpix_map_nest[hpg.ring_to_nest(nside, pixels)] = healpix_map[pixels]
+            healpix_map = healpix_map_nest
 
         # Compute the coverage map...
         # Note that this is coming from a standard healpix map so the sentinel
-        # is always hp.UNSEEN
-        ipnest, = np.where(healpix_map > hp.UNSEEN)
+        # is always hpg.UNSEEN
+        ipnest, = np.where(healpix_map > hpg.UNSEEN)
 
-        nside_sparse = hp.npix2nside(healpix_map.size)
+        nside_sparse = hpg.npixel_to_nside(healpix_map.size)
         cov_map = HealSparseCoverage.make_empty(nside_coverage, nside_sparse)
 
         ipnest_cov = cov_map.cov_pixels(ipnest)
@@ -429,10 +438,11 @@ class HealSparseMap(object):
         ValueError : Raised if positions do not resolve to unique
            positions and operation is 'replace'.
         """
-        return self.update_values_pix(hp.ang2pix(self._nside_sparse,
-                                                 ra_or_theta,
-                                                 dec_or_phi,
-                                                 lonlat=lonlat, nest=True),
+        return self.update_values_pix(hpg.angle_to_pixel(self._nside_sparse,
+                                                         ra_or_theta,
+                                                         dec_or_phi,
+                                                         lonlat=lonlat,
+                                                         nest=True),
                                       values,
                                       operation=operation)
 
@@ -511,7 +521,7 @@ class HealSparseMap(object):
             return
 
         if not nest:
-            _pix = hp.ring2nest(self._nside_sparse, pixels)
+            _pix = hpg.ring_to_nest(self._nside_sparse, pixels)
         else:
             _pix = pixels
 
@@ -676,8 +686,11 @@ class HealSparseMap(object):
         values : `np.ndarray`
            Array of values/validity from the map.
         """
-        return self.get_values_pix(hp.ang2pix(self._nside_sparse, ra_or_theta, dec_or_phi,
-                                              lonlat=lonlat, nest=True),
+        return self.get_values_pix(hpg.angle_to_pixel(self._nside_sparse,
+                                                      ra_or_theta,
+                                                      dec_or_phi,
+                                                      lonlat=lonlat,
+                                                      nest=True),
                                    valid_mask=valid_mask)
 
     def get_values_pix(self, pixels, nest=True, valid_mask=False, nside=None):
@@ -708,7 +721,7 @@ class HealSparseMap(object):
             return np.array([], dtype=self.dtype)
 
         if not nest:
-            _pix = hp.ring2nest(self._nside_sparse, pixels)
+            _pix = hpg.ring_to_nest(self._nside_sparse, pixels)
         else:
             _pix = pixels
 
@@ -761,9 +774,11 @@ class HealSparseMap(object):
            Array of `np.bool_` flags on whether any of the input bits were
            set
         """
-        return self.check_bits_pix(hp.ang2pix(self._nside_sparse,
-                                              ra_or_theta, dec_or_phi,
-                                              lonlat=lonlat, nest=True),
+        return self.check_bits_pix(hpg.angle_to_pixel(self._nside_sparse,
+                                                      ra_or_theta,
+                                                      dec_or_phi,
+                                                      lonlat=lonlat,
+                                                      nest=True),
                                    bits)
 
     def check_bits_pix(self, pixels, bits, nest=True):
@@ -1126,11 +1141,11 @@ class HealSparseMap(object):
             dtypeOut = single_map._sparse_map.dtype
 
         # Create an empty HEALPix map, filled with UNSEEN values
-        hp_map = np.full(hp.nside2npix(nside), hp.UNSEEN, dtype=dtypeOut)
+        hp_map = np.full(hpg.nside_to_npixel(nside), hpg.UNSEEN, dtype=dtypeOut)
 
         valid_pixels = single_map.valid_pixels
         if not nest:
-            valid_pixels = hp.nest2ring(nside, valid_pixels)
+            valid_pixels = hpg.nest_to_ring(nside, valid_pixels)
         hp_map[valid_pixels] = single_map.get_values_pix(valid_pixels, nest=nest)
 
         return hp_map
@@ -1176,10 +1191,10 @@ class HealSparseMap(object):
         """
         if return_pixels:
             valid_pixels = self.valid_pixels
-            lon, lat = hp.pix2ang(self.nside_sparse, valid_pixels, lonlat=lonlat, nest=True)
+            lon, lat = hpg.pixel_to_angle(self.nside_sparse, valid_pixels, lonlat=lonlat, nest=True)
             return (valid_pixels, lon, lat)
         else:
-            return hp.pix2ang(self.nside_sparse, self.valid_pixels, lonlat=lonlat, nest=True)
+            return hpg.pixel_to_angle(self.nside_sparse, self.valid_pixels, lonlat=lonlat, nest=True)
 
     @property
     def n_valid(self):
@@ -1213,7 +1228,7 @@ class HealSparseMap(object):
         -------
         valid_area : `float`
         """
-        return self.n_valid*hp.nside2pixarea(self._nside_sparse, degrees=degrees)
+        return self.n_valid*hpg.nside_to_pixel_area(self._nside_sparse, degrees=degrees)
 
     def _degrade(self, nside_out, reduction='mean', weights=None):
         """
@@ -1286,7 +1301,7 @@ class HealSparseMap(object):
         # Work with RecArray (we have to change the resolution to all maps...)
         elif self._is_rec_array:
             dtype = []
-            sentinel_out = hp.UNSEEN
+            sentinel_out = hpg.UNSEEN
             # We should avoid integers
             for key, value in self._sparse_map.dtype.fields.items():
                 if issubclass(self._sparse_map[key].dtype.type, np.integer):
@@ -1315,7 +1330,7 @@ class HealSparseMap(object):
                 aux_dtype = np.float64
             else:
                 aux_dtype = self._sparse_map.dtype
-            sentinel_out = hp.UNSEEN
+            sentinel_out = hpg.UNSEEN
             aux = self._sparse_map.astype(aux_dtype)
             aux[self._sparse_map == self._sentinel] = np.nan
             aux = aux.reshape((npop_pix + 1, (nside_out//self.nside_coverage)**2, -1))
@@ -1503,7 +1518,7 @@ class HealSparseMap(object):
         elif isinstance(key, slice):
             # Get a slice of pixels
             start = key.start if key.start is not None else 0
-            stop = key.stop if key.stop is not None else hp.nside2npix(self._nside_sparse)
+            stop = key.stop if key.stop is not None else hpg.nside_to_npixel(self._nside_sparse)
             step = key.step if key.step is not None else 1
             return self.get_values_pix(np.arange(start, stop, step))
         elif isinstance(key, np.ndarray):
@@ -1534,7 +1549,7 @@ class HealSparseMap(object):
         elif isinstance(key, slice):
             # Set a slice of pixels
             start = key.start if key.start is not None else 0
-            stop = key.stop if key.stop is not None else hp.nside2npix(self._nside_sparse)
+            stop = key.stop if key.stop is not None else hpg.nside_to_npixel(self._nside_sparse)
             step = key.step if key.step is not None else 1
             return self.update_values_pix(np.arange(start, stop, step),
                                           value)
@@ -1660,7 +1675,7 @@ class HealSparseMap(object):
         """
         Convert sparse map to a different numpy datatype, including sentinel
         values.  If sentinel is not specified the default for the converted
-        datatype is used (`healpy.UNSEEN` for float, and -MAXINT for ints).
+        datatype is used (`UNSEEN` for float, and -MAXINT for ints).
 
         Parameters
         ----------
