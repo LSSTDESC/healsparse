@@ -588,7 +588,7 @@ def _write_moc_fits(hsp_map, filename, clobber=False):
     tbl = np.zeros(uniq.size, dtype=[('UNIQ', 'i8')])
     tbl['UNIQ'][:] = uniq
 
-    order = np.round(np.log2(tbl['UNIQ']//4)).astype(np.int32)//2
+    order = np.log2(data['UNIQ']//4).astype(np.int32)//2
     moc_order = np.max(order)
 
     hdu = fits.BinTableHDU(tbl)
