@@ -310,7 +310,8 @@ class HealSparseMap(object):
         """
         if not nest:
             # must convert map to ring format
-            nside = hpg.npixel_to_nside(healpix_map.size)
+            npix = healpix_map.size
+            nside = hpg.npixel_to_nside(npix)
             if (nside > 128):
                 groupsize = npix // 24
             else:
@@ -441,8 +442,7 @@ class HealSparseMap(object):
         return self.update_values_pix(hpg.angle_to_pixel(self._nside_sparse,
                                                          ra_or_theta,
                                                          dec_or_phi,
-                                                         lonlat=lonlat,
-                                                         nest=True),
+                                                         lonlat=lonlat),
                                       values,
                                       operation=operation)
 
@@ -689,8 +689,7 @@ class HealSparseMap(object):
         return self.get_values_pix(hpg.angle_to_pixel(self._nside_sparse,
                                                       ra_or_theta,
                                                       dec_or_phi,
-                                                      lonlat=lonlat,
-                                                      nest=True),
+                                                      lonlat=lonlat),
                                    valid_mask=valid_mask)
 
     def get_values_pix(self, pixels, nest=True, valid_mask=False, nside=None):
@@ -777,8 +776,7 @@ class HealSparseMap(object):
         return self.check_bits_pix(hpg.angle_to_pixel(self._nside_sparse,
                                                       ra_or_theta,
                                                       dec_or_phi,
-                                                      lonlat=lonlat,
-                                                      nest=True),
+                                                      lonlat=lonlat),
                                    bits)
 
     def check_bits_pix(self, pixels, bits, nest=True):
@@ -1191,10 +1189,10 @@ class HealSparseMap(object):
         """
         if return_pixels:
             valid_pixels = self.valid_pixels
-            lon, lat = hpg.pixel_to_angle(self.nside_sparse, valid_pixels, lonlat=lonlat, nest=True)
+            lon, lat = hpg.pixel_to_angle(self.nside_sparse, valid_pixels, lonlat=lonlat)
             return (valid_pixels, lon, lat)
         else:
-            return hpg.pixel_to_angle(self.nside_sparse, self.valid_pixels, lonlat=lonlat, nest=True)
+            return hpg.pixel_to_angle(self.nside_sparse, self.valid_pixels, lonlat=lonlat)
 
     @property
     def n_valid(self):
