@@ -310,7 +310,7 @@ class HealSparseMap(object):
         """
         if not nest:
             # must convert map to ring format
-            nside = hpg.npix_to_nside(healpix_map.size)
+            nside = hpg.npixel_to_nside(healpix_map.size)
             if (nside > 128):
                 groupsize = npix // 24
             else:
