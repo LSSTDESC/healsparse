@@ -1,16 +1,24 @@
 import unittest
 import numpy.testing as testing
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 from numpy import random
 import tempfile
 import shutil
 import os
+import pytest
 
 import healsparse
 
+try:
+    import healpy as hp
+    has_healpy = True
+except ImportError:
+    has_healpy = False
+
 
 class HealpixIoTestCase(unittest.TestCase):
+    @pytest.mark.skipif(not has_healpy, reason="Requires healpy")
     def test_healpix_implicit_read(self):
         """Test reading healpix full (implicit) maps."""
         random.seed(seed=12345)
@@ -25,10 +33,10 @@ class HealpixIoTestCase(unittest.TestCase):
         self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
 
         # Generate a random map
-        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         full_map[0: 20000] = np.random.random(size=20000)
 
-        ipnest = hp.ang2pix(nside_map, ra, dec, nest=True, lonlat=True)
+        ipnest = hpg.angle_to_pixel(nside_map, ra, dec)
 
         test_values = full_map[ipnest]
 
@@ -57,6 +65,7 @@ class HealpixIoTestCase(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             sparse_map = healsparse.HealSparseMap.read(filename)
 
+    @pytest.mark.skipif(not has_healpy, reason="Requires healpy")
     def test_healpix_explicit_read(self):
         """Test reading healpix partial (explicit) maps."""
         random.seed(seed=12345)
@@ -71,10 +80,10 @@ class HealpixIoTestCase(unittest.TestCase):
         self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
 
         # Generate a random map
-        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         full_map[0: 20000] = np.random.random(size=20000)
 
-        ipnest = hp.ang2pix(nside_map, ra, dec, nest=True, lonlat=True)
+        ipnest = hpg.angle_to_pixel(nside_map, ra, dec)
 
         test_values = full_map[ipnest]
 
@@ -98,6 +107,7 @@ class HealpixIoTestCase(unittest.TestCase):
         # Check that we can do a basic lookup
         testing.assert_almost_equal(sparse_map.get_values_pix(ipnest), test_values)
 
+    @pytest.mark.skipif(not has_healpy, reason="Requires healpy")
     def test_healpix_explicit_write(self):
         """Test writing healpix partial (explicit) maps (floating point)."""
         random.seed(seed=12345)
@@ -112,10 +122,10 @@ class HealpixIoTestCase(unittest.TestCase):
         self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
 
         # Generate a random map
-        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         full_map[0: 20000] = np.random.random(size=20000)
 
-        ipnest = hp.ang2pix(nside_map, ra, dec, nest=True, lonlat=True)
+        ipnest = hpg.angle_to_pixel(nside_map, ra, dec)
 
         test_values = full_map[ipnest]
 
@@ -132,9 +142,10 @@ class HealpixIoTestCase(unittest.TestCase):
 
         # Read in with healpy and make sure it is the same.
         full_map2 = hp.read_map(filename, nest=True)
-        testing.assert_array_equal((full_map2 > hp.UNSEEN).nonzero()[0], sparse_map.valid_pixels)
+        testing.assert_array_equal((full_map2 > hpg.UNSEEN).nonzero()[0], sparse_map.valid_pixels)
         testing.assert_array_almost_equal(full_map2[ipnest], test_values)
 
+    @pytest.mark.skipif(not has_healpy, reason="Requires healpy")
     def test_healpix_explicit_int_write(self):
         """Test writing healpix partial (explicit) maps (integer)."""
         random.seed(seed=12345)
@@ -149,11 +160,11 @@ class HealpixIoTestCase(unittest.TestCase):
         self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
 
         # Generate a map
-        full_map = np.zeros(hp.nside2npix(nside_map), dtype=np.int32)
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map), dtype=np.int32)
         full_map[0: 10000] = 4
         full_map[20000: 30000] = 5
 
-        ipnest = hp.ang2pix(nside_map, ra, dec, nest=True, lonlat=True)
+        ipnest = hpg.angle_to_pixel(nside_map, ra, dec)
         test_values = full_map[ipnest]
 
         filename = os.path.join(self.test_dir, 'healsparse_healpix_int_partial_map.fits')
@@ -175,13 +186,13 @@ class HealpixIoTestCase(unittest.TestCase):
 
         # Read in with healpy and make sure it is the same.
         full_map2 = hp.read_map(filename, nest=True)
-        testing.assert_array_equal((full_map2 > hp.UNSEEN).nonzero()[0], sparse_map.valid_pixels)
+        testing.assert_array_equal((full_map2 > hpg.UNSEEN).nonzero()[0], sparse_map.valid_pixels)
 
         # healpy will convert all the BAD_DATA to UNSEEN
         good, = (test_values > 0).nonzero()
         bad, = (test_values == 0).nonzero()
         testing.assert_array_equal(full_map2[ipnest[good]], test_values[good])
-        testing.assert_array_almost_equal(full_map2[ipnest[bad]], hp.UNSEEN)
+        testing.assert_array_almost_equal(full_map2[ipnest[bad]], hpg.UNSEEN)
 
     def test_healpix_recarray_write(self):
         """Test that the proper error is raised if you try to persist via healpix format."""

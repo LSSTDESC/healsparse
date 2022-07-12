@@ -1,12 +1,20 @@
 import unittest
 import numpy.testing as testing
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 from numpy import random
+import pytest
 import healsparse
+
+try:
+    import healpy as hp
+    has_healpy = True
+except ImportError:
+    has_healpy = False
 
 
 class UpgradeMapTestCase(unittest.TestCase):
+    @pytest.mark.skipif(not has_healpy, reason="Requires healpy")
     def test_upgrade_map(self):
         """
         Test upgrade functionality with regular map.
@@ -15,7 +23,7 @@ class UpgradeMapTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 256
         nside_new = 1024
-        full_map = random.random(hp.nside2npix(nside_map))
+        full_map = random.random(hpg.nside_to_npixel(nside_map))
 
         # Generate sparse map
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage,
@@ -27,6 +35,7 @@ class UpgradeMapTestCase(unittest.TestCase):
 
         testing.assert_almost_equal(upg_map, new_map.generate_healpix_map())
 
+    @pytest.mark.skipif(not has_healpy, reason="Requires healpy")
     def test_upgrade_map_outoforder(self):
         """
         Test upgrade functionality with an out-of-order map.
@@ -48,6 +57,7 @@ class UpgradeMapTestCase(unittest.TestCase):
 
         testing.assert_almost_equal(new_map.generate_healpix_map(), deg_map)
 
+    @pytest.mark.skipif(not has_healpy, reason="Requires healpy")
     def test_upgrade_map_recarray(self):
         """
         Test upgrade functionality with a recarray.
@@ -67,12 +77,12 @@ class UpgradeMapTestCase(unittest.TestCase):
         values['col3'] = random.poisson(size=pixel.size, lam=2)
         sparse_map.update_values_pix(pixel, values)
 
-        ra, dec = hp.pix2ang(nside_map, pixel, nest=True, lonlat=True)
+        ra, dec = hpg.pixel_to_angle(nside_map, pixel)
 
         # Make the test values
-        hpmap_col1 = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
-        hpmap_col2 = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
-        hpmap_col3 = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        hpmap_col1 = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
+        hpmap_col2 = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
+        hpmap_col3 = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         hpmap_col1[pixel] = values['col1']
         hpmap_col2[pixel] = values['col2']
         hpmap_col3[pixel] = values['col3']
@@ -81,7 +91,7 @@ class UpgradeMapTestCase(unittest.TestCase):
         hpmap_col1 = hp.ud_grade(hpmap_col1, nside_out=nside_new, order_in='NESTED', order_out='NESTED')
         hpmap_col2 = hp.ud_grade(hpmap_col2, nside_out=nside_new, order_in='NESTED', order_out='NESTED')
         hpmap_col3 = hp.ud_grade(hpmap_col3, nside_out=nside_new, order_in='NESTED', order_out='NESTED')
-        ipnest_test = hp.ang2pix(nside_new, ra, dec, nest=True, lonlat=True)
+        ipnest_test = hpg.angle_to_pixel(nside_new, ra, dec)
 
         # Upgrade the old map
         new_map = sparse_map.upgrade(nside_out=nside_new)

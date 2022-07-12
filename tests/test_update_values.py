@@ -1,9 +1,7 @@
-from __future__ import division, absolute_import, print_function
-
 import unittest
 import numpy.testing as testing
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 import healsparse
 
 
@@ -178,14 +176,14 @@ class UpdateValuesTestCase(unittest.TestCase):
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype)
 
         pixels = np.array([0, 1, 5, 10, 20])
-        ra, dec = hp.pix2ang(nside_map, pixels, lonlat=True, nest=True)
+        ra, dec = hpg.pixel_to_angle(nside_map, pixels)
 
         sparse_map.update_values_pos(ra, dec, 0.0)
         testing.assert_array_almost_equal(sparse_map[pixels], 0.0)
 
         # Test non-unique raise
         pixels = np.array([0, 1, 5, 10, 0])
-        ra, dec = hp.pix2ang(nside_map, pixels, lonlat=True, nest=True)
+        ra, dec = hpg.pixel_to_angle(nside_map, pixels)
         self.assertRaises(ValueError, sparse_map.update_values_pos, ra, dec, 0.0)
 
 

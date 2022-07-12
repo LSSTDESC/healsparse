@@ -1,7 +1,7 @@
 import unittest
 import numpy.testing as testing
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 import tempfile
 import shutil
 import os
@@ -30,14 +30,14 @@ class CatFilesTestCase(unittest.TestCase):
                 dtype = np.float64
                 primary = None
                 wide_mask_maxbits = None
-                sentinel = hp.UNSEEN
+                sentinel = hpg.UNSEEN
                 data = np.array([100.0], dtype=dtype)
             elif t == 'recarray':
                 dtype = [('a', 'f4'),
                          ('b', 'i4')]
                 primary = 'a'
                 wide_mask_maxbits = None
-                sentinel = hp.UNSEEN
+                sentinel = hpg.UNSEEN
                 data = np.zeros(1, dtype=dtype)
                 data['a'] = 100.0
                 data['b'] = 100
@@ -143,7 +143,7 @@ class CatFilesTestCase(unittest.TestCase):
                          ('b', 'i4')]
                 primary = 'a'
                 wide_mask_maxbits = None
-                sentinel = hp.UNSEEN
+                sentinel = hpg.UNSEEN
                 data = np.zeros(1, dtype=dtype)
                 data['a'] = 100.0
                 data['b'] = 100

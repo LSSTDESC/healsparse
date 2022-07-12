@@ -1,13 +1,19 @@
 import unittest
 import numpy.testing as testing
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 import tempfile
 import shutil
 import os
 import pytest
 
 import healsparse
+
+try:
+    import healpy as hp
+    has_healpy = True
+except ImportError:
+    has_healpy = False
 
 
 class HealSparseCoverageTestCase(unittest.TestCase):
@@ -29,9 +35,9 @@ class HealSparseCoverageTestCase(unittest.TestCase):
         sparse_map.write(fname)
 
         # Generate a coverage mask from the 0: 20000
-        cov_mask_test = np.zeros(hp.nside2npix(nside_coverage), dtype=np.bool_)
-        theta, phi = hp.pix2ang(nside_map, np.arange(20000), nest=True)
-        ipnest = np.unique(hp.ang2pix(nside_coverage, theta, phi, nest=True))
+        cov_mask_test = np.zeros(hpg.nside_to_npixel(nside_coverage), dtype=np.bool_)
+        ra, dec = hpg.pixel_to_angle(nside_map, np.arange(20000))
+        ipnest = np.unique(hpg.angle_to_pixel(nside_coverage, ra, dec))
         cov_mask_test[ipnest] = True
 
         cov_map = healsparse.HealSparseCoverage.read(fname)
@@ -44,8 +50,11 @@ class HealSparseCoverageTestCase(unittest.TestCase):
         testing.assert_array_equal(cov_map[0: 100], cov_map._cov_index_map[0: 100])
         testing.assert_array_equal([cov_map[0]], [cov_map._cov_index_map[0]])
 
+        if not has_healpy:
+            return
+
         # Make a healpy file and make sure we can't read it
-        test_map = np.zeros(hp.nside2npix(nside_coverage))
+        test_map = np.zeros(hpg.nside_to_npixel(nside_coverage))
         fname = os.path.join(self.test_dir, 'healpy_map_test.fits')
         hp.write_map(fname, test_map)
 
@@ -70,9 +79,9 @@ class HealSparseCoverageTestCase(unittest.TestCase):
         sparse_map.write(fname, format='parquet')
 
         # Generate a coverage mask from the 0: 20000
-        cov_mask_test = np.zeros(hp.nside2npix(nside_coverage), dtype=np.bool_)
-        theta, phi = hp.pix2ang(nside_map, np.arange(20000), nest=True)
-        ipnest = np.unique(hp.ang2pix(nside_coverage, theta, phi, nest=True))
+        cov_mask_test = np.zeros(hpg.nside_to_npixel(nside_coverage), dtype=np.bool_)
+        ra, dec = hpg.pixel_to_angle(nside_map, np.arange(20000))
+        ipnest = np.unique(hpg.angle_to_pixel(nside_coverage, ra, dec))
         cov_mask_test[ipnest] = True
 
         cov_map = healsparse.HealSparseCoverage.read(fname)

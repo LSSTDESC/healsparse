@@ -1,7 +1,7 @@
 import unittest
 import numpy.testing as testing
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 import tempfile
 import shutil
 import os
@@ -66,7 +66,7 @@ class HealsparseMocTestCase(unittest.TestCase):
             moc = mocpy.MOC.from_fits(fname)
 
         # There is no mocpy pixel lookup, we must go through ra/dec for some reason.
-        ra, dec = hp.pix2ang(nside_map, np.arange(hp.nside2npix(nside_map)), nest=True, lonlat=True)
+        ra, dec = hpg.pixel_to_angle(nside_map, np.arange(hpg.nside_to_npixel(nside_map)))
         arr = moc.contains(ra*u.degree, dec*u.degree)
 
         testing.assert_array_equal(arr.nonzero()[0], sparse_map.valid_pixels)
