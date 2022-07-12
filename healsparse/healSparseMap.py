@@ -309,19 +309,7 @@ class HealSparseMap(object):
            Sparse map of input values.
         """
         if not nest:
-            # must convert map to ring format
-            npix = healpix_map.size
-            nside = hpg.npixel_to_nside(npix)
-            if (nside > 128):
-                groupsize = npix // 24
-            else:
-                groupsize = npix
-
-            healpix_map_nest = np.zeros_like(healpix_map)
-            for group in range(npix // groupsize):
-                pixels = np.arange(group*groupsize, (group + 1)*groupsize)
-                healpix_map_nest[hpg.ring_to_nest(nside, pixels)] = healpix_map[pixels]
-            healpix_map = healpix_map_nest
+            healpix_map = hpg.reorder(healpix_map, ring_to_nest=True)
 
         # Compute the coverage map...
         # Note that this is coming from a standard healpix map so the sentinel
