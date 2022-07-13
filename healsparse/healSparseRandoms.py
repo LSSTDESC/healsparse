@@ -1,6 +1,6 @@
 from __future__ import division, absolute_import, print_function
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 import copy
 
 from .utils import _compute_bitshift
@@ -44,9 +44,9 @@ def make_uniform_randoms_fast(sparse_map, n_random, nside_randoms=2**23, rng=Non
     # The sub-pixels are random from bit_shift
     sub_pixels = rng.randint(0, high=2**bit_shift - 1, size=n_random)
 
-    ra_rand, dec_rand = hp.pix2ang(nside_randoms,
-                                   np.left_shift(ipnest_coarse, bit_shift) + sub_pixels,
-                                   lonlat=True, nest=True)
+    ra_rand, dec_rand = hpg.pixel_to_angle(nside_randoms,
+                                           np.left_shift(ipnest_coarse, bit_shift) + sub_pixels,
+                                           lonlat=True, nest=True)
 
     return ra_rand, dec_rand
 
@@ -85,9 +85,9 @@ def make_uniform_randoms(sparse_map, n_random, rng=None):
     cov_pix, = np.where(cov_mask)
 
     # Get range of coverage pixels
-    cov_theta, cov_phi = hp.pix2ang(sparse_map.nside_coverage, cov_pix, nest=True)
+    cov_theta, cov_phi = hpg.pixel_to_angle(sparse_map.nside_coverage, cov_pix, nest=True, lonlat=False)
 
-    extra_boundary = 2.0 * hp.nside2resol(sparse_map.nside_coverage)
+    extra_boundary = 2.0 * hpg.nside_to_resolution(sparse_map.nside_coverage)
 
     ra_range = np.clip([np.min(cov_phi - extra_boundary),
                         np.max(cov_phi + extra_boundary)],

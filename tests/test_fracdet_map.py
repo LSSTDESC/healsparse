@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 import healsparse
 
 
@@ -14,7 +14,7 @@ class FracdetTestCase(unittest.TestCase):
         nside_map = 512
         non_masked_px = 10.5
         nfine = (nside_map//nside_coverage)**2
-        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         full_map[0: int(non_masked_px*nfine)] = 1 + np.random.random(size=int(non_masked_px*nfine))
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
@@ -42,7 +42,7 @@ class FracdetTestCase(unittest.TestCase):
         non_masked_px = 10.5
         nfine = (nside_map//nside_coverage)**2
         sentinel = healsparse.utils.check_sentinel(np.int32, None)
-        full_map = np.zeros(hp.nside2npix(nside_map), dtype=np.int32) + sentinel
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map), dtype=np.int32) + sentinel
         full_map[0: int(non_masked_px*nfine)] = 1
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map,
@@ -151,7 +151,7 @@ class FracdetTestCase(unittest.TestCase):
         nside_map = 512
         non_masked_px = 10.5
         nfine = (nside_map//nside_coverage)**2
-        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         full_map[0: int(non_masked_px*nfine)] = 1 + np.random.random(size=int(non_masked_px*nfine))
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
@@ -162,10 +162,10 @@ class FracdetTestCase(unittest.TestCase):
     def compute_fracdet_map(self, nside_map, nside_fracdet, non_masked_px, nfine):
         bit_shift = healsparse.utils._compute_bitshift(nside_fracdet, nside_map)
 
-        fracdet_map_orig = np.zeros(hp.nside2npix(nside_fracdet), dtype=np.float64)
+        fracdet_map_orig = np.zeros(hpg.nside_to_npixel(nside_fracdet), dtype=np.float64)
         idx_frac = np.right_shift(np.arange(int(non_masked_px*nfine)), bit_shift)
         unique_idx_frac = np.unique(idx_frac)
-        idx_counts = np.bincount(idx_frac, minlength=hp.nside2npix(nside_fracdet)).astype(np.float64)
+        idx_counts = np.bincount(idx_frac, minlength=hpg.nside_to_npixel(nside_fracdet)).astype(np.float64)
         nfine_frac = (nside_map//nside_fracdet)**2
         fracdet_map_orig[unique_idx_frac] = idx_counts[unique_idx_frac]/nfine_frac
 

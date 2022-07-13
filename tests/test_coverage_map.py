@@ -1,9 +1,7 @@
-from __future__ import division, absolute_import, print_function
-
 import unittest
 import numpy.testing as testing
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 import healsparse
 
 
@@ -18,7 +16,7 @@ class CoverageMapTestCase(unittest.TestCase):
         # Number of non-masked pixels in the coverage map resolution
         non_masked_px = 10.5
         nfine = (nside_map//nside_coverage)**2
-        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         full_map[0: int(non_masked_px*nfine)] = 1 + np.random.random(size=int(non_masked_px*nfine))
 
         # Generate sparse map
@@ -47,7 +45,7 @@ class CoverageMapTestCase(unittest.TestCase):
         non_masked_px = 10.5
         nfine = (nside_map//nside_coverage)**2
         sentinel = healsparse.utils.check_sentinel(np.int32, None)
-        full_map = np.zeros(hp.nside2npix(nside_map), dtype=np.int32) + sentinel
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map), dtype=np.int32) + sentinel
         full_map[0: int(non_masked_px*nfine)] = 1
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map,
@@ -125,10 +123,10 @@ class CoverageMapTestCase(unittest.TestCase):
         testing.assert_array_almost_equal(cov_map_orig, cov_map)
 
     def compute_cov_map(self, nside_coverage, non_masked_px, nfine, bit_shift):
-        cov_map_orig = np.zeros(hp.nside2npix(nside_coverage), dtype=np.float64)
+        cov_map_orig = np.zeros(hpg.nside_to_npixel(nside_coverage), dtype=np.float64)
         idx_cov = np.right_shift(np.arange(int(non_masked_px*nfine)), bit_shift)
         unique_idx_cov = np.unique(idx_cov)
-        idx_counts = np.bincount(idx_cov, minlength=hp.nside2npix(nside_coverage)).astype(np.float64)
+        idx_counts = np.bincount(idx_cov, minlength=hpg.nside_to_npixel(nside_coverage)).astype(np.float64)
 
         cov_map_orig[unique_idx_cov] = idx_counts[unique_idx_cov]/nfine
 

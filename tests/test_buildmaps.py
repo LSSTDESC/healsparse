@@ -1,9 +1,7 @@
-from __future__ import division, absolute_import, print_function
-
 import unittest
 import numpy.testing as testing
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 from numpy import random
 
 import healsparse
@@ -27,7 +25,7 @@ class BuildMapsTestCase(unittest.TestCase):
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.float64)
 
         # Look up all the values, make sure they're all UNSEEN
-        testing.assert_almost_equal(sparse_map.get_values_pos(ra, dec, lonlat=True), hp.UNSEEN)
+        testing.assert_almost_equal(sparse_map.get_values_pos(ra, dec, lonlat=True), hpg.UNSEEN)
 
         # Fail to append because of wrong dtype
         pixel = np.arange(4000, 20000)
@@ -40,11 +38,9 @@ class BuildMapsTestCase(unittest.TestCase):
         sparse_map.update_values_pix(pixel, values)
 
         # Make a healpix map for comparison
-        hpmap = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        hpmap = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         hpmap[pixel] = values
-        theta = np.radians(90.0 - dec)
-        phi = np.radians(ra)
-        ipnest_test = hp.ang2pix(nside_map, theta, phi, nest=True)
+        ipnest_test = hpg.angle_to_pixel(nside_map, ra, dec, nest=True)
         testing.assert_almost_equal(sparse_map.get_values_pos(ra, dec, lonlat=True), hpmap[ipnest_test])
 
         # Replace the pixels
@@ -115,8 +111,8 @@ class BuildMapsTestCase(unittest.TestCase):
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype, primary='col1')
 
         # Look up all the values, make sure they're all UNSEEN
-        testing.assert_almost_equal(sparse_map.get_values_pos(ra, dec, lonlat=True)['col1'], hp.UNSEEN)
-        testing.assert_almost_equal(sparse_map.get_values_pos(ra, dec, lonlat=True)['col2'], hp.UNSEEN)
+        testing.assert_almost_equal(sparse_map.get_values_pos(ra, dec, lonlat=True)['col1'], hpg.UNSEEN)
+        testing.assert_almost_equal(sparse_map.get_values_pos(ra, dec, lonlat=True)['col2'], hpg.UNSEEN)
 
         pixel = np.arange(4000, 20000)
         values = np.zeros_like(pixel, dtype=dtype)
@@ -125,13 +121,11 @@ class BuildMapsTestCase(unittest.TestCase):
         sparse_map.update_values_pix(pixel, values)
 
         # Make healpix maps for comparison
-        hpmapCol1 = np.zeros(hp.nside2npix(nside_map), dtype=np.float32) + hp.UNSEEN
-        hpmapCol2 = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        hpmapCol1 = np.zeros(hpg.nside_to_npixel(nside_map), dtype=np.float32) + hpg.UNSEEN
+        hpmapCol2 = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         hpmapCol1[pixel] = values['col1']
         hpmapCol2[pixel] = values['col2']
-        theta = np.radians(90.0 - dec)
-        phi = np.radians(ra)
-        ipnest_test = hp.ang2pix(nside_map, theta, phi, nest=True)
+        ipnest_test = hpg.angle_to_pixel(nside_map, ra, dec, nest=True)
         testing.assert_almost_equal(sparse_map.get_values_pos(ra, dec, lonlat=True)['col1'],
                                     hpmapCol1[ipnest_test])
         testing.assert_almost_equal(sparse_map.get_values_pos(ra, dec, lonlat=True)['col2'],
@@ -177,7 +171,7 @@ class BuildMapsTestCase(unittest.TestCase):
         self.assertEqual(len(sparse_map2b._sparse_map),
                          sparse_map2._cov_map.nfine_per_cov*3)
         testing.assert_array_equal(sparse_map2b._sparse_map['col1'], sparse_map._sentinel)
-        testing.assert_array_equal(sparse_map2b._sparse_map['col2'], hp.UNSEEN)
+        testing.assert_array_equal(sparse_map2b._sparse_map['col2'], hpg.UNSEEN)
 
 
 if __name__ == '__main__':

@@ -1,16 +1,24 @@
 import unittest
 import numpy.testing as testing
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 from numpy import random
 import tempfile
 import os
 import shutil
+import pytest
 import healsparse
 from healsparse import WIDE_MASK
 
+try:
+    import healpy as hp
+    has_healpy = True
+except ImportError:
+    has_healpy = False
+
 
 class DegradeMapTestCase(unittest.TestCase):
+    @pytest.mark.skipif(not has_healpy, reason="Requires healpy")
     def test_degrade_map_float(self):
         """
         Test HealSparse.degrade functionality with float quantities
@@ -19,7 +27,7 @@ class DegradeMapTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 1024
         nside_new = 256
-        full_map = random.random(hp.nside2npix(nside_map))
+        full_map = random.random(hpg.nside_to_npixel(nside_map))
 
         # Generate sparse map
 
@@ -48,6 +56,7 @@ class DegradeMapTestCase(unittest.TestCase):
 
         testing.assert_almost_equal(deg_map, new_map2.generate_healpix_map())
 
+    @pytest.mark.skipif(not has_healpy, reason="Requires healpy")
     def test_degrade_map_float_outoforder(self):
         """
         Test HealSparse.degrade functionality with float quantities and
@@ -70,16 +79,16 @@ class DegradeMapTestCase(unittest.TestCase):
 
         testing.assert_almost_equal(new_map.generate_healpix_map(), deg_map)
 
+    @pytest.mark.skipif(not has_healpy, reason="Requires healpy")
     def test_degrade_map_int(self):
         """
         Test HealSparse.degrade functionality with int quantities
         """
-
         random.seed(12345)
         nside_coverage = 32
         nside_map = 1024
         nside_new = 256
-        full_map = random.poisson(size=hp.nside2npix(nside_map), lam=2)
+        full_map = random.poisson(size=hpg.nside_to_npixel(nside_map), lam=2)
 
         # Generate sparse map
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.int64)
@@ -106,6 +115,7 @@ class DegradeMapTestCase(unittest.TestCase):
 
         testing.assert_almost_equal(deg_map, new_map2.generate_healpix_map())
 
+    @pytest.mark.skipif(not has_healpy, reason="Requires healpy")
     def test_degrade_map_recarray(self):
         """
         Test HealSparse.degrade functionality with recarray quantities
@@ -125,12 +135,12 @@ class DegradeMapTestCase(unittest.TestCase):
         values['col3'] = random.poisson(size=pixel.size, lam=2)
         sparse_map.update_values_pix(pixel, values)
 
-        ra, dec = hp.pix2ang(nside_map, pixel, nest=True, lonlat=True)
+        ra, dec = hpg.pixel_to_angle(nside_map, pixel)
 
         # Make the test values
-        hpmap_col1 = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
-        hpmap_col2 = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
-        hpmap_col3 = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        hpmap_col1 = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
+        hpmap_col2 = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
+        hpmap_col3 = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         hpmap_col1[pixel] = values['col1']
         hpmap_col2[pixel] = values['col2']
         hpmap_col3[pixel] = values['col3']
@@ -139,7 +149,7 @@ class DegradeMapTestCase(unittest.TestCase):
         hpmap_col1 = hp.ud_grade(hpmap_col1, nside_out=nside_new, order_in='NESTED', order_out='NESTED')
         hpmap_col2 = hp.ud_grade(hpmap_col2, nside_out=nside_new, order_in='NESTED', order_out='NESTED')
         hpmap_col3 = hp.ud_grade(hpmap_col3, nside_out=nside_new, order_in='NESTED', order_out='NESTED')
-        ipnest_test = hp.ang2pix(nside_new, ra, dec, nest=True, lonlat=True)
+        ipnest_test = hpg.angle_to_pixel(nside_new, ra, dec)
 
         # Degrade the old map
         new_map = sparse_map.degrade(nside_out=nside_new)
@@ -370,7 +380,7 @@ class DegradeMapTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 1024
         nside_new = 512
-        full_map = np.full(hp.nside2npix(nside_map), 2.)
+        full_map = np.full(hpg.nside_to_npixel(nside_map), 2.)
         # Generate sparse map
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage,
@@ -378,7 +388,7 @@ class DegradeMapTestCase(unittest.TestCase):
 
         # Degrade original HEALPix map
 
-        deg_map = np.full(hp.nside2npix(nside_new), 2.**4)
+        deg_map = np.full(hpg.nside_to_npixel(nside_new), 2.**4)
         # Degrade sparse map and compare to original
 
         new_map = sparse_map.degrade(nside_out=nside_new, reduction='prod')
@@ -394,7 +404,7 @@ class DegradeMapTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 1024
         nside_new = 512
-        full_map = np.full(hp.nside2npix(nside_map), 2, dtype=np.int64)
+        full_map = np.full(hpg.nside_to_npixel(nside_map), 2, dtype=np.int64)
         # Generate sparse map
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage,
@@ -402,7 +412,7 @@ class DegradeMapTestCase(unittest.TestCase):
 
         # Degrade original HEALPix map
 
-        deg_map = np.full(hp.nside2npix(nside_new), 2**4, dtype=np.int64)
+        deg_map = np.full(hpg.nside_to_npixel(nside_new), 2**4, dtype=np.int64)
         # Degrade sparse map and compare to original
 
         new_map = sparse_map.degrade(nside_out=nside_new, reduction='prod')
@@ -417,7 +427,7 @@ class DegradeMapTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 1024
         nside_new = 512
-        full_map = np.full(hp.nside2npix(nside_map), 1.)
+        full_map = np.full(hpg.nside_to_npixel(nside_map), 1.)
         # Generate sparse map
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage,
@@ -425,7 +435,7 @@ class DegradeMapTestCase(unittest.TestCase):
 
         # Degrade original HEALPix map
 
-        deg_map = np.full(hp.nside2npix(nside_new), 4.)
+        deg_map = np.full(hpg.nside_to_npixel(nside_new), 4.)
         # Degrade sparse map and compare to original
 
         new_map = sparse_map.degrade(nside_out=nside_new, reduction='sum')
@@ -441,7 +451,7 @@ class DegradeMapTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 1024
         nside_new = 512
-        full_map = np.full(hp.nside2npix(nside_map), 1, dtype=np.int64)
+        full_map = np.full(hpg.nside_to_npixel(nside_map), 1, dtype=np.int64)
         # Generate sparse map
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage,
@@ -449,7 +459,7 @@ class DegradeMapTestCase(unittest.TestCase):
 
         # Degrade original HEALPix map
 
-        deg_map = np.full(hp.nside2npix(nside_new), 4, dtype=np.int64)
+        deg_map = np.full(hpg.nside_to_npixel(nside_new), 4, dtype=np.int64)
         # Degrade sparse map and compare to original
 
         new_map = sparse_map.degrade(nside_out=nside_new, reduction='sum')
@@ -464,11 +474,11 @@ class DegradeMapTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 1024
         nside_new = 256
-        full_map = np.ones(hp.nside2npix(nside_map))
+        full_map = np.ones(hpg.nside_to_npixel(nside_map))
         weights = np.ones_like(full_map)
         full_map[::32] = 0.5  # We lower the value in 1 pixel every 32
         weights[::32] = 0.5  # We downweight 1 pixel every 32
-        deg_map = np.ones(hp.nside2npix(nside_new))
+        deg_map = np.ones(hpg.nside_to_npixel(nside_new))
         deg_map[::2] = 15.25/15.5
         # Generate sparse map
 
@@ -502,7 +512,7 @@ class DegradeMapTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 1024
         nside_new = 512
-        full_map = np.full(hp.nside2npix(nside_map), 1, dtype=np.int64)
+        full_map = np.full(hpg.nside_to_npixel(nside_map), 1, dtype=np.int64)
         # Generate sparse map
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage,
@@ -511,7 +521,7 @@ class DegradeMapTestCase(unittest.TestCase):
                                            nside_sparse=nside_map)
         # Degrade original HEALPix map
 
-        deg_map = np.full(hp.nside2npix(nside_new), 1, dtype=np.int64)
+        deg_map = np.full(hpg.nside_to_npixel(nside_new), 1, dtype=np.int64)
         # Degrade sparse map and compare to original
 
         new_map = sparse_map.degrade(nside_out=nside_new, reduction='wmean', weights=weights)
@@ -624,6 +634,7 @@ class DegradeMapTestCase(unittest.TestCase):
             testing.assert_almost_equal(sparse_map.coverage_map, sparse_map2.coverage_map)
             testing.assert_almost_equal(sparse_map._sparse_map, sparse_map2._sparse_map)
 
+    @pytest.mark.skipif(not has_healpy, reason="Requires healpy")
     def test_degrade_map_bool(self):
         """
         Test HealSparse.degrade functionality with bool quantities
@@ -633,7 +644,7 @@ class DegradeMapTestCase(unittest.TestCase):
         nside_map = 1024
         nside_new = 256
 
-        full_map = np.zeros(hp.nside2npix(nside_map), dtype=bool)
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map), dtype=bool)
         pixels = np.random.choice(full_map.size, size=full_map.size//4, replace=False)
         full_map[pixels] = True
 
@@ -642,7 +653,7 @@ class DegradeMapTestCase(unittest.TestCase):
 
         # Degrade original map
         test_map = full_map.astype(np.float64)
-        test_map[~full_map] = hp.UNSEEN
+        test_map[~full_map] = hpg.UNSEEN
         deg_map = hp.ud_grade(test_map, nside_out=nside_new,
                               order_in='NESTED', order_out='NESTED')
 

@@ -1,7 +1,7 @@
 import unittest
 import numpy.testing as testing
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 from numpy import random
 import tempfile
 import shutil
@@ -27,10 +27,10 @@ class HealsparseFitsIoTestCase(unittest.TestCase):
         self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
 
         # Generate a random map
-        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         full_map[0: 20000] = np.random.random(size=20000)
 
-        ipnest = hp.ang2pix(nside_map, ra, dec, nest=True, lonlat=True)
+        ipnest = hpg.angle_to_pixel(nside_map, ra, dec)
 
         test_values = full_map[ipnest]
 
@@ -68,14 +68,16 @@ class HealsparseFitsIoTestCase(unittest.TestCase):
         ipnestCov = np.right_shift(ipnest, sparse_map_small._cov_map.bit_shift)
         outside_small, = np.where(ipnestCov > 1)
         test_values2 = test_values.copy()
-        test_values2[outside_small] = hp.UNSEEN
+        test_values2[outside_small] = hpg.UNSEEN
 
         testing.assert_almost_equal(sparse_map_small.get_values_pix(ipnest), test_values2)
 
         # Read in healsparse format (all pixels)
-        sparse_map_full = healsparse.HealSparseMap.read(os.path.join(self.test_dir,
-                                                                     'healsparse_map.hs'),
-                                                        pixels=np.arange(hp.nside2npix(nside_coverage)))
+        sparse_map_full = healsparse.HealSparseMap.read(
+            os.path.join(self.test_dir,
+                         'healsparse_map.hs'),
+            pixels=np.arange(hpg.nside_to_npixel(nside_coverage))
+        )
         testing.assert_almost_equal(sparse_map_full.get_values_pix(ipnest), test_values)
 
     def test_fits_read_outoforder(self):
@@ -111,10 +113,8 @@ class HealsparseFitsIoTestCase(unittest.TestCase):
                                                                 'healsparse_map_outoforder.hs'))
 
         # Test some values
-        theta = np.radians(90.0 - dec)
-        phi = np.radians(ra)
-        ipnest = hp.ang2pix(nside_map, theta, phi)
-        test_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        ipnest = hpg.angle_to_pixel(nside_map, ra, dec)
+        test_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         test_map[pixel] = values
         test_map[pixel2] = values2
 
@@ -130,7 +130,7 @@ class HealsparseFitsIoTestCase(unittest.TestCase):
         ipnest_cov = np.right_shift(ipnest, sparse_map_small._cov_map.bit_shift)
         test_values_small = test_map[ipnest]
         outside_small, = np.where((ipnest_cov != 0) & (ipnest_cov != 1) & (ipnest_cov != 3179))
-        test_values_small[outside_small] = hp.UNSEEN
+        test_values_small[outside_small] = hpg.UNSEEN
 
         testing.assert_almost_equal(sparse_map_small.get_values_pix(ipnest), test_values_small)
 
@@ -145,7 +145,7 @@ class HealsparseFitsIoTestCase(unittest.TestCase):
 
         self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
 
-        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         full_map[0: 20000] = np.random.random(size=20000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map,
@@ -174,10 +174,7 @@ class HealsparseFitsIoTestCase(unittest.TestCase):
         nside_coverage = 128
         nside_map = 2**17
 
-        vec = hp.ang2vec(100.0, 0.0, lonlat=True)
-        rad = np.radians(0.2/60.)
-        pixels = hp.query_disc(nside_map, vec, rad, nest=True, inclusive=False)
-        pixels.sort()
+        pixels = hpg.query_circle(nside_map, 100.0, 0.0, 0.2/60.)
         values = np.zeros(pixels.size, dtype=np.int32) + 8
 
         sparse_map = healsparse.HealSparseMap.make_empty(nside_sparse=nside_map,

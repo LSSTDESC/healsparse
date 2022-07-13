@@ -1,9 +1,7 @@
-from __future__ import division, absolute_import, print_function
-
 import unittest
 import numpy.testing as testing
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 
 import healsparse
 
@@ -122,10 +120,10 @@ class ApplyMaskTestCase(unittest.TestCase):
         masked_pixels = mask_map.valid_pixels
 
         # Masked pixels should be zero
-        testing.assert_almost_equal(masked_map.get_values_pix(masked_pixels), hp.UNSEEN)
+        testing.assert_almost_equal(masked_map.get_values_pix(masked_pixels), hpg.UNSEEN)
 
         # Pixels that are in the original but are not in the masked pixels should be 1
-        still_good0, = np.where((float_map.get_values_pix(valid_pixels) > hp.UNSEEN) &
+        still_good0, = np.where((float_map.get_values_pix(valid_pixels) > hpg.UNSEEN) &
                                 (mask_map.get_values_pix(valid_pixels) == 0))
         testing.assert_almost_equal(masked_map.get_values_pix(valid_pixels[still_good0]), 1.0)
 
@@ -137,7 +135,7 @@ class ApplyMaskTestCase(unittest.TestCase):
         masked_pixels = mask_map.valid_pixels
 
         # Masked pixels should be zero
-        testing.assert_almost_equal(masked_map.get_values_pix(masked_pixels), hp.UNSEEN)
+        testing.assert_almost_equal(masked_map.get_values_pix(masked_pixels), hpg.UNSEEN)
 
         # Pixels that are in the original but are not in the masked pixels should be 1
         still_good, = np.where((float_map.get_values_pix(valid_pixels) > 0) &
@@ -160,7 +158,7 @@ class ApplyMaskTestCase(unittest.TestCase):
         masked_pixels = mask_map.valid_pixels
 
         # Masked pixels should be zero
-        testing.assert_almost_equal(float_map.get_values_pix(masked_pixels), hp.UNSEEN)
+        testing.assert_almost_equal(float_map.get_values_pix(masked_pixels), hpg.UNSEEN)
 
         # Pixels that are in the original but are not in the masked pixels should be 1
         testing.assert_almost_equal(float_map.get_values_pix(valid_pixels[still_good0]), 1.0)

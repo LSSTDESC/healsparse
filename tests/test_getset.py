@@ -1,7 +1,7 @@
 import unittest
 import numpy.testing as testing
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 from numpy import random
 
 import healsparse
@@ -17,7 +17,7 @@ class GetSetTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 128
 
-        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         full_map[0: 5000] = random.random(size=5000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
@@ -56,8 +56,8 @@ class GetSetTestCase(unittest.TestCase):
         testing.assert_almost_equal(test_item['col2'], values['col2'][1000])
 
         test_item = sparse_map[10000]
-        testing.assert_almost_equal(test_item['col1'], hp.UNSEEN)
-        testing.assert_almost_equal(test_item['col2'], hp.UNSEEN)
+        testing.assert_almost_equal(test_item['col1'], hpg.UNSEEN)
+        testing.assert_almost_equal(test_item['col2'], hpg.UNSEEN)
 
     def test_getitem_slice(self):
         """
@@ -68,7 +68,7 @@ class GetSetTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 128
 
-        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         full_map[0: 5000] = random.random(size=5000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
@@ -95,7 +95,7 @@ class GetSetTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 128
 
-        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         full_map[0: 5000] = random.random(size=5000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
@@ -117,7 +117,7 @@ class GetSetTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 128
 
-        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         full_map[0: 5000] = random.random(size=5000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
@@ -137,7 +137,7 @@ class GetSetTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 128
 
-        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         full_map[0: 5000] = random.random(size=5000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
@@ -157,7 +157,7 @@ class GetSetTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 128
 
-        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         full_map[0: 5000] = random.random(size=5000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
@@ -243,7 +243,7 @@ class GetSetTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 128
 
-        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         full_map[0: 5000] = random.random(size=5000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
@@ -279,7 +279,7 @@ class GetSetTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 128
 
-        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         full_map[0: 5000] = random.random(size=5000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
@@ -314,7 +314,7 @@ class GetSetTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 128
 
-        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         full_map[0: 5000] = random.random(size=5000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
@@ -343,7 +343,7 @@ class GetSetTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 128
 
-        full_map = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         full_map[0: 5000] = random.random(size=5000)
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
@@ -363,7 +363,7 @@ class GetSetTestCase(unittest.TestCase):
         nside_map = 128
         pxnums = np.arange(0, 2000)
         pxvalues = pxnums
-        full_map = np.zeros(hp.nside2npix(nside_map), dtype=pxvalues.dtype)
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map), dtype=pxvalues.dtype)
         full_map[pxnums] = pxvalues
 
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage=nside_coverage,
@@ -386,7 +386,7 @@ class GetSetTestCase(unittest.TestCase):
         nside_map = 128
         pxnums = np.arange(0, 2000)
         pxvalues = np.ones(pxnums.size, dtype=bool)
-        full_map = np.zeros(hp.nside2npix(nside_map), dtype=bool)
+        full_map = np.zeros(hpg.nside_to_npixel(nside_map), dtype=bool)
         full_map[pxnums] = pxvalues
 
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage=nside_coverage,

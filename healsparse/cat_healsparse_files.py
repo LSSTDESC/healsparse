@@ -1,5 +1,5 @@
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 import os
 
 from .healSparseMap import HealSparseMap
@@ -48,7 +48,7 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
     for i, f in enumerate(file_list):
         cov_map = HealSparseCoverage.read(f)
 
-        cov_index_map = cov_map[:] + np.arange(hp.nside2npix(cov_map.nside_coverage),
+        cov_index_map = cov_map[:] + np.arange(hpg.nside_to_npixel(cov_map.nside_coverage),
                                                dtype=np.int64)*cov_map.nfine_per_cov
         cov_index_maps.append(cov_index_map)
         cov_map_nfine_per_covs.append(cov_map.nfine_per_cov)
@@ -57,7 +57,7 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
             if nside_coverage_out is None:
                 nside_coverage_out = cov_map.nside_coverage
 
-            cov_mask_summary = np.zeros((len(file_list), hp.nside2npix(nside_coverage_out)),
+            cov_mask_summary = np.zeros((len(file_list), hpg.nside_to_npixel(nside_coverage_out)),
                                         dtype=np.bool_)
             nside_sparse = cov_map.nside_sparse
         else:
@@ -113,7 +113,7 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
         if 'SENTINEL' in s_hdr:
             sentinel = s_hdr['SENTINEL']
         else:
-            sentinel = hp.UNSEEN
+            sentinel = hpg.UNSEEN
 
         if not fits.ext_is_image('SPARSE'):
             # This is a table extension

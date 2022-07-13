@@ -24,7 +24,7 @@ This is a list of terminology used in a :code:`HealSparseMap` object:
 * :code:`nside_coverage`: The `HEALPix` nside for the coverage map
 * :code:`bit_shift`: The number of bits to shift to convert from :code:`nside_sparse` to :code:`nside_coverage` in the `HEALPix` NEST scheme.  :code:`bit_shift = 2*log_2(nside_sparse/nside_coverage)`.
 * :code:`valid_pixels`: The list of pixels with defined values (:code:`> sentinel`) in the sparse map.
-* :code:`sentinel`: The sentinel value that notes if a pixel is not a valid pixel.  Default is :code:`healpy.UNSEEN` for floating-point maps, :code:`-MAXINT` for integer maps, and :code:`0` for wide mask maps.
+* :code:`sentinel`: The sentinel value that notes if a pixel is not a valid pixel.  Default is :code:`hpgeom.UNSEEN` for floating-point maps, :code:`-MAXINT` for integer maps, and :code:`0` for wide mask maps.
 * :code:`nfine_per_cov`: The number of fine (sparse) pixels per coverage pixel.  :code:`nfine_per_cov = 2**bit_shift`.
 * :code:`wide_mask_width`: The width of a wide mask, in bytes.
 
@@ -62,9 +62,9 @@ An empty :code:`HealSparseMap` is intialized with the following coverage pixel v
 .. code-block :: python
 
     import numpy as np
-    import healpy as hp
+    import hpgeom as hpg
 
-    cov_map[:] = -1*np.arange(hp.nside2npix(nside_coverage), dtype=np.int64)*nfine_per_cov
+    cov_map[:] = -1*np.arange(hpg.nside_to_npixel(nside_coverage), dtype=np.int64)*nfine_per_cov
 
 .. _sparse_map:
 
@@ -197,7 +197,7 @@ The following metadata strings are required:
 * :code:`'healsparse::widemask'`: :code:`'True'` or :code:`'False'`
 * :code:`'healsparse::wwidth'`: :code:`str(wide_mask_width)` or :code:`'1'`
 
-Note that the string :code:`'UNSEEN'` will use the special value :code:`healpy.UNSEEN` to fill empty/overflow pixels.
+Note that the string :code:`'UNSEEN'` will use the special value :code:`hpgeom.UNSEEN` to fill empty/overflow pixels.
 
 Additional metadata from the map is stored as a FITS header string (for compatibility with the FITS serialization) such that:
 * :code:`'healsparse::header'`: :code:`header_string`
@@ -254,4 +254,4 @@ If the sparse map is a numpy record array type, it is stored as a multi-column P
 
 Unlike the FITS serialization, the initial "overflow" coverage pixel is not serialized.
 Instead, on read this is filled in with the :code:`sentinel` value from the Parquet metadata for the :code:`primary` column.
-The other columns in the overflow coverage pixel are filled with the default sentinel for that datatype (e.g., :code:`healpy.UNSEEN` for floating-point columns and :code:`-MAXINT` for integer columns).
+The other columns in the overflow coverage pixel are filled with the default sentinel for that datatype (e.g., :code:`hpgeom.UNSEEN` for floating-point columns and :code:`-MAXINT` for integer columns).

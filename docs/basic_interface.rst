@@ -55,7 +55,7 @@ To retrieve values from the map, you can use simple indexing or the explicit API
     >>> 51.0
 
 
-A :code:`HealSparseMap` has the concept of "valid pixels", the pixels over which the map is defined (as opposed to :code:`healpy.UNSEEN` in the case of floating point maps).
+A :code:`HealSparseMap` has the concept of "valid pixels", the pixels over which the map is defined (as opposed to :code:`hpgeom.UNSEEN` in the case of floating point maps).
 You can retrieve the array of valid pixels or the associated positions of the valid pixels easily:
 
 .. code-block :: python
@@ -84,8 +84,8 @@ Integer Maps
 ------------
 
 In addition to floating-point maps, which are natively supported by :code:`healpy`, :code:`HealSparseMap` supports integer maps.
-The "sentinel" value of these maps (equivalent to :code:`healpy.UNSEEN`) is either :code:`-MAXINT` or :code:`0`, depending on the desired use of the map (e.g., integer values or positive bitmasks).
-Note that these maps cannot be trivially converted to :code:`healpy` maps because `HEALPix` has no concept of sentinel values that are not :code:`healpy.UNSEEN`, which is a very large negative floating-point value.
+The "sentinel" value of these maps (equivalent to :code:`hpgeom.UNSEEN`) is either :code:`-MAXINT` or :code:`0`, depending on the desired use of the map (e.g., integer values or positive bitmasks).
+Note that these maps cannot be trivially converted to :code:`healpy` maps because `HEALPix` has no concept of sentinel values that are not :code:`hpgeom.UNSEEN`, which is a very large negative floating-point value.
 
 .. code-block :: python
 
@@ -208,12 +208,12 @@ You can retrieve a boolean array describing which pixels are covered in the map 
 
 .. code-block :: python
 
-    import healpy as hp
+    import hpgeom as hpg
     import matplotlib.pyplot as plt
 
     cov_mask = map3.coverage_mask
     cov_pixels, = np.where(cov_mask)
-    ra, dec = hp.pix2ang(map3.nside_coverage, cov_pixels, lonlat=True, nest=True)
+    ra, dec = hpg.pixel_to_angle(map3.nside_coverage, cov_pixels)
     plt.plot(ra, dec, 'r.')
     plt.show()
 

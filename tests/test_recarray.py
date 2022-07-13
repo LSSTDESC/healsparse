@@ -1,7 +1,7 @@
 import unittest
 import numpy.testing as testing
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 from numpy import random
 import tempfile
 import shutil
@@ -39,13 +39,12 @@ class RecArrayTestCase(unittest.TestCase):
         sparse_map.write(fname)
 
         # Make the test values
-        hpmapCol1 = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
-        hpmapCol2 = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        hpmapCol1 = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
+        hpmapCol2 = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         hpmapCol1[pixel] = values['col1']
         hpmapCol2[pixel] = values['col2']
-        theta = np.radians(90.0 - dec)
-        phi = np.radians(ra)
-        ipnest_test = hp.ang2pix(nside_map, theta, phi, nest=True)
+
+        ipnest_test = hpg.angle_to_pixel(nside_map, ra, dec)
 
         # Read in the map
         sparse_map = healsparse.HealSparseMap.read(fname)
@@ -72,10 +71,10 @@ class RecArrayTestCase(unittest.TestCase):
         outside_small, = np.where(ipnest_cov > 1)
         # column1 is the "primary" column and will return UNSEEN
         test_values1b = hpmapCol1[ipnest_test].copy()
-        test_values1b[outside_small] = hp.UNSEEN
+        test_values1b[outside_small] = hpg.UNSEEN
         # column2 is not the primary column and will also return UNSEEN
         test_values2b = hpmapCol2[ipnest_test].copy()
-        test_values2b[outside_small] = hp.UNSEEN
+        test_values2b[outside_small] = hpg.UNSEEN
 
         testing.assert_almost_equal(sparse_map_small.get_values_pix(ipnest_test)['col1'], test_values1b)
         testing.assert_almost_equal(sparse_map_small.get_values_pix(ipnest_test)['col2'], test_values2b)
@@ -116,13 +115,11 @@ class RecArrayTestCase(unittest.TestCase):
         sparse_map = healsparse.HealSparseMap.read(fname)
 
         # Test some values
-        theta = np.radians(90.0 - dec)
-        phi = np.radians(ra)
-        ipnest = hp.ang2pix(nside_map, theta, phi)
-        test_map_col1 = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        ipnest = hpg.angle_to_pixel(nside_map, ra, dec)
+        test_map_col1 = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         test_map_col1[pixel] = values['col1']
         test_map_col1[pixel2] = values2['col1']
-        test_map_col2 = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        test_map_col2 = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         test_map_col2[pixel] = values['col2']
         test_map_col2[pixel2] = values2['col2']
 
@@ -136,8 +133,8 @@ class RecArrayTestCase(unittest.TestCase):
         test_values_small_col1 = test_map_col1[ipnest]
         test_values_small_col2 = test_map_col2[ipnest]
         outside_small, = np.where((ipnest_cov != 0) & (ipnest_cov != 1) & (ipnest_cov != 3179))
-        test_values_small_col1[outside_small] = hp.UNSEEN
-        test_values_small_col2[outside_small] = hp.UNSEEN
+        test_values_small_col1[outside_small] = hpg.UNSEEN
+        test_values_small_col2[outside_small] = hpg.UNSEEN
 
         testing.assert_almost_equal(sparse_map_small.get_values_pix(ipnest)['col1'],
                                     test_values_small_col1)
@@ -172,13 +169,11 @@ class RecArrayTestCase(unittest.TestCase):
         sparse_map.write(fname, format='parquet')
 
         # Make the test values
-        hpmapCol1 = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
-        hpmapCol2 = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        hpmapCol1 = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
+        hpmapCol2 = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         hpmapCol1[pixel] = values['col1']
         hpmapCol2[pixel] = values['col2']
-        theta = np.radians(90.0 - dec)
-        phi = np.radians(ra)
-        ipnest_test = hp.ang2pix(nside_map, theta, phi, nest=True)
+        ipnest_test = hpg.angle_to_pixel(nside_map, ra, dec)
 
         # Read in the map
         sparse_map = healsparse.HealSparseMap.read(fname)
@@ -204,10 +199,10 @@ class RecArrayTestCase(unittest.TestCase):
         outside_small, = np.where(ipnest_cov > 1)
         # column1 is the "primary" column and will return UNSEEN
         test_values1b = hpmapCol1[ipnest_test].copy()
-        test_values1b[outside_small] = hp.UNSEEN
+        test_values1b[outside_small] = hpg.UNSEEN
         # column2 is not the primary column and will also return UNSEEN
         test_values2b = hpmapCol2[ipnest_test].copy()
-        test_values2b[outside_small] = hp.UNSEEN
+        test_values2b[outside_small] = hpg.UNSEEN
 
         testing.assert_almost_equal(sparse_map_small.get_values_pix(ipnest_test)['col1'], test_values1b)
         testing.assert_almost_equal(sparse_map_small.get_values_pix(ipnest_test)['col2'], test_values2b)
@@ -249,13 +244,11 @@ class RecArrayTestCase(unittest.TestCase):
         sparse_map = healsparse.HealSparseMap.read(fname)
 
         # Test some values
-        theta = np.radians(90.0 - dec)
-        phi = np.radians(ra)
-        ipnest = hp.ang2pix(nside_map, theta, phi)
-        test_map_col1 = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        ipnest = hpg.angle_to_pixel(nside_map, ra, dec)
+        test_map_col1 = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         test_map_col1[pixel] = values['col1']
         test_map_col1[pixel2] = values2['col1']
-        test_map_col2 = np.zeros(hp.nside2npix(nside_map)) + hp.UNSEEN
+        test_map_col2 = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         test_map_col2[pixel] = values['col2']
         test_map_col2[pixel2] = values2['col2']
 
@@ -269,8 +262,8 @@ class RecArrayTestCase(unittest.TestCase):
         test_values_small_col1 = test_map_col1[ipnest]
         test_values_small_col2 = test_map_col2[ipnest]
         outside_small, = np.where((ipnest_cov != 0) & (ipnest_cov != 1) & (ipnest_cov != 3179))
-        test_values_small_col1[outside_small] = hp.UNSEEN
-        test_values_small_col2[outside_small] = hp.UNSEEN
+        test_values_small_col1[outside_small] = hpg.UNSEEN
+        test_values_small_col2[outside_small] = hpg.UNSEEN
 
         testing.assert_almost_equal(sparse_map_small.get_values_pix(ipnest)['col1'],
                                     test_values_small_col1)

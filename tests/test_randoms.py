@@ -1,8 +1,6 @@
-from __future__ import division, absolute_import, print_function
-
 import unittest
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 
 import healsparse
 
@@ -20,9 +18,7 @@ class UniformRandomTestCase(unittest.TestCase):
 
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype=np.float32)
 
-        theta, phi = hp.pix2ang(nside_map, np.arange(hp.nside2npix(nside_map)), nest=True)
-        ra = np.degrees(phi)
-        dec = 90.0 - np.degrees(theta)
+        ra, dec = hpg.pixel_to_angle(nside_map, np.arange(hpg.nside_to_npixel(nside_map)))
         # Arbitrarily chosen range
         gd_pix, = np.where((ra > 100.0) & (ra < 180.0) & (dec > 5.0) & (dec < 30.0))
         sparse_map.update_values_pix(gd_pix, np.zeros(gd_pix.size, dtype=np.float32))
@@ -41,7 +37,7 @@ class UniformRandomTestCase(unittest.TestCase):
         self.assertTrue(dec_rand.max() < (30.0 + 0.5))
 
         # And these are all in the map
-        self.assertTrue(np.all(sparse_map.get_values_pos(ra_rand, dec_rand, lonlat=True) > hp.UNSEEN))
+        self.assertTrue(np.all(sparse_map.get_values_pos(ra_rand, dec_rand, lonlat=True) > hpg.UNSEEN))
 
     def test_uniform_randoms_cross_ra0(self):
         """
@@ -55,9 +51,7 @@ class UniformRandomTestCase(unittest.TestCase):
 
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype=np.float32)
 
-        theta, phi = hp.pix2ang(nside_map, np.arange(hp.nside2npix(nside_map)), nest=True)
-        ra = np.degrees(phi)
-        dec = 90.0 - np.degrees(theta)
+        ra, dec = hpg.pixel_to_angle(nside_map, np.arange(hpg.nside_to_npixel(nside_map)))
         # Arbitrarily chosen range
         gd_pix, = np.where(((ra > 300.0) | (ra < 80.0)) & (dec > -20.0) & (dec < -5.0))
         sparse_map.update_values_pix(gd_pix, np.zeros(gd_pix.size, dtype=np.float32))
@@ -74,7 +68,7 @@ class UniformRandomTestCase(unittest.TestCase):
         self.assertTrue(dec_rand.max() < (-5.0 + 0.5))
 
         # And these are all in the map
-        self.assertTrue(np.all(sparse_map.get_values_pos(ra_rand, dec_rand, lonlat=True) > hp.UNSEEN))
+        self.assertTrue(np.all(sparse_map.get_values_pos(ra_rand, dec_rand, lonlat=True) > hpg.UNSEEN))
 
     def test_uniform_randoms_fast(self):
         """
@@ -88,9 +82,7 @@ class UniformRandomTestCase(unittest.TestCase):
 
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype=np.float32)
 
-        theta, phi = hp.pix2ang(nside_map, np.arange(hp.nside2npix(nside_map)), nest=True)
-        ra = np.degrees(phi)
-        dec = 90.0 - np.degrees(theta)
+        ra, dec = hpg.pixel_to_angle(nside_map, np.arange(hpg.nside_to_npixel(nside_map)))
         # Arbitrarily chosen range
         gd_pix, = np.where((ra > 100.0) & (ra < 180.0) & (dec > 5.0) & (dec < 30.0))
         sparse_map.update_values_pix(gd_pix, np.zeros(gd_pix.size, dtype=np.float32))
@@ -109,7 +101,7 @@ class UniformRandomTestCase(unittest.TestCase):
         self.assertTrue(dec_rand.max() < (30.0 + 0.5))
 
         # And these are all in the map
-        self.assertTrue(np.all(sparse_map.get_values_pos(ra_rand, dec_rand, lonlat=True) > hp.UNSEEN))
+        self.assertTrue(np.all(sparse_map.get_values_pos(ra_rand, dec_rand, lonlat=True) > hpg.UNSEEN))
 
 
 if __name__ == '__main__':

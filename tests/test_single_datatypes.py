@@ -1,8 +1,6 @@
-from __future__ import division, absolute_import, print_function
-
 import unittest
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 
 import healsparse
 
@@ -44,13 +42,13 @@ class SingleDatatypesTestCase(unittest.TestCase):
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.float32)
 
         self.assertEqual(sparse_map.dtype, np.float32)
-        self.assertEqual(sparse_map._sentinel, hp.UNSEEN)
+        self.assertEqual(sparse_map._sentinel, hpg.UNSEEN)
 
         # int64
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.float64)
 
         self.assertEqual(sparse_map.dtype, np.float64)
-        self.assertEqual(sparse_map._sentinel, hp.UNSEEN)
+        self.assertEqual(sparse_map._sentinel, hpg.UNSEEN)
 
     def test_datatypes_uints(self):
         """

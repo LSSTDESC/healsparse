@@ -1,7 +1,7 @@
 import unittest
 import numpy.testing as testing
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 from numpy import random
 import tempfile
 import os
@@ -46,7 +46,7 @@ class WideMasksTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map.valid_pixels, pixel)
         testing.assert_equal(sparse_map.n_valid, len(pixel))
 
-        pospix = hp.ang2pix(nside_map, ra, dec, lonlat=True, nest=True)
+        pospix = hpg.angle_to_pixel(nside_map, ra, dec)
         inds = np.searchsorted(pixel, pospix)
         b, = np.where((inds > 0) & (inds < pixel.size))
         comp_arr = np.zeros(pospix.size, dtype=np.bool_)
@@ -157,7 +157,7 @@ class WideMasksTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [7]), False)
         testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [5, 7]), True)
 
-        pospix = hp.ang2pix(nside_map, ra, dec, lonlat=True, nest=True)
+        pospix = hpg.angle_to_pixel(nside_map, ra, dec)
         inds = np.searchsorted(pixel, pospix)
         b, = np.where((inds > 0) & (inds < pixel.size))
         comp_arr = np.zeros(pospix.size, dtype=np.bool_)
@@ -254,7 +254,7 @@ class WideMasksTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [7]), False)
         testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [5, 7]), True)
 
-        pospix = hp.ang2pix(nside_map, ra, dec, lonlat=True, nest=True)
+        pospix = hpg.angle_to_pixel(nside_map, ra, dec)
         inds = np.searchsorted(pixel, pospix)
         b, = np.where((inds > 0) & (inds < pixel.size))
         comp_arr = np.zeros(pospix.size, dtype=np.bool_)
@@ -378,7 +378,7 @@ class WideMasksTestCase(unittest.TestCase):
 
         or_map_intersection = healsparse.or_intersection([sparse_map1, sparse_map2])
 
-        all_pixels = np.arange(hp.nside2npix(nside_map))
+        all_pixels = np.arange(hpg.nside_to_npixel(nside_map))
         arr1 = sparse_map1.get_values_pix(all_pixels)
         arr2 = sparse_map2.get_values_pix(all_pixels)
         gd, = np.where((arr1.sum(axis=1) > 0) & (arr2.sum(axis=1) > 0))
@@ -421,7 +421,7 @@ class WideMasksTestCase(unittest.TestCase):
 
         and_map_intersection = healsparse.and_intersection([sparse_map1, sparse_map2])
 
-        all_pixels = np.arange(hp.nside2npix(nside_map))
+        all_pixels = np.arange(hpg.nside_to_npixel(nside_map))
         arr1 = sparse_map1.get_values_pix(all_pixels)
         arr2 = sparse_map2.get_values_pix(all_pixels)
         gd, = np.where((arr1.sum(axis=1) > 0) & (arr2.sum(axis=1) > 0))
@@ -472,7 +472,7 @@ class WideMasksTestCase(unittest.TestCase):
 
         xor_map_intersection = healsparse.xor_intersection([sparse_map1, sparse_map2])
 
-        all_pixels = np.arange(hp.nside2npix(nside_map))
+        all_pixels = np.arange(hpg.nside_to_npixel(nside_map))
         arr1 = sparse_map1.get_values_pix(all_pixels)
         arr2 = sparse_map2.get_values_pix(all_pixels)
         gd, = np.where((arr1.sum(axis=1) > 0) & (arr2.sum(axis=1) > 0))

@@ -1,6 +1,6 @@
 import os
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 import astropy.io.fits as fits
 
 from .utils import is_integer_value, _compute_bitshift, WIDE_MASK
@@ -127,7 +127,7 @@ def _read_map_parquet(healsparse_class, filepath, pixels=None, header=False,
         columns = ['sparse']
 
     if md['healsparse::sentinel'] == 'UNSEEN':
-        sentinel = primary_dtype(hp.UNSEEN)
+        sentinel = primary_dtype(hpg.UNSEEN)
     elif md['healsparse::sentinel'] == 'False':
         sentinel = False
     elif md['healsparse::sentinel'] == 'True':
@@ -245,7 +245,7 @@ def _write_map_parquet(hsp_map, filepath, clobber=False, nside_io=4):
     else:
         wmult = 1
 
-    if np.isclose(hsp_map._sentinel, hp.UNSEEN):
+    if np.isclose(hsp_map._sentinel, hpg.UNSEEN):
         sentinel_string = 'UNSEEN'
     else:
         sentinel_string = str(hsp_map._sentinel)
@@ -278,7 +278,7 @@ def _write_map_parquet(hsp_map, filepath, clobber=False, nside_io=4):
 
     cov_map = hsp_map._cov_map
     sparse_map = hsp_map._sparse_map.ravel()
-    cov_index_map_temp = cov_map[:] + np.arange(hp.nside2npix(hsp_map.nside_coverage),
+    cov_index_map_temp = cov_map[:] + np.arange(hpg.nside_to_npixel(hsp_map.nside_coverage),
                                                 dtype=np.int64)*cov_map.nfine_per_cov
 
     pix_arr = np.zeros(cov_map.nfine_per_cov*wmult, dtype=np.int32)

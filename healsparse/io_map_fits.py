@@ -1,6 +1,6 @@
 import os
 import numpy as np
-import healpy as hp
+import hpgeom as hpg
 
 from .fits_shim import HealSparseFits, _make_header, _write_filename
 from .utils import is_integer_value, _compute_bitshift, reduce_array, WIDE_MASK
@@ -95,7 +95,7 @@ def _read_map_fits(healsparse_class, filename, nside_coverage=None, pixels=None,
             if 'BAD_DATA' in hdr:
                 sentinel = hdr['BAD_DATA']
             else:
-                sentinel = hp.UNSEEN
+                sentinel = hpg.UNSEEN
 
             healsparse_map = healsparse_class.make_empty(
                 nside_coverage,
@@ -104,11 +104,15 @@ def _read_map_fits(healsparse_class, filename, nside_coverage=None, pixels=None,
                 sentinel=sentinel
             )
             if hdr['ORDERING'] == 'RING':
-                _pix = hp.ring2nest(hdr['NSIDE'], data['PIXEL'])
+                _pix = hpg.ring_to_nest(hdr['NSIDE'], data['PIXEL'])
             else:
                 _pix = data['PIXEL']
             healsparse_map[_pix] = data[signal_column]
         elif hdr['INDXSCHM'].rstrip() == 'IMPLICIT':
+            try:
+                import healpy as hp
+            except ImportError:
+                raise RuntimeError("Cannot read full sky HEALPix maps without healpy.")
             # This is an implicit (full) healpix map
             # Figure out the datatype
             with HealSparseFits(filename) as fits:
@@ -182,7 +186,7 @@ def _read_healsparse_fits_file(filename, pixels=None):
     primary : `str`
         Primary key field for recarray map.  Default is None.
     sentinel : `float` or `int`
-        Sentinel value for null.  Usually hp.UNSEEN
+        Sentinel value for null.  Usually UNSEEN
     """
     cov_map = HealSparseCoverage.read(filename)
     primary = None
@@ -199,7 +203,7 @@ def _read_healsparse_fits_file(filename, pixels=None):
         if 'SENTINEL' in s_hdr:
             sentinel = s_hdr['SENTINEL']
         else:
-            sentinel = hp.UNSEEN
+            sentinel = hpg.UNSEEN
     else:
         _pixels = np.atleast_1d(pixels)
         if len(np.unique(_pixels)) < len(_pixels):
@@ -223,7 +227,7 @@ def _read_healsparse_fits_file(filename, pixels=None):
             if 'SENTINEL' in s_hdr:
                 sentinel = s_hdr['SENTINEL']
             else:
-                sentinel = hp.UNSEEN
+                sentinel = hpg.UNSEEN
 
             if not fits.ext_is_image('SPARSE'):
                 # This is a table extension
@@ -235,7 +239,7 @@ def _read_healsparse_fits_file(filename, pixels=None):
                 wmult = 1
 
             # This is the map without the offset
-            cov_index_map_temp = cov_map[:] + np.arange(hp.nside2npix(nside_coverage),
+            cov_index_map_temp = cov_map[:] + np.arange(hpg.nside_to_npixel(nside_coverage),
                                                         dtype=np.int64)*cov_map.nfine_per_cov
 
             # It is not 100% sure this is the most efficient way to read in,
@@ -329,7 +333,7 @@ def _read_healsparse_fits_file_and_degrade(filename, pixels, nside_out, reductio
                                                       nside_out,
                                                       _pixels)
     # This is the map without the offset
-    cov_index_out_temp = cov_map_out[:] + np.arange(hp.nside2npix(nside_coverage),
+    cov_index_out_temp = cov_map_out[:] + np.arange(hpg.nside_to_npixel(nside_coverage),
                                                     dtype=np.int64)*cov_map_out.nfine_per_cov
     with HealSparseFits(filename) as fits:
         s_hdr = fits.read_ext_header('SPARSE')
@@ -343,7 +347,7 @@ def _read_healsparse_fits_file_and_degrade(filename, pixels, nside_out, reductio
         if 'SENTINEL' in s_hdr:
             sentinel = s_hdr['SENTINEL']
         else:
-            sentinel = hp.UNSEEN
+            sentinel = hpg.UNSEEN
 
         if not fits.ext_is_image('SPARSE'):
             # This is a table extension
@@ -370,7 +374,7 @@ def _read_healsparse_fits_file_and_degrade(filename, pixels, nside_out, reductio
             if 'SENTINEL' in s_hdr_weight:
                 sentinel_weight = s_hdr_weight['SENTINEL']
             else:
-                sentinel_weight = hp.UNSEEN
+                sentinel_weight = hpg.UNSEEN
             if ((s_hdr_weight['NSIDE'] != nside_sparse or
                  not fits.ext_is_image('SPARSE') or
                  'WIDEMASK' in s_hdr_weight or
@@ -394,7 +398,7 @@ def _read_healsparse_fits_file_and_degrade(filename, pixels, nside_out, reductio
                                       dtype=dtype_out)
         elif is_rec_array:
             dtype_out = []
-            sentinel_out = hp.UNSEEN
+            sentinel_out = hpg.UNSEEN
             # We should avoid integers
             test_arr = np.zeros(1, dtype=dtype)
             for key, value in dtype.fields.items():
@@ -417,17 +421,17 @@ def _read_healsparse_fits_file_and_degrade(filename, pixels, nside_out, reductio
                 dtype_out = np.dtype(np.float64)
             else:
                 dtype_out = dtype
-            sentinel_out = hp.UNSEEN
+            sentinel_out = hpg.UNSEEN
             sparse_map_out = np.full((_pixels.size + 1)*nfine_per_cov_out,
                                      sentinel_out,
                                      dtype=dtype_out)
 
         # This is the map without the offset
-        cov_index_map_temp = cov_map[:] + np.arange(hp.nside2npix(nside_coverage),
+        cov_index_map_temp = cov_map[:] + np.arange(hpg.nside_to_npixel(nside_coverage),
                                                     dtype=np.int64)*cov_map.nfine_per_cov
         if use_weightfile:
             cov_index_map_temp_weight = (cov_map_weight[:] +
-                                         np.arange(hp.nside2npix(nside_coverage),
+                                         np.arange(hpg.nside_to_npixel(nside_coverage),
                                                    dtype=np.int64)*cov_map.nfine_per_cov)
 
         for i, pix in enumerate(_pixels):
@@ -584,7 +588,7 @@ def _write_moc_fits(hsp_map, filename, clobber=False):
     tbl = np.zeros(uniq.size, dtype=[('UNIQ', 'i8')])
     tbl['UNIQ'][:] = uniq
 
-    order = np.round(np.log2(tbl['UNIQ']//4)).astype(np.int32)//2
+    order = np.log2(tbl['UNIQ']//4).astype(np.int32)//2
     moc_order = np.max(order)
 
     hdu = fits.BinTableHDU(tbl)
