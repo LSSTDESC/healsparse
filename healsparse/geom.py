@@ -348,3 +348,91 @@ class Polygon(GeomBase):
 
         s = 'Polygon(ra=%s, dec=%s, value=%s)'
         return s % (ras, decs, repr(self._value))
+
+
+class Ellipse(GeomBase):
+    def __init__(self, *, ra, dec, semi_major, semi_minor, alpha, value):
+        """
+        Create an ellipse.
+
+        Parameters
+        ----------
+        ra : `float`
+            ra in degrees (scalar only)
+        dec : `float`
+            dec in degrees (scalar only)
+        semi_major : `float`
+            The semi-major axis of the ellipse in degrees.
+        semi_minor : `float`
+            The semi-minor axis of the ellipse in degrees.
+        alpha : `float`
+            Inclination angle, counterclockwise with respect to North (degrees).
+        value : number
+            Value for pixels in the map (scalar or list of bits for `wide_mask`).
+        """
+        self._ra = ra
+        self._dec = dec
+        self._semi_major = semi_major
+        self._semi_minor = semi_minor
+        self._alpha = alpha
+        self._value = value
+        sc_ra = np.isscalar(self._ra)
+        sc_dec = np.isscalar(self._dec)
+        sc_semi_major = np.isscalar(self._semi_major)
+        sc_semi_minor = np.isscalar(self._semi_minor)
+        sc_alpha = np.isscalar(self._alpha)
+        if not sc_ra or not sc_dec or not sc_semi_major or not sc_semi_minor or not sc_alpha:
+            raise ValueError(
+                'Ellipse only accepts scalar inputs for ra, dec, semi_major, semi_minor, and alpha.'
+            )
+
+    @property
+    def ra(self):
+        """
+        get the ra value
+        """
+        return self._ra
+
+    @property
+    def dec(self):
+        """
+        get the dec value
+        """
+        return self._dec
+
+    @property
+    def semi_major(self):
+        """
+        get the semi_major value
+        """
+        return self._semi_major
+
+    @property
+    def semi_minor(self):
+        """
+        get the semi_major value
+        """
+        return self._semi_minor
+
+    @property
+    def alpha(self):
+        """
+        get the alpha value
+        """
+        return self._alpha
+
+    def get_pixels(self, *, nside):
+        return hpg.query_ellipse(
+            nside,
+            self._ra,
+            self._dec,
+            self._semi_major,
+            self._semi_minor,
+            self._alpha,
+            nest=True,
+            inclusive=False
+        )
+
+    def __repr__(self):
+        s = 'Ellipse(ra=%.16g, dec=%16g, semi_major=%16g, semi_minor=%16g, alpha=%16g, value=%s)'
+        return s % (self._ra, self._dec, self._semi_major, self._semi_minor, self._alpha, repr(self._value))
