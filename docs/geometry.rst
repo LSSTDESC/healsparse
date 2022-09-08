@@ -12,7 +12,7 @@ There are two methods to realize geometry objects.  The first is that each objec
 HealSparse Geometry Shapes
 --------------------------
 
-The two shapes supported are :code:`Circle` and :code:`Polygon`.  They share a base class, and while the instantiation is different, the operations are the same.
+The three shapes supported are :code:`Circle`, :code:`Ellipse`, and :code:`Polygon`.  They share a base class, and while the instantiation is different, the operations are the same.
 
 **Circle**
 
@@ -22,6 +22,18 @@ The two shapes supported are :code:`Circle` and :code:`Polygon`.  They share a b
 
     # All units are decimal degrees
     circ = healsparse.Circle(ra=200.0, dec=0.0, radius=1.0, value=1)
+
+
+**Ellipse**
+
+.. code-block :: python
+
+    import healsparse
+
+    # All units are decimal degrees
+    # The inclination angle alpha is defined counterclockwise with respect to North.
+    # See https://hpgeom.readthedocs.io/en/latest .
+    ellipse = healsparse.Ellipse(ra=200.0, dec=0.0, semi_major=1.0, semi_minor=0.5, alpha=45.0, value=1)
 
 
 **Convext Polygon**
