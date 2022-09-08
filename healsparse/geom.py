@@ -7,17 +7,17 @@ import numbers
 
 def realize_geom(geom, smap, type='or'):
     """
-    Realize geometry objects in a map
+    Realize geometry objects in a map.
 
     Parameters
     ----------
-    geom: geometric primitive or list thereof
+    geom : Geometric primitive or list thereof
         List of Geom objects, e.g. Circle, Polygon
-    smap: HealSparseMaps
-        The map in which to realize the objects
-    type: string
+    smap : `HealSparseMap`
+        The map in which to realize the objects.
+    type : `str`
         Way to combine the list of geometric objects.  Default
-        is to "or" them
+        is to "or" them.
     """
 
     if type != 'or':
@@ -91,8 +91,8 @@ def _check_int_size(value, dtype):
 
 class GeomBase(object):
     """
-    base class for goemetric objects that can convert
-    themselves to maps
+    Base class for goemetric objects that can convert
+    themselves to maps.
     """
 
     @property
@@ -105,24 +105,24 @@ class GeomBase(object):
     @property
     def value(self):
         """
-        get the value to be used for all pixels in the map
+        Get the value to be used for all pixels in the map.
         """
         return self._value
 
     def get_pixels(self, *, nside):
         """
-        get pixels for this map
+        Get pixels for this geometric shape.
 
         Parameters
         ----------
-        nside: int
-            Nside for the pixels
+        nside : `int`
+            HEALPix nside for the pixels.
         """
-        raise NotImplementedError('implment get_pixels')
+        raise NotImplementedError('Implement get_pixels')
 
     def get_map(self, *, nside_coverage, nside_sparse, dtype, wide_mask_maxbits=None):
         """
-        get a healsparse map corresponding to this geometric primitive
+        Get a healsparse map corresponding to this geometric primitive.
 
         Parameters
         ----------
@@ -137,7 +137,7 @@ class GeomBase(object):
 
         Returns
         -------
-        HealSparseMap
+        hsmap : `healsparse.HealSparseMap`
         """
 
         x = np.zeros(1, dtype=dtype)
@@ -185,7 +185,7 @@ class GeomBase(object):
 
         Returns
         -------
-        HealSparseMap
+        hsmap : `healsparse.HealSparseMap`
         """
 
         if not isinstance(sparseMap, HealSparseMap):
@@ -204,19 +204,19 @@ class GeomBase(object):
 
 
 class Circle(GeomBase):
+    """
+    Parameters
+    ----------
+    ra : `float`
+        RA in degrees (scalar-only).
+    dec : `float`
+        Declination in degrees (scalar-only).
+    radius : `float`
+        Radius in degrees (scalar-only).
+    value : number
+        Value for pixels in the map (scalar or list of bits for `wide_mask`)
+    """
     def __init__(self, *, ra, dec, radius, value):
-        """
-        Parameters
-        ----------
-        ra: float
-            ra in degrees (scalar-only)
-        dec: float
-            dec in degrees (scalar-only)
-        radius: float
-            radius in degrees (scalar-only)
-        value: number
-            Value for pixels in the map (scalar or list of bits for `wide_mask`)
-        """
         self._ra = ra
         self._dec = dec
         self._radius = radius
@@ -230,33 +230,25 @@ class Circle(GeomBase):
     @property
     def ra(self):
         """
-        get the ra value
+        Get the RA value.
         """
         return self._ra
 
     @property
     def dec(self):
         """
-        get the dec value
+        Get the dec value.
         """
         return self._dec
 
     @property
     def radius(self):
         """
-        get the radius value
+        Get the radius value.
         """
         return self._radius
 
     def get_pixels(self, *, nside):
-        """
-        get the pixels associated with this circle
-
-        Parameters
-        ----------
-        nside: int
-            Nside for the pixels
-        """
         return hpg.query_circle(
             nside,
             self._ra,
@@ -272,29 +264,28 @@ class Circle(GeomBase):
 
 
 class Polygon(GeomBase):
+    """
+    Represent a polygon.
+
+    Both counter clockwise and clockwise order for polygon vertices works
+
+    Parameters
+    ----------
+    ra : `np.ndarray` (nvert,)
+        RA of vertices in degrees.
+    dec : `np.ndarray` (nvert,)
+        Declination of vertices in degrees.
+    value : number
+        Value for pixels in the map
+    """
     def __init__(self, *, ra, dec, value):
-        """
-        represent a polygon
-
-        both counter clockwise and clockwise order for polygon vertices works
-
-        Parameters
-        ----------
-        ra: array
-            ra of vertices in degrees, size [nvert]
-        dec: array
-            dec of vertices in degrees, size [nvert]
-        value: number
-            Value for pixels in the map
-        """
-
         ra = np.array(ra, ndmin=1)
         dec = np.array(dec, ndmin=1)
 
         if ra.size != dec.size:
-            raise ValueError('ra/dec different sizes')
+            raise ValueError('ra/dec are different sizes')
         if ra.size < 3:
-            raise ValueError('a polygon must have at least 3 vertices')
+            raise ValueError('A polygon must have at least 3 vertices')
         self._ra = ra
         self._dec = dec
         self._vertices = hpg.angle_to_vector(ra, dec, lonlat=True)
@@ -305,33 +296,25 @@ class Polygon(GeomBase):
     @property
     def ra(self):
         """
-        get the ra value
+        Get the RA values of the vertices.
         """
         return self._ra
 
     @property
     def dec(self):
         """
-        get the dec value
+        Get the dec values of the vertices.
         """
         return self._dec
 
     @property
     def vertices(self):
         """
-        get the dec value
+        Get the vertices in unit vector form.
         """
         return self._vertices
 
     def get_pixels(self, *, nside):
-        """
-        get the pixels associated with this polygon
-
-        Parameters
-        ----------
-        nside: int
-            Nside for the pixels
-        """
         pixels = hpg.query_polygon(
             nside,
             self._ra,
@@ -351,25 +334,25 @@ class Polygon(GeomBase):
 
 
 class Ellipse(GeomBase):
-    def __init__(self, *, ra, dec, semi_major, semi_minor, alpha, value):
-        """
-        Create an ellipse.
+    """
+    Create an ellipse.
 
-        Parameters
-        ----------
-        ra : `float`
-            ra in degrees (scalar only)
-        dec : `float`
-            dec in degrees (scalar only)
-        semi_major : `float`
-            The semi-major axis of the ellipse in degrees.
-        semi_minor : `float`
-            The semi-minor axis of the ellipse in degrees.
-        alpha : `float`
-            Inclination angle, counterclockwise with respect to North (degrees).
-        value : number
-            Value for pixels in the map (scalar or list of bits for `wide_mask`).
-        """
+    Parameters
+    ----------
+    ra : `float`
+        ra in degrees (scalar only)
+    dec : `float`
+        dec in degrees (scalar only)
+    semi_major : `float`
+        The semi-major axis of the ellipse in degrees.
+    semi_minor : `float`
+        The semi-minor axis of the ellipse in degrees.
+    alpha : `float`
+        Inclination angle, counterclockwise with respect to North (degrees).
+    value : number
+        Value for pixels in the map (scalar or list of bits for `wide_mask`).
+    """
+    def __init__(self, *, ra, dec, semi_major, semi_minor, alpha, value):
         self._ra = ra
         self._dec = dec
         self._semi_major = semi_major
@@ -389,35 +372,35 @@ class Ellipse(GeomBase):
     @property
     def ra(self):
         """
-        get the ra value
+        Get the RA value.
         """
         return self._ra
 
     @property
     def dec(self):
         """
-        get the dec value
+        Get the dec value.
         """
         return self._dec
 
     @property
     def semi_major(self):
         """
-        get the semi_major value
+        Get the semi_major value.
         """
         return self._semi_major
 
     @property
     def semi_minor(self):
         """
-        get the semi_major value
+        Get the semi_minor value.
         """
         return self._semi_minor
 
     @property
     def alpha(self):
         """
-        get the alpha value
+        Get the alpha value.
         """
         return self._alpha
 
