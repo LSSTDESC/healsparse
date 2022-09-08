@@ -4,7 +4,7 @@ import numpy.testing as testing
 import numpy as np
 
 import healsparse
-from healsparse import Circle, Polygon
+from healsparse import Circle, Polygon, Ellipse
 
 
 def atbound(longitude, minval, maxval):
@@ -23,7 +23,7 @@ def atbound(longitude, minval, maxval):
 
 def _randcap(rng, nrand, ra, dec, rad, get_radius=False):
     """
-    Generate random points in a sherical cap
+    Generate random points in a spherical cap
 
     parameters
     ----------
@@ -190,6 +190,17 @@ class GeomTestCase(unittest.TestCase):
         value = 1.
         testing.assert_raises(ValueError, Circle, ra=ra, dec=dec, radius=radius, value=value)
 
+        testing.assert_raises(
+            ValueError,
+            Ellipse,
+            ra=ra,
+            dec=dec,
+            semi_major=radius,
+            semi_minor=radius,
+            alpha=0.0,
+            value=1.0,
+        )
+
     def test_polygon_smoke(self):
         """
         just test we can make a polygon and a map from it
@@ -269,6 +280,98 @@ class GeomTestCase(unittest.TestCase):
             value=2.0,
         )
         smap2 = poly.get_map(nside_coverage=32, nside_sparse=nside, dtype=np.float32)
+        testing.assert_array_equal(smap.valid_pixels, smap2.valid_pixels)
+        testing.assert_array_equal(smap2.get_values_pix(smap2.valid_pixels), 2.0)
+
+    def test_ellipse_smoke(self):
+        """
+        Test that we can make an ellipse and a map from it.
+        """
+        ra, dec = 200.0, 0.0
+        semi_major = 30.0/3600.0
+        semi_minor = 15.0/3600.0
+        alpha = 45.0
+        nside = 2**17
+        ellipse = Ellipse(
+            ra=ra,
+            dec=dec,
+            semi_major=semi_major,
+            semi_minor=semi_minor,
+            alpha=alpha,
+            value=2**4,
+        )
+
+        pixels = ellipse.get_pixels(nside=nside)
+        self.assertGreater(pixels.size, 0)
+
+        smap = ellipse.get_map(nside_coverage=32, nside_sparse=nside, dtype=np.int16)
+        self.assertTrue(isinstance(smap, healsparse.HealSparseMap))
+
+        smap2 = ellipse.get_map_like(smap)
+        self.assertEqual(smap2.nside_coverage, smap.nside_coverage)
+        self.assertEqual(smap2.nside_sparse, smap2.nside_sparse)
+        self.assertEqual(smap2.dtype, smap.dtype)
+
+    def test_ellipse_values(self):
+        """
+        Make sure we get out the values we used for the map.
+
+        Note however that we do not use inclusive intersections, we will test values
+        from a slightly smaller ellipse.
+        """
+        rng = np.random.RandomState(7812)
+        nside = 2**17
+
+        ra, dec = 200.0, 0.0
+        semi_major = 30.0/3600.0
+        semi_minor = 15.0/3600.0
+        alpha = 45.0
+        ellipse = Ellipse(
+            ra=ra,
+            dec=dec,
+            semi_major=semi_major,
+            semi_minor=semi_minor,
+            alpha=alpha,
+            value=2**4,
+        )
+
+        smap = ellipse.get_map(nside_coverage=32, nside_sparse=nside, dtype=np.int16)
+
+        # Test points we know to be inside.
+        smallrad = semi_minor*0.95
+        nrand = 10000
+        rra, rdec = _randcap(rng, nrand, ra, dec, smallrad)
+
+        values = smap.get_values_pos(rra, rdec)
+
+        testing.assert_array_equal(values, ellipse.value)
+
+        # test points we expect to be outside
+        bigrad = semi_major*2
+        nrand = 10000
+        rra, rdec, rrand = _randcap(
+            rng,
+            nrand,
+            ra,
+            dec,
+            bigrad,
+            get_radius=True,
+        )
+        w, = np.where(rrand > 1.1*semi_major)
+
+        vals = smap.get_values_pos(rra[w], rdec[w])
+        testing.assert_array_equal(vals, 0)
+
+        # And test floating point values
+        ellipse = Ellipse(
+            ra=ra,
+            dec=dec,
+            semi_major=semi_major,
+            semi_minor=semi_minor,
+            alpha=alpha,
+            value=2.0,
+        )
+        smap2 = ellipse.get_map(nside_coverage=32, nside_sparse=nside, dtype=np.float32)
         testing.assert_array_equal(smap.valid_pixels, smap2.valid_pixels)
         testing.assert_array_equal(smap2.get_values_pix(smap2.valid_pixels), 2.0)
 
@@ -366,6 +469,29 @@ class GeomTestCase(unittest.TestCase):
         testing.assert_almost_equal(circle._dec, circle_rep._dec)
         testing.assert_almost_equal(circle._radius, circle_rep._radius)
         testing.assert_array_equal(circle._value, circle_rep._value)
+
+        ra, dec = 200.0, 0.0
+        semi_major = 30.0/3600.0
+        semi_minor = 15.0/3600.0
+        alpha = 45.0
+        ellipse = Ellipse(
+            ra=ra,
+            dec=dec,
+            semi_major=semi_major,
+            semi_minor=semi_minor,
+            alpha=alpha,
+            value=2**4,
+        )
+
+        rep = repr(ellipse)
+        ellipse_rep = eval(rep)
+
+        testing.assert_almost_equal(ellipse._ra, ellipse_rep._ra)
+        testing.assert_almost_equal(ellipse._dec, ellipse_rep._dec)
+        testing.assert_almost_equal(ellipse._semi_major, ellipse_rep._semi_major)
+        testing.assert_almost_equal(ellipse._semi_minor, ellipse_rep._semi_minor)
+        testing.assert_almost_equal(ellipse._alpha, ellipse_rep._alpha)
+        testing.assert_array_equal(ellipse._value, ellipse_rep._value)
 
         ra = [200.0, 200.2, 200.3, 200.2, 200.1]
         dec = [0.0, 0.1, 0.2, 0.25, 0.13]
