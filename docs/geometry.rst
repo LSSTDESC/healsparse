@@ -36,7 +36,7 @@ The three shapes supported are :code:`Circle`, :code:`Ellipse`, and :code:`Polyg
     ellipse = healsparse.Ellipse(ra=200.0, dec=0.0, semi_major=1.0, semi_minor=0.5, alpha=45.0, value=1)
 
 
-**Convext Polygon**
+**Convex Polygon**
 
 .. code-block :: python
 
