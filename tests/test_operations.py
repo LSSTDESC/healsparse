@@ -118,7 +118,7 @@ class OperationsTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 64
 
-        # Test adding two or three maps
+        # Test product of two or three maps
 
         sparse_map1 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.float64)
         pixel1 = np.arange(4000, 20000)
@@ -218,6 +218,137 @@ class OperationsTestCase(unittest.TestCase):
         sparse_map1 *= 2.0
 
         testing.assert_almost_equal(hpmap_product2, sparse_map1.generate_healpix_map())
+
+    def test_divide(self):
+        """
+        Test map division.
+        """
+
+        random.seed(seed=12345)
+
+        nside_coverage = 32
+        nside_map = 64
+
+        # Test division of 2 or 3 maps
+
+        sparse_map1 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.float64)
+        pixel1 = np.arange(4000, 20000)
+        pixel1 = np.delete(pixel1, 15000)
+        values1 = np.random.random(size=pixel1.size)
+        sparse_map1.update_values_pix(pixel1, values1)
+        hpmap1 = sparse_map1.generate_healpix_map()
+
+        sparse_map2 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.float64)
+        pixel2 = np.arange(15000, 25000)
+        values2 = np.random.random(size=pixel2.size)
+        sparse_map2.update_values_pix(pixel2, values2)
+        hpmap2 = sparse_map2.generate_healpix_map()
+
+        sparse_map3 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.int32)
+        pixel3 = np.arange(16000, 25000)
+        values3 = np.random.uniform(low=10, high=20, size=pixel3.size).astype(np.int32)
+        sparse_map3.update_values_pix(pixel3, values3)
+        hpmap3 = sparse_map3.generate_healpix_map()
+
+        # Intersection division
+        division_map_intersection = healsparse.divide_intersection([sparse_map1, sparse_map2])
+
+        gd, = np.where((hpmap1 > hpg.UNSEEN) & (hpmap2 > hpg.UNSEEN))
+        hpmap_division_intersection = np.zeros_like(hpmap1) + hpg.UNSEEN
+        hpmap_division_intersection[gd] = hpmap1[gd] / hpmap2[gd]
+
+        testing.assert_almost_equal(hpmap_division_intersection,
+                                    division_map_intersection.generate_healpix_map())
+
+        division_map_intersection = healsparse.divide_intersection([sparse_map1, sparse_map2, sparse_map3])
+
+        gd, = np.where((hpmap1 > hpg.UNSEEN) & (hpmap2 > hpg.UNSEEN) & (hpmap3 > hpg.UNSEEN))
+        hpmap_division_intersection = np.zeros_like(hpmap1) + hpg.UNSEEN
+        hpmap_division_intersection[gd] = hpmap1[gd] / hpmap2[gd] / hpmap3[gd]
+
+        testing.assert_almost_equal(hpmap_division_intersection,
+                                    division_map_intersection.generate_healpix_map())
+
+    def test_floor_divide(self):
+        """
+        Test map floor division.
+        """
+
+        random.seed(seed=12345)
+
+        nside_coverage = 32
+        nside_map = 64
+        sentinel = 0
+        maxval = 100
+
+        sparse_map1 = healsparse.HealSparseMap.make_empty(
+            nside_coverage,
+            nside_map,
+            np.int64,
+            sentinel=sentinel,
+        )
+        pixel1 = np.arange(4000, 20000)
+        pixel1 = np.delete(pixel1, 15000)
+        values1 = random.randint(low=1, high=maxval, size=pixel1.size)
+        sparse_map1.update_values_pix(pixel1, values1)
+
+        hpmap1 = np.zeros(hpg.nside_to_npixel(nside_map), dtype=np.int64)
+        vpix = sparse_map1.valid_pixels
+        hpmap1[vpix] = sparse_map1.get_values_pix(vpix)
+
+        sparse_map2 = healsparse.HealSparseMap.make_empty(
+            nside_coverage,
+            nside_map,
+            np.int64,
+            sentinel=sentinel,
+        )
+        pixel2 = np.arange(15000, 25000)
+        values2 = random.randint(low=1, high=maxval, size=pixel2.size)
+        sparse_map2.update_values_pix(pixel2, values2)
+
+        hpmap2 = np.zeros(hpg.nside_to_npixel(nside_map), dtype=np.int64)
+        vpix = sparse_map2.valid_pixels
+        hpmap2[vpix] = sparse_map2.get_values_pix(vpix)
+
+        sparse_map3 = healsparse.HealSparseMap.make_empty(
+            nside_coverage,
+            nside_map,
+            np.int64,
+            sentinel=sentinel,
+        )
+        pixel3 = np.arange(16000, 25000)
+        values3 = random.randint(low=1, high=maxval, size=pixel3.size)
+        sparse_map3.update_values_pix(pixel3, values3)
+
+        hpmap3 = np.zeros(hpg.nside_to_npixel(nside_map), dtype=np.int64)
+        vpix = sparse_map3.valid_pixels
+        hpmap3[vpix] = sparse_map3.get_values_pix(vpix)
+
+        floor_divide_map_intersection = healsparse.floor_divide_intersection([sparse_map1, sparse_map2])
+
+        gd, = np.where((hpmap1 > sentinel) & (hpmap2 > sentinel))
+        hpmap_floor_divide_intersection = np.zeros_like(hpmap1)
+        hpmap_floor_divide_intersection[gd] = hpmap1[gd] // hpmap2[gd]
+
+        pmap = np.zeros(hpg.nside_to_npixel(nside_map), dtype=np.int64)
+        vpix = floor_divide_map_intersection.valid_pixels
+        pmap[vpix] = floor_divide_map_intersection.get_values_pix(vpix)
+
+        testing.assert_equal(hpmap_floor_divide_intersection, pmap)
+
+        floor_divide_map_intersection = healsparse.floor_divide_intersection(
+            [sparse_map1, sparse_map2, sparse_map3]
+        )
+
+        gd, = np.where((hpmap1 > sentinel) & (hpmap2 > sentinel) & (hpmap3 > sentinel))
+        hpmap_floor_divide_intersection = np.zeros_like(hpmap1)
+        hpmap_floor_divide_intersection[gd] = hpmap1[gd] // hpmap2[gd] // hpmap3[gd]
+
+        pmap = np.zeros(hpg.nside_to_npixel(nside_map), dtype=np.int64)
+        vpix = floor_divide_map_intersection.valid_pixels
+        pmap[vpix] = floor_divide_map_intersection.get_values_pix(vpix)
+
+        testing.assert_equal(hpmap_floor_divide_intersection, pmap)
 
     def test_product_integer(self):
         """

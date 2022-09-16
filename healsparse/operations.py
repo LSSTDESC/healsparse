@@ -94,6 +94,66 @@ def product_intersection(map_list):
     return _apply_operation(map_list, np.multiply, value, union=False)
 
 
+def divide_intersection(map_list, dtype_out=np.float64):
+    """
+    Divide HealSparseMaps as an intersection. The first map will be used as
+    the starting values, and will be divided by the values in all subsequent
+    maps. Only pixels that are valid in all the input maps will have valid
+    values in the output.
+    This function is equivalent to the python "/" operation.
+
+    Parameters
+    ----------
+    map_list : `list` of `HealSparseMap`
+        Input list of maps to take the product
+    dtype_out : `np.dtype`, optional
+        Datatype of output.
+
+    Returns
+    -------
+    result : `HealSparseMap`
+       map[0] / map[1] / ...
+    """
+
+    return _apply_operation(
+        map_list,
+        np.divide,
+        0.0,
+        union=False,
+        fill_with_first_map=True,
+        dtype_out=dtype_out,
+    )
+
+
+def floor_divide_intersection(map_list):
+    """
+    Floor divide HealSparseMaps as an intersection. The first map will be used as
+    the starting values, and will be divided by the values in all subsequent
+    maps. Only pixels that are valid in all the input maps will have valid
+    values in the output.
+    This function is equivalent to the python "//" operation.
+
+    Parameters
+    ----------
+    map_list : `list` of `HealSparseMap`
+        Input list of maps to take the product
+
+    Returns
+    -------
+    result : `HealSparseMap`
+       map[0] / map[1] / ...
+    """
+
+    return _apply_operation(
+        map_list,
+        np.floor_divide,
+        0,
+        union=False,
+        fill_with_first_map=True,
+        int_only=True,
+    )
+
+
 def or_union(map_list):
     """
     Bitwise or a list of HealSparseMaps as a union.  Empty values will be
@@ -331,7 +391,15 @@ def ufunc_union(map_list, func, filler_value=0):
     return _apply_operation(map_list, func, filler_value, union=True, int_only=False)
 
 
-def _apply_operation(map_list, func, filler_value, union=False, int_only=False):
+def _apply_operation(
+        map_list,
+        func,
+        filler_value,
+        union=False,
+        int_only=False,
+        fill_with_first_map=False,
+        dtype_out=None,
+):
     """
     Apply a generic arithmetic function.
 
@@ -340,15 +408,20 @@ def _apply_operation(map_list, func, filler_value, union=False, int_only=False):
     Parameters
     ----------
     map_list : `list` of `HealSparseMap`
-       Input list of maps to perform the operation on.
+        Input list of maps to perform the operation on.
     func : `np.ufunc`
-       Numpy universal function to apply
+        Numpy universal function to apply
     filler_value : `int` or `float`
-       Starting value and filler when union is True
+        Starting value and filler when union is True
     union : `bool`, optional
-       Use union mode instead of intersection.  Default is False.
+        Use union mode instead of intersection.  Default is False.
     int_only : `bool`, optional
-       Check that input maps are integer types.  Default is False.
+        Check that input maps are integer types.  Default is False.
+    fill_with_first_map : `bool`, optional
+        Fill values with the first map. Only valid in when union=False.
+        In this case the filler_value is ignored.
+    dtype_out : `np.dtype`, optional
+        Datatype of output.
 
     Returns
     -------
@@ -360,6 +433,10 @@ def _apply_operation(map_list, func, filler_value, union=False, int_only=False):
 
     if len(map_list) < 2:
         raise RuntimeError("Must supply at least 2 maps to apply %s" % (name))
+
+    if fill_with_first_map:
+        if union:
+            raise RuntimeError("Can only use fill_with_first_map with union=False.")
 
     nside_coverage = None
     for m in map_list:
@@ -374,7 +451,10 @@ def _apply_operation(map_list, func, filler_value, union=False, int_only=False):
         if nside_coverage is None:
             nside_coverage = m.nside_coverage
             nside_sparse = m._nside_sparse
-            dtype = m._sparse_map.dtype
+            if dtype_out is None:
+                dtype = m._sparse_map.dtype
+            else:
+                dtype = dtype_out
             sentinel = m._sentinel
             is_wide_mask = m._is_wide_mask
             wide_mask_width = m._wide_mask_width
@@ -383,6 +463,9 @@ def _apply_operation(map_list, func, filler_value, union=False, int_only=False):
                 raise RuntimeError("Cannot apply %s to maps with different coverage or map nsides" % (name))
             if (is_wide_mask != m._is_wide_mask or wide_mask_width != m._wide_mask_width):
                 raise RuntimeError("Can only apply %s to wide_mask maps with same width" % (name))
+
+    if is_wide_mask and fill_with_first_map:
+        raise RuntimeError("Cannot use wide_mask with fill_with_first_map")
 
     combined_cov_mask = map_list[0].coverage_mask
 
@@ -415,7 +498,8 @@ def _apply_operation(map_list, func, filler_value, union=False, int_only=False):
         combined_sparse_map_touched = np.zeros(len(combined_sparse_map), dtype=np.bool_)
     else:
         combined_sparse_map_ntouch = np.zeros(len(combined_sparse_map), dtype=np.int32)
-    for m in map_list:
+
+    for m_index, m in enumerate(map_list):
         m_valid_pixels = m.valid_pixels
 
         ipnest_cov = cov_map.cov_pixels(m_valid_pixels)
@@ -429,9 +513,14 @@ def _apply_operation(map_list, func, filler_value, union=False, int_only=False):
                     combined_sparse_map[combined_pixel_index, i],
                     values[:, i])
         else:
-            combined_sparse_map[combined_pixel_index] = func(
-                combined_sparse_map[combined_pixel_index],
-                m.get_values_pix(m_valid_pixels))
+            if m_index == 0 and fill_with_first_map:
+                combined_sparse_map[combined_pixel_index] = m.get_values_pix(
+                    m_valid_pixels
+                ).astype(combined_sparse_map.dtype)
+            else:
+                combined_sparse_map[combined_pixel_index] = func(
+                    combined_sparse_map[combined_pixel_index],
+                    m.get_values_pix(m_valid_pixels))
         if union:
             combined_sparse_map_touched[combined_pixel_index] = True
         else:
