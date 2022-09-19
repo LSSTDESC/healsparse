@@ -192,8 +192,8 @@ class UpdateValuesTestCase(unittest.TestCase):
                 testing.assert_array_equal(sparse_map.valid_pixels, np.unique(test_pix))
                 testing.assert_array_equal(sparse_map[sparse_map.valid_pixels], [2.0, 2.0, 3.0, 1.0])
 
-                # Try again with a constant value, with a few new pixels
-                test_pix2 = np.array([1, 1, 1])
+                # Try again with a constant value, with a few old and a few new pixels
+                test_pix2 = np.array([0, 0, 1, 1, 1])
                 if update_type == 'single':
                     sparse_map.update_values_pix(test_pix2, 2.0, operation='add')
                 else:
@@ -203,7 +203,7 @@ class UpdateValuesTestCase(unittest.TestCase):
                     sparse_map.valid_pixels,
                     np.unique(np.concatenate((test_pix, test_pix2))),
                 )
-                testing.assert_array_equal(sparse_map[sparse_map.valid_pixels], [2.0, 6.0, 2.0, 3.0, 1.0])
+                testing.assert_array_equal(sparse_map[sparse_map.valid_pixels], [6.0, 6.0, 2.0, 3.0, 1.0])
 
                 # And add some more with positions
                 ra = np.array([10.0, 10.0])
@@ -218,7 +218,7 @@ class UpdateValuesTestCase(unittest.TestCase):
                 )
                 testing.assert_array_equal(
                     sparse_map[sparse_map.valid_pixels],
-                    [2.0, 6.0, 2.0, 3.0, 1.0, 6.0],
+                    [6.0, 6.0, 2.0, 3.0, 1.0, 6.0],
                 )
 
         # Test recarray raise
