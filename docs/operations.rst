@@ -43,7 +43,11 @@ Arithmetic operations with a constant are very simple, and are handled with the 
 Operations With Multiple Maps
 -----------------------------
 
-Operations between maps can be done with either "union" or "intersection" mode.  The basic operations supported are :code:`sum`, :code:`product`, :code:`min`, :code:`max`, :code:`or`, :code:`and`, :code:`xor`, and :code:`ufunc`.  Note that :code:`or`, :code:`and`:, and :code:`xor` operations are only supported for integer maps.  Note that operations between maps are only supported if they have the same :code:`nside_sparse` resolution and data type.  In all cases, the function name is :code:`operation_union()` or :code:`operation_intersection()`.  For example,
+Operations between maps can be done with either "union" or "intersection" mode.
+The basic operations supported are :code:`sum`, :code:`product`, :code:`divide`, :code:`floor_divide`, :code:`min`, :code:`max`, :code:`or`, :code:`and`, :code:`xor`, and :code:`ufunc`.  Note that :code:`or`, :code:`and`:, and :code:`xor` operations are only supported for integer maps.  Note that operations between maps are only supported if they have the same :code:`nside_sparse` resolution and data type.
+In all cases except division, the function name is :code:`operation_union()` or :code:`operation_intersection()`.
+The division routines only support intersection operations.
+For example,
 
 .. code-block :: python
 

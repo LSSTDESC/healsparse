@@ -165,6 +165,69 @@ class UpdateValuesTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map[pixels],
                                    [0, 2**1, 2**2, 0])
 
+    def test_update_values_add(self):
+        """
+        Test doing update_values with the add operation.
+        """
+        nside_coverage = 32
+        nside_map = 64
+        dtype = np.float64
+
+        for sentinel in [hpg.UNSEEN, 0.0]:
+            for update_type in ['single', 'array']:
+                sparse_map = healsparse.HealSparseMap.make_empty(
+                    nside_coverage,
+                    nside_map,
+                    dtype,
+                    sentinel=sentinel,
+                )
+
+                # Add a constant value
+                test_pix = np.array([0, 0, 10, 10, 1000, 1000, 1000, 10000])
+                if update_type == 'single':
+                    sparse_map.update_values_pix(test_pix, 1.0, operation='add')
+                else:
+                    sparse_map.update_values_pix(test_pix, np.ones(test_pix.size), operation='add')
+
+                testing.assert_array_equal(sparse_map.valid_pixels, np.unique(test_pix))
+                testing.assert_array_equal(sparse_map[sparse_map.valid_pixels], [2.0, 2.0, 3.0, 1.0])
+
+                # Try again with a constant value, with a few old and a few new pixels
+                test_pix2 = np.array([0, 0, 1, 1, 1])
+                if update_type == 'single':
+                    sparse_map.update_values_pix(test_pix2, 2.0, operation='add')
+                else:
+                    sparse_map.update_values_pix(test_pix2, np.full(test_pix2.size, 2.0), operation='add')
+
+                testing.assert_array_equal(
+                    sparse_map.valid_pixels,
+                    np.unique(np.concatenate((test_pix, test_pix2))),
+                )
+                testing.assert_array_equal(sparse_map[sparse_map.valid_pixels], [6.0, 6.0, 2.0, 3.0, 1.0])
+
+                # And add some more with positions
+                ra = np.array([10.0, 10.0])
+                dec = np.array([70.0, 70.0])
+                test_pix3 = hpg.angle_to_pixel(sparse_map.nside_sparse, ra, dec)
+
+                sparse_map.update_values_pos(ra, dec, 3.0, operation='add')
+
+                testing.assert_array_equal(
+                    np.sort(sparse_map.valid_pixels),
+                    np.unique(np.concatenate((test_pix, test_pix2, test_pix3))),
+                )
+                testing.assert_array_equal(
+                    sparse_map[sparse_map.valid_pixels],
+                    [6.0, 6.0, 2.0, 3.0, 1.0, 6.0],
+                )
+
+        # Test recarray raise
+        dtype = [('col1', 'f8'), ('col2', 'f8')]
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype, primary='col1')
+
+        with self.assertRaises(ValueError):
+            sparse_map.update_values_pix(0, 1.0, operation='add')
+
     def test_update_values_pos(self):
         """
         Test doing update_values with positions (unique and non-unique).
@@ -176,6 +239,7 @@ class UpdateValuesTestCase(unittest.TestCase):
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype)
 
         pixels = np.array([0, 1, 5, 10, 20])
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype)
         ra, dec = hpg.pixel_to_angle(nside_map, pixels)
 
         sparse_map.update_values_pos(ra, dec, 0.0)
