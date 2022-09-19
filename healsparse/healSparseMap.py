@@ -562,7 +562,7 @@ class HealSparseMap(object):
             elif operation == 'add':
                 # Put in a check to reset uncovered pixels to 0
                 if self._sentinel != 0:
-                    self._sparse_map[_indices[self._sparse_map[_indices] != 0]] = 0
+                    self._sparse_map[_indices[self._sparse_map[_indices] == self._sentinel]] = 0
                 np.add.at(self._sparse_map, _indices, _values[0])
             elif operation == 'or':
                 np.bitwise_or.at(self._sparse_map, _indices, _values[0])
@@ -574,7 +574,7 @@ class HealSparseMap(object):
             elif operation == 'add':
                 # Put in a check to reset uncovered pixels to 0
                 if self._sentinel != 0:
-                    self._sparse_map[_indices[self._sparse_map[_indices] != 0]] = 0
+                    self._sparse_map[_indices[self._sparse_map[_indices] == self._sentinel]] = 0
                 np.add.at(self._sparse_map, _indices, _values[in_cov])
             elif operation == 'or':
                 np.bitwise_or.at(self._sparse_map, _indices, _values[in_cov])
@@ -601,7 +601,7 @@ class HealSparseMap(object):
                 elif operation == 'add':
                     # Put in a check to reset uncovered pixels to 0
                     if self._sentinel != 0:
-                        self._sparse_map[oldsize:][_indices[self._sparse_map[_indices] != 0]] = 0
+                        self._sparse_map[oldsize:][_indices[self._sparse_map[_indices] == self._sentinel]] = 0
                     np.add.at(self._sparse_map[oldsize:], _indices, _values[0])
                 elif operation == 'or':
                     np.bitwise_or.at(self._sparse_map[oldsize:], _indices, _values[0])
@@ -613,7 +613,7 @@ class HealSparseMap(object):
                 elif operation == 'add':
                     # Put in a check to reset uncovered pixels to 0
                     if self._sentinel != 0:
-                        self._sparse_map[oldsize:][_indices[self._sparse_map[_indices] != 0]] = 0
+                        self._sparse_map[oldsize:][_indices[self._sparse_map[_indices] == self._sentinel]] = 0
                     np.add.at(self._sparse_map[oldsize:], _indices, _values[out_cov])
                 elif operation == 'or':
                     np.bitwise_or.at(self._sparse_map[oldsize:], _indices, _values[out_cov])
