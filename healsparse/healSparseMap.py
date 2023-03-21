@@ -818,6 +818,13 @@ class HealSparseMap(object):
         return bit_flags
 
     @property
+    def sentinel(self):
+        """
+        Get the sentinel of the map.
+        """
+        return self._sentinel
+
+    @property
     def dtype(self):
         """
         get the dtype of the map
