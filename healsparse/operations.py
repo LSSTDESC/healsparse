@@ -210,7 +210,11 @@ def and_union(map_list):
     result : `HealSparseMap`
        Bitwise and of maps
     """
-    filler = map_list[0]._sparse_map.dtype.type(-1)
+    t = map_list[0]._sparse_map.dtype.type
+    if np.issubdtype(t, np.unsignedinteger):
+        filler = np.iinfo(t).max
+    else:
+        filler = t(-1)
 
     return _apply_operation(map_list, np.bitwise_and, filler, union=True, int_only=True)
 
@@ -231,7 +235,11 @@ def and_intersection(map_list):
     result : `HealSparseMap`
        Bitwise and of maps
     """
-    filler = map_list[0]._sparse_map.dtype.type(-1)
+    t = map_list[0]._sparse_map.dtype.type
+    if np.issubdtype(t, np.unsignedinteger):
+        filler = np.iinfo(t).max
+    else:
+        filler = t(-1)
 
     return _apply_operation(map_list, np.bitwise_and, filler, union=False, int_only=True)
 
