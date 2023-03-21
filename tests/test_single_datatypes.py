@@ -42,13 +42,13 @@ class SingleDatatypesTestCase(unittest.TestCase):
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.float32)
 
         self.assertEqual(sparse_map.dtype, np.float32)
-        self.assertEqual(sparse_map.sentinel, hpg.UNSEEN)
+        self.assertEqual(sparse_map.sentinel, np.float32(hpg.UNSEEN))
 
         # int64
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.float64)
 
         self.assertEqual(sparse_map.dtype, np.float64)
-        self.assertEqual(sparse_map.sentinel, hpg.UNSEEN)
+        self.assertEqual(sparse_map.sentinel, np.float64(hpg.UNSEEN))
 
     def test_datatypes_uints(self):
         """
