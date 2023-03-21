@@ -35,7 +35,7 @@ class WideMasksTestCase(unittest.TestCase):
         self.assertTrue(sparse_map.is_wide_mask_map)
         self.assertEqual(sparse_map.wide_mask_maxbits, 8)
         self.assertEqual(sparse_map._sparse_map.shape, (4, 1))
-        self.assertEqual(sparse_map._sentinel, 0)
+        self.assertEqual(sparse_map.sentinel, 0)
 
         # Set bits and retrieve them
         pixel = np.arange(4000, 20000)
@@ -151,7 +151,7 @@ class WideMasksTestCase(unittest.TestCase):
         self.assertEqual(sparse_map_in.wide_mask_maxbits, 8)
         self.assertEqual(sparse_map_in._sparse_map.shape[1], 1)
         self.assertEqual(sparse_map_in._wide_mask_width, 1)
-        self.assertEqual(sparse_map_in._sentinel, 0)
+        self.assertEqual(sparse_map_in.sentinel, 0)
 
         testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [5]), True)
         testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [7]), False)
@@ -171,7 +171,7 @@ class WideMasksTestCase(unittest.TestCase):
         self.assertEqual(sparse_map_in_partial.wide_mask_maxbits, 8)
         self.assertEqual(sparse_map_in_partial._sparse_map.shape[1], 1)
         self.assertEqual(sparse_map_in_partial._wide_mask_width, 1)
-        self.assertEqual(sparse_map_in_partial._sentinel, 0)
+        self.assertEqual(sparse_map_in_partial.sentinel, 0)
 
         cov_pixels = sparse_map._cov_map.cov_pixels(pixel)
         pixel_sub = pixel[(cov_pixels == 1000) | (cov_pixels == 1002)]
@@ -194,7 +194,7 @@ class WideMasksTestCase(unittest.TestCase):
         self.assertEqual(sparse_map_in.wide_mask_maxbits, 16)
         self.assertEqual(sparse_map_in._sparse_map.shape[1], 2)
         self.assertEqual(sparse_map_in._wide_mask_width, 2)
-        self.assertEqual(sparse_map_in._sentinel, 0)
+        self.assertEqual(sparse_map_in.sentinel, 0)
 
         testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [5]), True)
         testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [10]), True)
@@ -208,7 +208,7 @@ class WideMasksTestCase(unittest.TestCase):
         self.assertEqual(sparse_map_in_partial.wide_mask_maxbits, 16)
         self.assertEqual(sparse_map_in_partial._sparse_map.shape[1], 2)
         self.assertEqual(sparse_map_in_partial._wide_mask_width, 2)
-        self.assertEqual(sparse_map_in_partial._sentinel, 0)
+        self.assertEqual(sparse_map_in_partial.sentinel, 0)
 
         cov_pixels = sparse_map._cov_map.cov_pixels(pixel)
         pixel_sub = pixel[(cov_pixels == 1000) | (cov_pixels == 1002)]
@@ -248,7 +248,7 @@ class WideMasksTestCase(unittest.TestCase):
         self.assertEqual(sparse_map_in.wide_mask_maxbits, 8)
         self.assertEqual(sparse_map_in._sparse_map.shape[1], 1)
         self.assertEqual(sparse_map_in._wide_mask_width, 1)
-        self.assertEqual(sparse_map_in._sentinel, 0)
+        self.assertEqual(sparse_map_in.sentinel, 0)
 
         testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [5]), True)
         testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [7]), False)
@@ -268,7 +268,7 @@ class WideMasksTestCase(unittest.TestCase):
         self.assertEqual(sparse_map_in_partial.wide_mask_maxbits, 8)
         self.assertEqual(sparse_map_in_partial._sparse_map.shape[1], 1)
         self.assertEqual(sparse_map_in_partial._wide_mask_width, 1)
-        self.assertEqual(sparse_map_in_partial._sentinel, 0)
+        self.assertEqual(sparse_map_in_partial.sentinel, 0)
 
         cov_pixels = sparse_map._cov_map.cov_pixels(pixel)
         pixel_sub = pixel[(cov_pixels == 1000) | (cov_pixels == 1002)]
@@ -291,7 +291,7 @@ class WideMasksTestCase(unittest.TestCase):
         self.assertEqual(sparse_map_in.wide_mask_maxbits, 16)
         self.assertEqual(sparse_map_in._sparse_map.shape[1], 2)
         self.assertEqual(sparse_map_in._wide_mask_width, 2)
-        self.assertEqual(sparse_map_in._sentinel, 0)
+        self.assertEqual(sparse_map_in.sentinel, 0)
 
         testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [5]), True)
         testing.assert_array_equal(sparse_map_in.check_bits_pix(pixel, [10]), True)
@@ -305,7 +305,7 @@ class WideMasksTestCase(unittest.TestCase):
         self.assertEqual(sparse_map_in_partial.wide_mask_maxbits, 16)
         self.assertEqual(sparse_map_in_partial._sparse_map.shape[1], 2)
         self.assertEqual(sparse_map_in_partial._wide_mask_width, 2)
-        self.assertEqual(sparse_map_in_partial._sentinel, 0)
+        self.assertEqual(sparse_map_in_partial.sentinel, 0)
 
         cov_pixels = sparse_map._cov_map.cov_pixels(pixel)
         pixel_sub = pixel[(cov_pixels == 1000) | (cov_pixels == 1002)]
