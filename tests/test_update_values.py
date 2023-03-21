@@ -228,6 +228,11 @@ class UpdateValuesTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             sparse_map.update_values_pix(0, 1.0, operation='add')
 
+        # Test None raise
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.float32)
+        with self.assertRaises(ValueError):
+            sparse_map.update_values_pix(0, None, operation='add')
+
     def test_update_values_pos(self):
         """
         Test doing update_values with positions (unique and non-unique).
