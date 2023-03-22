@@ -33,6 +33,13 @@ class SingleValuesTestCase(unittest.TestCase):
         m[50] = np.zeros(1, dtype=np.int32)[0]
         self.assertEqual(m[50], 0)
 
+        # Test None
+        m.update_values_pix(np.arange(25), None)
+        testing.assert_array_equal(m[0: 25], m.sentinel)
+
+        m[50] = None
+        self.assertEqual(m[50], m.sentinel)
+
         # Test floating point
         self.assertRaises(ValueError, m.update_values_pix, np.arange(100),
                           1.0)
@@ -72,6 +79,14 @@ class SingleValuesTestCase(unittest.TestCase):
         m[50] = 0.0
         self.assertEqual(m[50], 0.0)
 
+        # Test None
+        m.update_values_pix(np.arange(100), 1.0)
+        m.update_values_pix(np.arange(25), None)
+        testing.assert_array_equal(m[0: 25], m.sentinel)
+
+        m[50] = None
+        self.assertEqual(m[50], m.sentinel)
+
         # Test int
         self.assertRaises(ValueError, m.update_values_pix, np.arange(100),
                           1)
@@ -98,6 +113,13 @@ class SingleValuesTestCase(unittest.TestCase):
         testing.assert_array_equal(m[0: 100]['a'], np.zeros(100, dtype=np.float32))
         testing.assert_array_equal(m[0: 100]['b'], np.zeros(100, dtype=np.int32))
 
+        # Test None
+        m.update_values_pix(np.arange(25), None)
+        testing.assert_array_equal(m[0: 25][m.primary], m.sentinel)
+
+        m[50] = None
+        self.assertEqual(m[50][m.primary], m.sentinel)
+
         # Test wrong dtype recarray
         val = np.ones(1, dtype=[('a', 'f4'), ('b', 'f4')])
         self.assertRaises(ValueError, m.update_values_pix, np.arange(100), val)
@@ -119,6 +141,14 @@ class SingleValuesTestCase(unittest.TestCase):
         m.update_values_pix(np.arange(100), val)
         testing.assert_array_equal(m[0: 100][:, 0], np.ones(100, dtype=np.int8))
         testing.assert_array_equal(m[0: 100][:, 1], np.full(100, 2, dtype=np.int8))
+
+        # Test None
+        m.update_values_pix(np.arange(25), None)
+        testing.assert_array_equal(m[0: 25], 0)
+
+        m[50] = None
+        self.assertEqual(m[50][0], 0)
+        self.assertEqual(m[50][1], 0)
 
         self.assertRaises(ValueError, m.update_values_pix, np.arange(100), 1)
         self.assertRaises(ValueError, m.update_values_pix, np.arange(100),

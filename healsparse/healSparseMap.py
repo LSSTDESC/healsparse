@@ -413,8 +413,9 @@ class HealSparseMap(object):
             Angular coordinates of points on a sphere.
         dec_or_phi : `float`, array-like
             Angular coordinates of points on a sphere.
-        values : `np.ndarray`
+        values : `np.ndarray` or `None`
             Value or Array of values.  Must be same type as sparse_map.
+            If None, then the pixels will be set to the sentinel map value.
         lonlat : `bool`, optional
             If True, input angles are longitude and latitude in degrees.
             Otherwise, they are co-latitude and longitude in radians.
@@ -426,7 +427,7 @@ class HealSparseMap(object):
         ------
         ValueError
             If positions do not resolve to unique positions and operation
-            is 'replace'.
+            is 'replace', or if values is None and operation is not 'replace'.
 
         Notes
         -----
@@ -449,8 +450,9 @@ class HealSparseMap(object):
         ----------
         pixels : `np.ndarray`
             Integer array of sparse_map pixel values
-        values : `np.ndarray`
+        values : `np.ndarray` or `None`
             Value or Array of values.  Must be same type as sparse_map.
+            If None, then the pixels will be set to the sentinel map value.
         operation : `str`, optional
             Operation to use to update values.  May be 'replace' (default);
             'add'; 'or', or 'and' (for bit masks).
@@ -459,13 +461,27 @@ class HealSparseMap(object):
         ------
         ValueError
             Raised if pixels are not unique and operation is 'replace', or if
-            operation is not 'replace' on a recarray map.
+            operation is not 'replace' on a recarray map, or if values is
+            None and operation is not 'replace'.
 
         Notes
         -----
         During the 'add' operation, if the default sentinel map value is not
         equal to 0, then any default values will be set to 0 prior to addition.
         """
+        # When None is specified, we use the sentinel value.
+        if values is None:
+            if operation != 'replace':
+                raise ValueError("Can only use 'None' with 'replace' operation.")
+
+            if self._is_wide_mask:
+                values = np.full(self._wide_mask_width, self._sentinel)
+            elif self._is_rec_array:
+                values = np.zeros(1, dtype=self._sparse_map.dtype)
+                values[self._primary] = self._sentinel
+            else:
+                values = self._sentinel
+
         if operation != 'replace':
             if operation in ['or', 'and']:
                 if not self.is_integer_map or self._sentinel != 0:
@@ -816,6 +832,13 @@ class HealSparseMap(object):
                 bit_flags |= ((values[:, field] & bitval) > 0)
 
         return bit_flags
+
+    @property
+    def sentinel(self):
+        """
+        Get the sentinel of the map.
+        """
+        return self._sentinel
 
     @property
     def dtype(self):

@@ -86,21 +86,21 @@ def check_sentinel(type, sentinel):
     if issubclass(type, np.floating):
         # If we don't have a sentinel, use hpg.UNSEEN
         if sentinel is None:
-            return hpg.UNSEEN
+            return type(hpg.UNSEEN)
         # If input is a float, we're okay.  Otherwise, Raise.
         if isinstance(sentinel, numbers.Real) and not is_integer_value(sentinel):
-            return sentinel
+            return type(sentinel)
         else:
             raise ValueError("Sentinel not of floating type")
     elif issubclass(type, np.integer):
         # If we don't have a sentinel, MININT
         if sentinel is None:
-            return np.iinfo(type).min
+            return type(np.iinfo(type).min)
         if is_integer_value(sentinel):
             if (sentinel < np.iinfo(type).min or
                     sentinel > np.iinfo(type).max):
                 raise ValueError("Sentinel out of range of type")
-            return sentinel
+            return type(sentinel)
         else:
             raise ValueError("Sentinel not of integer type")
     elif issubclass(type, np.bool_):

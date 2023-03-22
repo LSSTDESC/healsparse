@@ -67,7 +67,7 @@ class HealsparseMocTestCase(unittest.TestCase):
 
         # There is no mocpy pixel lookup, we must go through ra/dec for some reason.
         ra, dec = hpg.pixel_to_angle(nside_map, np.arange(hpg.nside_to_npixel(nside_map)))
-        arr = moc.contains(ra*u.degree, dec*u.degree)
+        arr = moc.contains_lonlat(ra*u.degree, dec*u.degree)
 
         testing.assert_array_equal(arr.nonzero()[0], sparse_map.valid_pixels)
 
@@ -96,10 +96,8 @@ class HealsparseMocTestCase(unittest.TestCase):
         skycoords = SkyCoord(ra*u.degree, dec*u.degree)
         moc = mocpy.MOC.from_skycoords(skycoords, int(np.round(np.log2(nside_map))))
 
-        # We use the old interface to write v1 MOCs since we don't support v2 yet.
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=DeprecationWarning)
-            moc.write(fname)
+        # Use pre_v2 to force NUNIQ ordering.
+        moc.save(fname, format="fits", pre_v2=True)
 
         bool_map = healsparse.HealSparseMap.read(fname, nside_coverage=nside_coverage)
 

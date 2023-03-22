@@ -58,27 +58,7 @@ def _read_map_fits(healsparse_class, filename, nside_coverage=None, pixels=None,
             raise RuntimeError("Required keyword ORDERING not in header.")
 
         if hdr['ORDERING'].rstrip() == 'NUNIQ':
-            # This is a MOC file.
-            with HealSparseFits(filename) as fits:
-                data = fits.read_ext_data(1)
-
-            order = np.round(np.log2(data['UNIQ']//4)).astype(np.int32)//2
-            index = data['UNIQ'] - 4*(4**order)
-
-            max_order = np.max(order)
-
-            healsparse_map = healsparse_class.make_empty(nside_coverage,
-                                                         2**max_order,
-                                                         dtype=bool)
-
-            # This is a very simple algorithm for unpacking the UNIQ
-            # pixels.  This can be optimized later if necessary.
-            pixel_arrays = []
-            for uniq_order, uniq_index in zip(order, index):
-                pixel_arrays.append(np.left_shift(uniq_index, 2*(max_order - uniq_order)) +
-                                    np.arange(4**(max_order - uniq_order)))
-            pixels = np.concatenate(pixel_arrays)
-            healsparse_map[np.sort(pixels)] = True
+            healsparse_map = _read_moc_fits(healsparse_class, filename, nside_coverage)
 
         elif hdr['INDXSCHM'].rstrip() == 'EXPLICIT':
             # This is an explicit (partial) healpix map
@@ -160,8 +140,62 @@ def _read_map_fits(healsparse_class, filename, nside_coverage=None, pixels=None,
             return (healsparse_map, hdr)
         else:
             return healsparse_map
+
+    elif 'MOCVERS' in hdr:
+        if 'ORDERING' not in hdr:
+            raise RuntimeError("MOC file %s has illegal header, missing ORDERING." % (filename))
+
+        if hdr['ORDERING'] != 'NUNIQ':
+            raise RuntimeError("MOC file %s has %s ordering; only NUNIQ supported by healsparse." %
+                               (filename, hdr['ORDERING']))
+
+        healsparse_map = _read_moc_fits(healsparse_class, filename, nside_coverage)
+
+        if header:
+            return (healsparse_map, hdr)
+        else:
+            return healsparse_map
     else:
         raise RuntimeError("Filename %s not in healpix or healsparse format." % (filename))
+
+
+def _read_moc_fits(healsparse_class, filename, nside_coverage):
+    """Read a MOC fits file.  Only supports V1 now.
+
+    Parameters
+    ----------
+    healsparse_class : `type`
+        Type value of the HealSparseMap class.
+    filename : `str`
+    nside_coverage : `int`
+
+    Returns
+    -------
+    healsparse_map : `HealSparseMap`
+    """
+    # This is a MOC file, NUNIQ ordering.
+    with HealSparseFits(filename) as fits:
+        data = fits.read_ext_data(1)
+
+    order = np.round(np.log2(data['UNIQ']//4)).astype(np.int32)//2
+    index = data['UNIQ'] - 4*(4**order)
+
+    max_order = np.max(order)
+
+    healsparse_map = healsparse_class.make_empty(nside_coverage,
+                                                 2**max_order,
+                                                 dtype=bool)
+
+    # This is a very simple algorithm for unpacking the UNIQ
+    # pixels.  This can be optimized later if necessary.
+    pixel_arrays = []
+    for uniq_order, uniq_index in zip(order, index):
+        pixel_arrays.append(np.left_shift(uniq_index, 2*(max_order - uniq_order)) +
+                            np.arange(4**(max_order - uniq_order)))
+    pixels = np.concatenate(pixel_arrays)
+    healsparse_map[np.sort(pixels)] = True
+
+    return healsparse_map
 
 
 def _read_healsparse_fits_file(filename, pixels=None):
@@ -600,3 +634,23 @@ def _write_moc_fits(hsp_map, filename, clobber=False):
     hdu.header['MOCVERS'] = '1.1'
 
     hdu.writeto(filename, overwrite=clobber)
+
+    # Work around a bug in cds-moc-rust to change the TFORM1 header
+    # value from K to 1K.
+    import mmap
+
+    with open(filename, "r+b") as f:
+        try:
+            mm = mmap.mmap(f.fileno(), 0)
+            loc = mm.find(b"TFORM1  = 'K       '")
+            if loc >= 0:
+                mm.seek(loc)
+                mm.write(b"TFORM1  = '1K      '")
+        except OSError:
+            # Some systems do not have the mmap available,
+            # we need to read in the full file.
+            data = f.read()
+            loc = data.find(b"TFORM1  = 'K       '")
+            if loc >= 0:
+                f.seek(loc)
+                f.write(b"TFORM1  = '1K      '")
