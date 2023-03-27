@@ -59,7 +59,7 @@ jobs:
           path: dist/*
 
   pypi_upload:
-    needs: [pypi_sdist_build, pypi_wheel_build]
+    needs: [pypi_build]
     runs-on: ubuntu-latest
     environment: Publish
     steps:
