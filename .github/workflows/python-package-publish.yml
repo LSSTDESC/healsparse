@@ -76,10 +76,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install --upgrade setuptools wheel cibuildwheel
+          pip install --upgrade setuptools wheel
       - name: Build and create distribution
         run: |
-          python -m cibuildwheel --output-dir dist
+          python -m wheel --output-dir dist
       - uses: actions/upload-artifact@v3
         with:
           path: dist/*
