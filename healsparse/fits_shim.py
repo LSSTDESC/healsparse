@@ -233,10 +233,18 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map,
     hdu_list.append(hdu)
 
     if compress:
-        hdu = fits.CompImageHDU(data=sparse_map, header=fits.Header(),
-                                compression_type='GZIP_2',
-                                tile_size=(compress_tilesize, ),
-                                quantize_level=0.0)
+        try:
+            # Try new tile_shape API (astropy>=5.3).
+            hdu = fits.CompImageHDU(data=sparse_map, header=fits.Header(),
+                                    compression_type='GZIP_2',
+                                    tile_shape=(compress_tilesize, ),
+                                    quantize_level=0.0)
+        except TypeError:
+            # Fall back to old tile_size API.
+            hdu = fits.CompImageHDU(data=sparse_map, header=fits.Header(),
+                                    compression_type='GZIP_2',
+                                    tile_size=(compress_tilesize, ),
+                                    quantize_level=0.0)
     else:
         if sparse_map.dtype.fields is not None:
             hdu = fits.BinTableHDU(data=sparse_map, header=fits.Header())

@@ -58,7 +58,6 @@ class HealSparseMap(object):
         if cov_index_map is not None and cov_map is not None:
             raise RuntimeError('Cannot specify both cov_index_map and cov_map')
         if cov_index_map is not None:
-            import warnings
             warnings.warn("cov_index_map deprecated", DeprecationWarning)
             cov_map = HealSparseCoverage(cov_index_map, nside_sparse)
 
@@ -1723,11 +1722,12 @@ class HealSparseMap(object):
         elif self._is_wide_mask:
             raise RuntimeError("Cannot convert datatype of a wide mask.")
 
-        new_sparse_map = self._sparse_map.astype(dtype)
-        _sentinel = check_sentinel(new_sparse_map.dtype.type, sentinel)
+        new_sparse_map = np.zeros(self._sparse_map.shape, dtype=dtype)
+        valid_pix = (self._sparse_map != self._sentinel)
+        new_sparse_map[valid_pix] = self._sparse_map[valid_pix].astype(dtype)
 
-        invalid_pix = (self._sparse_map == self._sentinel)
-        new_sparse_map[invalid_pix] = _sentinel
+        _sentinel = check_sentinel(new_sparse_map.dtype.type, sentinel)
+        new_sparse_map[~valid_pix] = _sentinel
 
         return HealSparseMap(cov_map=self._cov_map, sparse_map=new_sparse_map,
                              nside_sparse=self.nside_sparse, sentinel=_sentinel)
