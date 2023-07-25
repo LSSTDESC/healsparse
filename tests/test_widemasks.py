@@ -363,6 +363,10 @@ class WideMasksTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 64
 
+        sparse_map_empty = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, WIDE_MASK,
+                                                               wide_mask_maxbits=100)
+
+
         sparse_map1 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, WIDE_MASK,
                                                           wide_mask_maxbits=100)
         pixel1 = np.arange(4000, 20000)
@@ -388,7 +392,17 @@ class WideMasksTestCase(unittest.TestCase):
             testing.assert_equal(or_map_intersection.get_values_pix(all_pixels)[:, i],
                                  test_or_intersection)
 
-        or_map_union = healsparse.or_union([sparse_map1, sparse_map2])
+        or_map_intersection_with_empty = healsparse.or_intersection(
+            [
+                sparse_map_empty,
+                sparse_map1,
+                sparse_map2
+            ]
+        )
+
+        self.assertEqual(or_map_intersection_with_empty.valid_pixels.size, 0)
+
+        or_map_union = healsparse.or_union([sparse_map_empty, sparse_map1, sparse_map2])
 
         gd, = np.where((arr1.sum(axis=1) > 0) | (arr2.sum(axis=1) > 0))
         for i in range(2):
