@@ -366,7 +366,6 @@ class WideMasksTestCase(unittest.TestCase):
         sparse_map_empty = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, WIDE_MASK,
                                                                wide_mask_maxbits=100)
 
-
         sparse_map1 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, WIDE_MASK,
                                                           wide_mask_maxbits=100)
         pixel1 = np.arange(4000, 20000)
