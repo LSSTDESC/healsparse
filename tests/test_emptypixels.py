@@ -70,11 +70,11 @@ class EmptyPixelsTestCase(unittest.TestCase):
         m = healsparse.HealSparseMap.make_empty(32, 512, np.int64)
         m[1000] = 1
 
-        m.update_values_pix([], 100)
+        m.update_values_pix([], np.array([], dtype=np.int64))
         self.assertEqual(m[1000], 1)
         self.assertEqual(len(m.valid_pixels), 1)
 
-        m.update_values_pix(np.array([], dtype=np.int32), 100)
+        m.update_values_pix(np.array([], dtype=np.int32), np.array([], dtype=np.int64))
         self.assertEqual(m[1000], 1)
         self.assertEqual(len(m.valid_pixels), 1)
 
@@ -96,11 +96,11 @@ class EmptyPixelsTestCase(unittest.TestCase):
         m = healsparse.HealSparseMap.make_empty(32, 512, np.int32)
         m[1000] = 1
 
-        m[[]] = 100
+        m[[]] = np.array([], dtype=np.int32)
         self.assertEqual(m[1000], 1)
         self.assertEqual(len(m.valid_pixels), 1)
 
-        m[np.array([], dtype=np.int32)] = 100
+        m[np.array([], dtype=np.int32)] = np.array([], dtype=np.int32)
         self.assertEqual(m[1000], 1)
         self.assertEqual(len(m.valid_pixels), 1)
 
