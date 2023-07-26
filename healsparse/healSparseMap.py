@@ -533,9 +533,10 @@ class HealSparseMap(object):
             raise ValueError("Values are not a numpy ndarray")
 
         if hasattr(pixels, "__len__") and len(pixels) == 0:
-            if not is_single_value:
-                raise ValueError("Shape mismatch: cannot set an array of values "
-                                 "to a zero-length list of pixels.")
+            if len(_values) != 0:
+                warnings.warn("Shape mismatch: using a non-zero-length array of values "
+                              "to set a zero-length list of pixels.",
+                              UserWarning)
             # Nothing to do
             return
 
@@ -740,7 +741,10 @@ class HealSparseMap(object):
             Array of values/validity from the map.
         """
         if hasattr(pixels, "__len__") and len(pixels) == 0:
-            return np.array([], dtype=self.dtype)
+            if self._is_wide_mask:
+                return np.zeros((0, self._wide_mask_width), dtype=self.dtype)
+            else:
+                return np.array([], dtype=self.dtype)
 
         if not nest:
             _pix = hpg.ring_to_nest(self._nside_sparse, pixels)
@@ -1558,10 +1562,9 @@ class HealSparseMap(object):
         elif isinstance(key, list):
             # Make sure that it's integers
             arr = np.atleast_1d(key)
-            if len(arr) == 0:
-                return np.array([], dtype=self.dtype)
-            if not is_integer_value(arr[0]):
-                raise IndexError("List array indices must be integers for __getitem__")
+            if len(arr) > 0:
+                if not is_integer_value(arr[0]):
+                    raise IndexError("List array indices must be integers for __getitem__")
             return self.get_values_pix(arr)
         else:
             raise IndexError("Illegal index type (%s) for __getitem__ in HealSparseMap." %

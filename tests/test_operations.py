@@ -17,6 +17,8 @@ class OperationsTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 64
 
+        sparse_map_empty = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.float64)
+
         # Test adding two or three maps
 
         sparse_map1 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.float64)
@@ -61,7 +63,14 @@ class OperationsTestCase(unittest.TestCase):
         # Union addition
 
         # sum 2
-        added_map_union = healsparse.sum_union([sparse_map1, sparse_map2])
+        added_map_union = healsparse.sum_union(
+            [
+                sparse_map_empty,
+                sparse_map1,
+                sparse_map2,
+                sparse_map_empty
+            ]
+        )
 
         gd, = np.where((hpmap1 > hpg.UNSEEN) | (hpmap2 > hpg.UNSEEN))
         hpmap_sum_union = np.zeros_like(hpmap1) + hpg.UNSEEN
