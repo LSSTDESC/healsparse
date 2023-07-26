@@ -534,9 +534,10 @@ class HealSparseMap(object):
             raise ValueError("Values are not a numpy ndarray")
 
         if hasattr(pixels, "__len__") and len(pixels) == 0:
-            if not is_single_value:
-                raise ValueError("Shape mismatch: cannot set an array of values "
-                                 "to a zero-length list of pixels.")
+            if len(_values) != 0:
+                warnings.warn("Shape mismatch: using a non-zero-length array of values "
+                              "to set a zero-length list of pixels.",
+                              UserWarning)
             # Nothing to do
             return
 
