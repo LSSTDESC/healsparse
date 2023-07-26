@@ -78,7 +78,16 @@ class EmptyPixelsTestCase(unittest.TestCase):
         self.assertEqual(m[1000], 1)
         self.assertEqual(len(m.valid_pixels), 1)
 
-        self.assertRaises(ValueError, m.update_values_pix, [], np.zeros(5, dtype=m.dtype))
+        m.update_values_pix([], np.array([], dtype=np.int64))
+
+        self.assertWarns(UserWarning, m.update_values_pix, [], np.zeros(5, dtype=m.dtype))
+        self.assertWarns(UserWarning, m.update_values_pix, [], 5)
+
+        m.update_values_pos(
+            np.array([], dtype=np.float64),
+            np.array([], dtype=np.float64),
+            np.array([], dtype=np.int64),
+        )
 
     def test_emptypixels_set_by_index(self):
         """
@@ -95,7 +104,10 @@ class EmptyPixelsTestCase(unittest.TestCase):
         self.assertEqual(m[1000], 1)
         self.assertEqual(len(m.valid_pixels), 1)
 
-        self.assertRaises(ValueError, m.__setitem__, [], np.zeros(5, dtype=np.int32))
+        m[[]] = np.array([], dtype=np.int32)
+
+        self.assertWarns(UserWarning, m.__setitem__, [], np.zeros(5, dtype=np.int32))
+        self.assertWarns(UserWarning, m.__setitem__, [], 100)
 
 
 if __name__ == '__main__':
