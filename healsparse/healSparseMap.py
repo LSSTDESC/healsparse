@@ -1535,6 +1535,68 @@ class HealSparseMap(object):
 
         return new_map
 
+    def interpolate_pos(self, ra_or_theta, dec_or_phi, lonlat=True, allow_partial=False):
+        """
+        Return the bilinear interpolation of the map using 4 nearest neighbors.
+
+        Parameters
+        ----------
+        ra_or_theta : `float`, array-like
+            Angular coordinates of points on a sphere.
+        dec_or_phi : `float`, array-like
+            Angular coordinates of points on a sphere.
+        lonlat : `bool`, optional
+            If True, input angles are longitude and latitude in degrees.
+            Otherwise, they are co-latitude and longitude in radians.
+        allow_partial : `bool`, optional
+            If this is True, then unseen (not validvalid) neighbors will be
+            ignored and the output value will be the weighted average of the
+            valid neighbors. Otherwise, if any neighbor is not valid then
+            the interpolated value will be set to UNSEEN.
+
+        Returns
+        -------
+        values : `np.ndarray`
+            Array of interpolated values corresponding to input positions.
+            The return array will always be 64-bit floats.
+
+        Notes
+        -----
+        The interpolation routing works only on numeric data, and not on wide
+        mask maps or recarray maps.
+        """
+        if self._is_wide_mask:
+            raise NotImplementedError("Interpolation does not run on a wide mask map.")
+        elif self._is_rec_array:
+            raise NotImplementedError("Interpolation does not run on a recarray map.")
+
+        interp_pix, interp_wgt = hpg.get_interpolation_weights(
+            self.nside_sparse,
+            np.atleast_1d(ra_or_theta),
+            np.atleast_1d(dec_or_phi),
+            lonlat=lonlat,
+        )
+        aux = self.get_values_pix(interp_pix)
+        out_of_bounds = (aux == self._sentinel)
+        aux = aux.astype(np.float64)
+        aux[out_of_bounds] = np.nan
+
+        if not allow_partial:
+            # Any pixel that has an out-of-bounds neighbor will be set to UNSEEN.
+            values = np.nansum(aux * interp_wgt, axis=1) / np.sum(interp_wgt, axis=1)
+            values[~np.all(~out_of_bounds, axis=1)] = hpg.UNSEEN
+        else:
+            # Use only the neighbor pixels that are valid.
+            interp_wgt[out_of_bounds] = np.nan
+            wgt_sum = np.nansum(interp_wgt, axis=1)
+            values = np.nansum(aux * interp_wgt, axis=1)
+            all_bad = (wgt_sum == 0.0)
+            values[~all_bad] /= wgt_sum[~all_bad]
+            # Any pixel that has all bad neighbors will be UNSEEN.
+            values[all_bad] = hpg.UNSEEN
+
+        return values
+
     def __getitem__(self, key):
         """
         Get part of a healpix map.
