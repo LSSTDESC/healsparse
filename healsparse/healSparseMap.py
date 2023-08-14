@@ -1563,12 +1563,14 @@ class HealSparseMap(object):
         Notes
         -----
         The interpolation routing works only on numeric data, and not on wide
-        mask maps or recarray maps.
+        mask maps, recarray maps, or boolean maps.
         """
         if self._is_wide_mask:
             raise NotImplementedError("Interpolation does not run on a wide mask map.")
         elif self._is_rec_array:
             raise NotImplementedError("Interpolation does not run on a recarray map.")
+        elif isinstance(self._sentinel, bool):
+            raise NotImplementedError("Interpolation does not run on a boolean map.")
 
         interp_pix, interp_wgt = hpg.get_interpolation_weights(
             self.nside_sparse,

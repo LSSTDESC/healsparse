@@ -156,8 +156,10 @@ class InterpolateMapTestCase(unittest.TestCase):
         """
         Test interpolate_pos functionality with bool quantities.
         """
-        # This is a placeholder for when we add boolean map functionality.
-        pass
+        sparse_map = healsparse.HealSparseMap.make_empty(32, 64, bool, primary=False)
+
+        with self.assertRaises(NotImplementedError):
+            sparse_map.interpolate_pos(0.0, 0.0)
 
 
 if __name__ == '__main__':
