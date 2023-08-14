@@ -58,7 +58,7 @@ class HealSparseMap(object):
         if cov_index_map is not None and cov_map is not None:
             raise RuntimeError('Cannot specify both cov_index_map and cov_map')
         if cov_index_map is not None:
-            warnings.warn("cov_index_map deprecated", DeprecationWarning)
+            warnings.warn("cov_index_map deprecated", DeprecationWarning, stacklevel=2)
             cov_map = HealSparseCoverage(cov_index_map, nside_sparse)
 
         if cov_map is not None and sparse_map is not None and nside_sparse is not None:
