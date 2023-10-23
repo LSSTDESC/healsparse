@@ -13,6 +13,7 @@ try:
     import pyarrow as pa
     from pyarrow import parquet
     from pyarrow import dataset
+    from .parquet_shim import to_numpy_dtype
     use_pyarrow = True
 except ImportError:
     pass
@@ -116,13 +117,13 @@ def _read_map_parquet(healsparse_class, filepath, pixels=None, header=False,
         is_rec_array = True
         primary = md['healsparse::primary']
         columns = [name for name in schema.names if name not in ['iopix', 'cov_pix']]
-        dtype = [(name, schema.field(name).type.to_pandas_dtype()) for
+        dtype = [(name, to_numpy_dtype(schema.field(name).type)) for
                  name in columns]
-        primary_dtype = schema.field(primary).type.to_pandas_dtype()
+        primary_dtype = to_numpy_dtype(schema.field(primary).type)
     else:
         is_rec_array = False
         primary = None
-        dtype = schema.field('sparse').type.to_pandas_dtype()
+        dtype = to_numpy_dtype(schema.field('sparse').type)
         primary_dtype = dtype
         columns = ['sparse']
 
