@@ -3,6 +3,7 @@ import numpy as np
 import tempfile
 import shutil
 import os
+import warnings
 
 import healsparse
 
@@ -108,7 +109,11 @@ class MetadataTestCase(unittest.TestCase):
 
         fname = os.path.join(self.test_dir, 'healsparse_map_metadata.fits')
 
-        test_map.write(fname)
+        # Make sure LONGKEYNAME doesn't give any warnings.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+
+            test_map.write(fname)
 
         test_map = healsparse.HealSparseMap.read(fname)
         metadata_out = test_map.metadata
