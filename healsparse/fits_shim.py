@@ -227,9 +227,7 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map,
     hdu_list = fits.HDUList()
 
     hdu = fits.PrimaryHDU(data=cov_index_map, header=fits.Header())
-    for n in c_hdr:
-        if n not in FITS_RESERVED:
-            hdu.header[n] = c_hdr[n]
+    _make_hierarch_header(c_hdr, hdu.header)
     hdu_list.append(hdu)
 
     if compress:
@@ -251,9 +249,7 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map,
         else:
             hdu = fits.ImageHDU(data=sparse_map, header=fits.Header())
 
-    for n in s_hdr:
-        if n not in FITS_RESERVED:
-            hdu.header[n] = s_hdr[n]
+    _make_hierarch_header(s_hdr, hdu.header)
     hdu_list.append(hdu)
 
     hdu_list.writeto(filename, overwrite=True)
@@ -301,10 +297,10 @@ def _make_header(metadata):
     # All headers are astropy headers until we update fitsio
     # if use_fitsio:
     #     hdr = fitsio.FITSHDR(metadata)
-    if metadata is None:
-        hdr = fits.Header()
-    else:
-        hdr = fits.Header(metadata)
+
+    hdr = fits.Header()
+    if metadata is not None:
+        _make_hierarch_header(metadata, hdr)
 
     return hdr
 
@@ -329,9 +325,24 @@ def _write_healpix_filename(filename, hdr, output_struct):
 
     hdu = fits.BinTableHDU(data=output_struct, header=fits.Header())
 
-    for n in hdr:
-        if n not in FITS_RESERVED:
-            hdu.header[n] = hdr[n]
+    _make_hierarch_header(hdr, hdu.header, skip_reserved=False)
     hdu_list.append(hdu)
 
     hdu_list.writeto(filename, overwrite=True)
+
+
+def _make_hierarch_header(hdr_in, hdr_out, skip_reserved=True):
+    """Make a header with HIERARCH keywords to appease astropy.
+
+    Parameters
+    ----------
+    hdr_in : `astropy.fits.Header` or `dict`
+    hdr_out : `astropy.fits.Header`
+    skip_reserved : `bool`, optional
+    """
+    for n in hdr_in:
+        if not skip_reserved or n not in FITS_RESERVED:
+            if len(n) > 8:
+                hdr_out[f"HIERARCH {n}"] = hdr_in[n]
+            else:
+                hdr_out[n] = hdr_in[n]
