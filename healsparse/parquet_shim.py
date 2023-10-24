@@ -10,6 +10,22 @@ try:
 except ImportError:
     pass
 
+if use_pyarrow:
+    DTYPE_DICT = {
+        pa.int8(): np.int8,
+        pa.int16(): np.int16,
+        pa.int32(): np.int32,
+        pa.int64(): np.int64,
+        pa.float16(): np.float16,
+        pa.float32(): np.float32,
+        pa.float64(): np.float64,
+        pa.uint8(): np.uint8,
+        pa.uint16(): np.uint16,
+        pa.uint32(): np.uint32,
+        pa.uint64(): np.uint64,
+        pa.bool_(): np.bool_,
+    }
+
 
 def check_parquet_dataset(filepath):
     """
@@ -55,29 +71,9 @@ def to_numpy_dtype(arrow_type):
     -------
     numpy_dtype : `numpy.dtype`
     """
-    if arrow_type == pa.int64():
-        return np.int64
-    elif arrow_type == pa.int32():
-        return np.int32
-    elif arrow_type == pa.float64():
-        return np.float64
-    elif arrow_type == pa.float32():
-        return np.float32
-    elif arrow_type == pa.uint8():
-        return np.uint8
-    elif arrow_type == pa.uint64():
-        return np.uint64
-    elif arrow_type == pa.bool_():
-        return np.bool_
-    elif arrow_type == pa.int16():
-        return np.int16
-    elif arrow_type == pa.uint16():
-        return np.uint16
-    elif arrow_type == pa.uint32():
-        return np.uint32
-    elif arrow_type == pa.int8():
-        return np.int8
-    elif arrow_type == pa.float16():
-        return np.float16
-    else:
+    try:
+        numpy_dtype = DTYPE_DICT[arrow_type]
+    except KeyError:
         raise ValueError("Unsupported pyarrow datatype: %s" % (str(arrow_type)))
+
+    return numpy_dtype
