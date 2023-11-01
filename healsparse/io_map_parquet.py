@@ -72,7 +72,6 @@ def _read_map_parquet(healsparse_class, filepath, pixels=None, header=False,
         # Note that this could be reconstructed from the information in the file
         # inefficiently.  This feature could be added in the future.
         raise RuntimeError("Filepath %s is missing coverage map %s" % (filepath, cov_fname))
-
     nside_sparse = int(md['healsparse::nside_sparse'])
     nside_coverage = int(md['healsparse::nside_coverage'])
     nside_io = int(md['healsparse::nside_io'])
@@ -282,41 +281,42 @@ def _write_map_parquet(hsp_map, filepath, clobber=False, nside_io=4):
     cov_index_map_temp = cov_map[:] + np.arange(hpg.nside_to_npixel(hsp_map.nside_coverage),
                                                 dtype=np.int64)*cov_map.nfine_per_cov
 
-    pix_arr = np.zeros(cov_map.nfine_per_cov*wmult, dtype=np.int32)
+    cpix_arr = np.zeros(cov_map.nfine_per_cov*wmult, dtype=np.int32)
 
-    last_pix_io = -1
+    last_cpix_io = -1
     writer = None
     row_groups = np.zeros_like(cov_pixels)
-    for ctr, (pix_io, pix) in enumerate(zip(cov_pixels_io, cov_pixels)):
+    for ctr, (cpix_io, cpix) in enumerate(zip(cov_pixels_io, cov_pixels)):
         # These are always going to be sorted
-        if pix_io > last_pix_io:
-            last_pix_io = pix_io
+        if cpix_io > last_cpix_io:
+            last_cpix_io = cpix_io
 
             if writer is not None:
                 writer.close()
                 writer = None
 
             # Create a new file
-            pixpath = os.path.join(filepath, f'iopix={pix_io:03d}')
-            os.makedirs(pixpath)
+            iopixpath = os.path.join(filepath, f'iopix={cpix_io:03d}')
+            os.makedirs(iopixpath)
 
-            pixfile = os.path.join(pixpath, f'{pix_io:03d}.parquet')
-            writer = parquet.ParquetWriter(pixfile, schema)
+            iopixfile = os.path.join(iopixpath, f'{cpix_io:03d}.parquet')
+            writer = parquet.ParquetWriter(iopixfile, schema)
             row_group_ctr = 0
 
-        sparsepix = sparse_map[cov_index_map_temp[pix]*wmult:
-                               (cov_index_map_temp[pix] + cov_map.nfine_per_cov)*wmult]
-        pix_arr[:] = pix
+        sparsepix = sparse_map[cov_index_map_temp[cpix]*wmult:
+                               (cov_index_map_temp[cpix] + cov_map.nfine_per_cov)*wmult]
+        cpix_arr[:] = cpix
         if not hsp_map.is_rec_array:
-            arrays = [pa.array(pix_arr),
+            arrays = [pa.array(cpix_arr),
                       pa.array(sparsepix)]
         else:
             arrays = [pa.array(sparsepix[name]) for
                       name in hsp_map.dtype.names]
-            arrays[0: 0] = [pa.array(pix_arr)]
+            arrays[0: 0] = [pa.array(cpix_arr)]
         tab = pa.Table.from_arrays(arrays, schema=schema)
 
-        writer.write_table(tab)
+        # Ensure we write this as one row group.
+        writer.write_table(tab, row_group_size=len(tab))
         row_groups[ctr] = row_group_ctr
         row_group_ctr += 1
 

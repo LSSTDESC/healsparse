@@ -171,31 +171,32 @@ class ParquetIoTestCase(unittest.TestCase):
         self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
         fname = os.path.join(self.test_dir, 'healsparse_map.hsparquet')
 
-        nside_coverage = 128
+        nside_coverage = 32
         nside_map = 2**17
-
-        pixels = hpg.query_circle(nside_map, 100.0, 0.0, 0.2/60.)
-        values = np.zeros(pixels.size, dtype=np.int32) + 8
 
         sparse_map = healsparse.HealSparseMap.make_empty(nside_sparse=nside_map,
                                                          nside_coverage=nside_coverage,
-                                                         dtype=np.int32)
-        sparse_map.update_values_pix(pixels, values)
+                                                         dtype=bool)
+        sparse_map[1_000_000: 20_000_000] = True
+        sparse_map[1_700_000_000: 1_720_000_000] = True
 
         valid_pixels = sparse_map.valid_pixels
-        valid_pixels.sort()
-
-        testing.assert_array_equal(valid_pixels, pixels)
-        testing.assert_array_equal(sparse_map.get_values_pix(valid_pixels), values)
 
         sparse_map.write(fname, format='parquet')
 
         sparse_map2 = healsparse.HealSparseMap.read(fname)
-
         valid_pixels2 = sparse_map2.valid_pixels
 
-        testing.assert_array_equal(valid_pixels2, pixels)
-        testing.assert_array_equal(sparse_map2.get_values_pix(valid_pixels2), values)
+        testing.assert_array_equal(valid_pixels2, valid_pixels)
+        testing.assert_array_equal(sparse_map2.get_values_pix(valid_pixels2), True)
+
+        # And read pixel by pixel
+        for covpix_map in sparse_map.get_covpix_maps():
+            covpix, = np.where(covpix_map.coverage_mask)
+
+            covpix_map2 = healsparse.HealSparseMap.read(fname, pixels=covpix)
+
+            testing.assert_array_equal(covpix_map2.valid_pixels, covpix_map.valid_pixels)
 
     def test_write_bad_nside_io(self):
         """
