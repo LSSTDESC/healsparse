@@ -5,6 +5,7 @@ import hpgeom as hpg
 from .fits_shim import HealSparseFits, _make_header, _write_filename
 from .utils import is_integer_value, _compute_bitshift, reduce_array, WIDE_MASK
 from .healSparseCoverage import HealSparseCoverage
+from .bitarray import BitSparseMap
 
 
 def _read_map_fits(healsparse_class, filename, nside_coverage=None, pixels=None, header=False,
@@ -272,26 +273,32 @@ def _read_healsparse_fits_file(filename, pixels=None):
             else:
                 wmult = 1
 
+            if 'BITARRAY' in s_hdr and s_hdr['BITARRAY']:
+                wdiv = 8
+            else:
+                wdiv = 1
+
             # This is the map without the offset
             cov_index_map_temp = cov_map[:] + np.arange(hpg.nside_to_npixel(nside_coverage),
                                                         dtype=np.int64)*cov_map.nfine_per_cov
 
             # It is not 100% sure this is the most efficient way to read in,
             # but it does work.
-            sparse_map = np.zeros((_pixels.size + 1)*cov_map.nfine_per_cov*wmult,
+            sparse_map = np.zeros((_pixels.size + 1)*cov_map.nfine_per_cov*wmult//wdiv,
                                   dtype=fits.get_ext_dtype('SPARSE'))
             # Read in the overflow bin
-            row_range = [0, cov_map.nfine_per_cov*wmult]
-            sparse_map[0: cov_map.nfine_per_cov*wmult] = \
+            row_range = [0, cov_map.nfine_per_cov*wmult//wdiv]
+            sparse_map[0: cov_map.nfine_per_cov*wmult//wdiv] = \
                 fits.read_ext_data('SPARSE',
                                    row_range=row_range)
             # And read in the pixels
             for i, pix in enumerate(_pixels):
-                row_range = [cov_index_map_temp[pix]*wmult,
-                             (cov_index_map_temp[pix] + cov_map.nfine_per_cov)*wmult]
-                sparse_map[(i + 1)*cov_map.nfine_per_cov*wmult:
-                           (i + 2)*cov_map.nfine_per_cov*wmult] = fits.read_ext_data('SPARSE',
-                                                                                     row_range=row_range)
+                row_range = [cov_index_map_temp[pix]*wmult//wdiv,
+                             (cov_index_map_temp[pix] + cov_map.nfine_per_cov)*wmult//wdiv]
+                sparse_map[(i + 1)*cov_map.nfine_per_cov*wmult//wdiv:
+                           (i + 2)*cov_map.nfine_per_cov*wmult//wdiv] = fits.read_ext_data(
+                               'SPARSE',
+                               row_range=row_range)
 
             # Set the coverage index map for the pixels that we read in
             cov_map = HealSparseCoverage.make_from_pixels(nside_coverage,
@@ -299,8 +306,11 @@ def _read_healsparse_fits_file(filename, pixels=None):
                                                           _pixels)
 
     if isinstance(sentinel, bool):
-        # Convert back to boolean
-        sparse_map = sparse_map.astype(bool)
+        # Convert back to boolean or bit_array
+        if 'BITARRAY' in s_hdr and s_hdr['BITARRAY']:
+            sparse_map = BitSparseMap(data_buffer=sparse_map)
+        else:
+            sparse_map = sparse_map.astype(bool)
 
     return cov_map, sparse_map, nside_sparse, primary, sentinel
 
@@ -559,6 +569,12 @@ def _write_map_fits(hsp_map, filename, clobber=False, nocompress=False):
         _write_filename(filename, c_hdr, s_hdr, hsp_map._cov_map[:], hsp_map._sparse_map.ravel(),
                         compress=not nocompress,
                         compress_tilesize=hsp_map._wide_mask_width*hsp_map._cov_map.nfine_per_cov)
+    elif hsp_map._is_bit_array:
+        s_hdr['BITARRAY'] = hsp_map._is_bit_array
+        # Bit array masks can be compressed.
+        _write_filename(filename, c_hdr, s_hdr, hsp_map._cov_map[:], hsp_map._sparse_map.data_array,
+                        compress=not nocompress,
+                        compress_tilesize=hsp_map._cov_map.nfine_per_cov // 8)
     elif hsp_map._sparse_map[0].dtype == np.bool_:
         # We must convert boolean maps to int16 maps for fits storage.
         _write_filename(filename, c_hdr, s_hdr, hsp_map._cov_map[:], hsp_map._sparse_map.astype(np.int16),
