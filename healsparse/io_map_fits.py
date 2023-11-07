@@ -5,7 +5,7 @@ import hpgeom as hpg
 from .fits_shim import HealSparseFits, _make_header, _write_filename
 from .utils import is_integer_value, _compute_bitshift, reduce_array, WIDE_MASK
 from .healSparseCoverage import HealSparseCoverage
-from .bitarray import BitSparseMap
+from .bitSparseMap import BitSparseMap
 
 
 def _read_map_fits(healsparse_class, filename, nside_coverage=None, pixels=None, header=False,
@@ -239,6 +239,9 @@ def _read_healsparse_fits_file(filename, pixels=None):
             sentinel = s_hdr['SENTINEL']
         else:
             sentinel = hpg.UNSEEN
+        if 'RESHAPED' in s_hdr and s_hdr['RESHAPED']:
+            # Unravel and reshaped maps.
+            sparse_map = sparse_map.ravel()
     else:
         _pixels = np.atleast_1d(pixels)
         if len(np.unique(_pixels)) < len(_pixels):
@@ -273,10 +276,15 @@ def _read_healsparse_fits_file(filename, pixels=None):
             else:
                 wmult = 1
 
-            if 'BITARRAY' in s_hdr and s_hdr['BITARRAY']:
+            if 'BITMASK' in s_hdr and s_hdr['BITMASK']:
                 wdiv = 8
             else:
                 wdiv = 1
+
+            if 'RESHAPED' in s_hdr and s_hdr['RESHAPED']:
+                reshaped = True
+            else:
+                reshaped = False
 
             # This is the map without the offset
             cov_index_map_temp = cov_map[:] + np.arange(hpg.nside_to_npixel(nside_coverage),
@@ -287,18 +295,33 @@ def _read_healsparse_fits_file(filename, pixels=None):
             sparse_map = np.zeros((_pixels.size + 1)*cov_map.nfine_per_cov*wmult//wdiv,
                                   dtype=fits.get_ext_dtype('SPARSE'))
             # Read in the overflow bin
-            row_range = [0, cov_map.nfine_per_cov*wmult//wdiv]
+            if not reshaped:
+                row_range = [0, cov_map.nfine_per_cov*wmult//wdiv]
+                col_range = None
+            else:
+                row_range = [0, cov_map.nfine_per_cov*wmult//wdiv]
+                col_range = [0, 1]
+
+            # if reshaped:
+            #     print("About to read ... ")
             sparse_map[0: cov_map.nfine_per_cov*wmult//wdiv] = \
                 fits.read_ext_data('SPARSE',
-                                   row_range=row_range)
+                                   row_range=row_range, col_range=col_range).ravel()
             # And read in the pixels
             for i, pix in enumerate(_pixels):
-                row_range = [cov_index_map_temp[pix]*wmult//wdiv,
-                             (cov_index_map_temp[pix] + cov_map.nfine_per_cov)*wmult//wdiv]
+                if not reshaped:
+                    row_range = [cov_index_map_temp[pix]*wmult//wdiv,
+                                 (cov_index_map_temp[pix] + cov_map.nfine_per_cov)*wmult//wdiv]
+                    col_range = None
+                else:
+                    row_range = [0, cov_map.nfine_per_cov*wmult//wdiv]
+                    col_start = cov_index_map_temp[pix] // cov_map.nfine_per_cov
+                    col_range = [col_start, col_start + 1]
+
                 sparse_map[(i + 1)*cov_map.nfine_per_cov*wmult//wdiv:
                            (i + 2)*cov_map.nfine_per_cov*wmult//wdiv] = fits.read_ext_data(
                                'SPARSE',
-                               row_range=row_range)
+                               row_range=row_range, col_range=col_range).ravel()
 
             # Set the coverage index map for the pixels that we read in
             cov_map = HealSparseCoverage.make_from_pixels(nside_coverage,
@@ -306,8 +329,8 @@ def _read_healsparse_fits_file(filename, pixels=None):
                                                           _pixels)
 
     if isinstance(sentinel, bool):
-        # Convert back to boolean or bit_array
-        if 'BITARRAY' in s_hdr and s_hdr['BITARRAY']:
+        # Convert back to boolean or bit_mask
+        if 'BITMASK' in s_hdr and s_hdr['BITMASK']:
             sparse_map = BitSparseMap(data_buffer=sparse_map)
         else:
             sparse_map = sparse_map.astype(bool)
@@ -407,6 +430,15 @@ def _read_healsparse_fits_file_and_degrade(filename, pixels, nside_out, reductio
             wmult = 1
             is_wide_mask = False
 
+        if 'BITMASK' in s_hdr and s_hdr['BITMASK']:
+            raise NotImplementedError("degrade on read does not support bit_mask maps.")
+
+        reshaped = False
+        col_range = None
+        if 'RESHAPED' in s_hdr and s_hdr['RESHAPED']:
+            reshaped = True
+            col_range = [0, 1]
+
         dtype = np.dtype(fits.get_ext_dtype('SPARSE'))
 
         # Check weight map
@@ -481,12 +513,16 @@ def _read_healsparse_fits_file_and_degrade(filename, pixels, nside_out, reductio
         for i, pix in enumerate(_pixels):
             row_range = [cov_index_map_temp[pix]*wmult,
                          (cov_index_map_temp[pix] + cov_map.nfine_per_cov)*wmult]
-            pix_data = fits.read_ext_data('SPARSE', row_range=row_range)
+            pix_data = fits.read_ext_data('SPARSE', row_range=row_range, col_range=col_range)
+            if reshaped:
+                pix_data = pix_data.ravel()
 
             if use_weightfile:
                 row_range_weight = [cov_index_map_temp_weight[pix],
                                     (cov_index_map_temp_weight[pix] + cov_map.nfine_per_cov)]
-                weight_values = wfits.read_ext_data('SPARSE', row_range=row_range_weight)
+                weight_values = wfits.read_ext_data('SPARSE', row_range=row_range_weight, col_range=col_range)
+                if reshaped:
+                    weight_values = weight_values.ravel()
                 weight_values[weight_values == sentinel_weight] = 0.0
                 weight_values = weight_values.reshape((1,
                                                        (nside_out//nside_coverage)**2, -1))
@@ -569,8 +605,8 @@ def _write_map_fits(hsp_map, filename, clobber=False, nocompress=False):
         _write_filename(filename, c_hdr, s_hdr, hsp_map._cov_map[:], hsp_map._sparse_map.ravel(),
                         compress=not nocompress,
                         compress_tilesize=hsp_map._wide_mask_width*hsp_map._cov_map.nfine_per_cov)
-    elif hsp_map._is_bit_array:
-        s_hdr['BITARRAY'] = hsp_map._is_bit_array
+    elif hsp_map._is_bit_mask:
+        s_hdr['BITMASK'] = hsp_map._is_bit_mask
         # Bit array masks can be compressed.
         _write_filename(filename, c_hdr, s_hdr, hsp_map._cov_map[:], hsp_map._sparse_map.data_array,
                         compress=not nocompress,
