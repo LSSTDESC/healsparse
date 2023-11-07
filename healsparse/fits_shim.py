@@ -343,20 +343,22 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map,
                         f.write(b"ZQUANTIZ= 'NONE     '")
 
 
-def _make_header(metadata):
+def _make_header(metadata, force_astropy=False):
     """
     Make a fits header.
 
     Parameters
     ----------
     metadata : `dict`-like object
-       Input metadata
+        Input metadata
+    force_astropy : `bool`, optional
+        Force astropy header usage; used for string processing.
 
     Returns
     -------
     header : `fitsio.FITSHDR` or `astropy.io.fits.Header`
     """
-    if use_fitsio:
+    if use_fitsio and not force_astropy:
         hdr = fitsio.FITSHDR(metadata)
     else:
         hdr = fits.Header()

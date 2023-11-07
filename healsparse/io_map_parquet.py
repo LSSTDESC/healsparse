@@ -263,7 +263,7 @@ def _write_map_parquet(hsp_map, filepath, clobber=False, nside_io=4):
     # Add additional metadata
     if hsp_map.metadata is not None:
         # Use the fits header serialization for compatibility
-        hdr_string = _make_header(hsp_map.metadata).tostring()
+        hdr_string = str(_make_header(hsp_map.metadata, force_astropy=True))
         metadata['healsparse::header'] = hdr_string
 
     if not hsp_map.is_rec_array:
