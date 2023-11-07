@@ -243,7 +243,13 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map,
     c_hdr['EXTNAME'] = 'COV'
     s_hdr['EXTNAME'] = 'SPARSE'
 
-    if use_fitsio and sparse_map.dtype.fields is None and is_integer_value(sparse_map.dtype.type(0)):
+    integer_map = sparse_map.dtype.fields is None and is_integer_value(sparse_map.dtype.type(0))
+    if integer_map:
+        compression = "RICE"
+    else:
+        compression = "GZIP_2"
+
+    if use_fitsio and integer_map:
         # Preferred because it is faster for integer writes.
         # Floating point writing with compression needs to
         # be investigated.
@@ -270,7 +276,7 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map,
                     _sparse_map,
                     extname=s_hdr["EXTNAME"],
                     header=s_hdr,
-                    compress="GZIP_2",
+                    compress=compression,
                     tile_dims=_tile_dims,
                     qlevel=0.0,
                     qmethod=None,
@@ -303,13 +309,13 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map,
             try:
                 # Try new tile_shape API (astropy>=5.3).
                 hdu = fits.CompImageHDU(data=_sparse_map, header=fits.Header(),
-                                        compression_type='GZIP_2',
+                                        compression_type=compression,
                                         tile_shape=_tile_shape,
                                         quantize_level=0.0)
             except TypeError:
                 # Fall back to old tile_size API.
                 hdu = fits.CompImageHDU(data=sparse_map, header=fits.Header(),
-                                        compression_type='GZIP_2',
+                                        compression_type=compression,
                                         tile_size=_tile_shape,
                                         quantize_level=0.0)
         else:
