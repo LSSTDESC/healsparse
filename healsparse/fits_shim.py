@@ -143,10 +143,17 @@ class HealSparseFits(object):
             if row_range is None:
                 return hdu.data.view(np.ndarray)
             elif col_range is None:
-                return hdu.data[slice(row_range[0], row_range[1])].view(np.ndarray)
+                try:
+                    return hdu.section[slice(row_range[0], row_range[1])].view(np.ndarray)
+                except AttributeError:
+                    return hdu.data[slice(row_range[0], row_range[1])].view(np.ndarray)
             else:
-                return hdu.data[slice(col_range[0], col_range[1]),
-                                slice(row_range[0], row_range[1])].view(np.ndarray)
+                try:
+                    return hdu.section[slice(col_range[0], col_range[1]),
+                                       slice(row_range[0], row_range[1])].view(np.ndarray)
+                except AttributeError:
+                    return hdu.data[slice(col_range[0], col_range[1]),
+                                    slice(row_range[0], row_range[1])].view(np.ndarray)
 
     def ext_is_image(self, extension):
         """
