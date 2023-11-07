@@ -5,10 +5,20 @@ from .utils import is_integer_value
 
 
 class BitSparseMap:
+    """Bit-packed map to be used as a healsparse sparse_map.
+
+    Parameters
+    ----------
+    size : `int`, optional
+        Initial number of bits to allocate.  Must be multiple of 8.
+    fill_value : `bool`, optional
+        Initial fill value.  Only False is fully tested/supported.
+    data_buffer : `np.ndarray` of `np.uint8`, optional
+        Data buffer of unsigned integers.  Overrides any other values
+        if given.  This will not be a copy, so changes here will
+        reflect in the source.
+    """
     def __init__(self, size=0, fill_value=False, data_buffer=None):
-
-        # Should this have a zeros/ones instead?
-
         if data_buffer is not None:
             if not isinstance(data_buffer, np.ndarray) or data_buffer.dtype != np.uint8:
                 raise ValueError("data_buffer must be a numpy array of type uint8")
@@ -250,8 +260,7 @@ class BitSparseMap:
                              (key.__class__))
 
     def __array__(self):
-        # Can I avoid this arange?
-        return self._test_bits_at_locs(np.arange(0, self.size))
+        return np.unpackbits(self._data, bitorder="little")
 
     def __and__(self, other):
         pass
