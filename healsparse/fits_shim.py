@@ -108,7 +108,7 @@ class HealSparseFits(object):
             else:
                 return hdu.data[0: 1].dtype
 
-    def read_ext_data(self, extension, row_range=None):
+    def read_ext_data(self, extension, row_range=None, col_range=None):
         """
         Get data from a fits extension.
 
@@ -118,6 +118,9 @@ class HealSparseFits(object):
            Extension name or number
         row_range : `list`, 2 elements, optional
            row range to create a slice.  Default is None (read all).
+        col_range: `list`, 2 elements, optional
+           column range to create a slice.  Default is None (read all).
+           only used if row_range is also set.
 
         Returns
         -------
@@ -127,14 +130,23 @@ class HealSparseFits(object):
             hdu = self.fits_object[extension]
             if row_range is None:
                 return hdu.read()
-            else:
+            elif col_range is None:
                 return hdu[slice(row_range[0], row_range[1])]
+            else:
+                return hdu[slice(col_range[0], col_range[1]),
+                           slice(row_range[0], row_range[1])]
         else:
+            # Note that for astropy this does not actually seem to work
+            # read a subregion from a tile-compressed image; it reads
+            # the full thing.
             hdu = self.fits_object[extension]
             if row_range is None:
                 return hdu.data.view(np.ndarray)
-            else:
+            elif col_range is None:
                 return hdu.data[slice(row_range[0], row_range[1])].view(np.ndarray)
+            else:
+                return hdu.data[slice(col_range[0], col_range[1]),
+                                slice(row_range[0], row_range[1])].view(np.ndarray)
 
     def ext_is_image(self, extension):
         """
@@ -224,61 +236,111 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map,
     c_hdr['EXTNAME'] = 'COV'
     s_hdr['EXTNAME'] = 'SPARSE'
 
-    hdu_list = fits.HDUList()
+    if use_fitsio and sparse_map.dtype.fields is None and is_integer_value(sparse_map.dtype.type(0)):
+        # Preferred because it is faster for integer writes.
+        # Floating point writing with compression needs to
+        # be investigated.
 
-    hdu = fits.PrimaryHDU(data=cov_index_map, header=fits.Header())
-    _make_hierarch_header(c_hdr, hdu.header)
-    hdu_list.append(hdu)
+        with fitsio.FITS(filename, mode="rw", clobber=True) as f:
+            f.write(cov_index_map, extname=c_hdr["EXTNAME"], header=c_hdr)
 
-    if compress:
-        try:
-            # Try new tile_shape API (astropy>=5.3).
-            hdu = fits.CompImageHDU(data=sparse_map, header=fits.Header(),
-                                    compression_type='GZIP_2',
-                                    tile_shape=(compress_tilesize, ),
-                                    quantize_level=0.0)
-        except TypeError:
-            # Fall back to old tile_size API.
-            hdu = fits.CompImageHDU(data=sparse_map, header=fits.Header(),
-                                    compression_type='GZIP_2',
-                                    tile_size=(compress_tilesize, ),
-                                    quantize_level=0.0)
+            if compress:
+                # The maximum that ZNAXIS1 can be is 2**31 - 1 when using FITS
+                # compression.  Therefore, we do a reshape here if necessary,
+                # and also record that there has been a reshape in the header.
+
+                if len(sparse_map) > (2**31 - 1):
+                    _sparse_map = sparse_map.reshape((len(sparse_map)//compress_tilesize,
+                                                      compress_tilesize))
+                    _tile_dims = (1, compress_tilesize)
+                    s_hdr['RESHAPED'] = True
+                else:
+                    _sparse_map = sparse_map
+                    _tile_dims = (compress_tilesize, )
+                    s_hdr['RESHAPED'] = False
+
+                f.write(
+                    _sparse_map,
+                    extname=s_hdr["EXTNAME"],
+                    header=s_hdr,
+                    compress="GZIP_2",
+                    tile_dims=_tile_dims,
+                    qlevel=0.0,
+                    qmethod=None,
+                )
+            else:
+                f.write(sparse_map, extname=s_hdr["EXTNAME"], header=s_hdr)
+
     else:
-        if sparse_map.dtype.fields is not None:
-            hdu = fits.BinTableHDU(data=sparse_map, header=fits.Header())
-        else:
-            hdu = fits.ImageHDU(data=sparse_map, header=fits.Header())
+        hdu_list = fits.HDUList()
 
-    _make_hierarch_header(s_hdr, hdu.header)
-    hdu_list.append(hdu)
+        hdu = fits.PrimaryHDU(data=cov_index_map, header=fits.Header())
+        _make_hierarch_header(c_hdr, hdu.header)
+        hdu_list.append(hdu)
 
-    hdu_list.writeto(filename, overwrite=True)
+        if compress:
+            # The maximum that ZNAXIS1 can be is 2**31 - 1 when using FITS
+            # compression.  Therefore, we do a reshape here if necessary,
+            # and also record that there has been a reshape in the header.
 
-    # When writing a gzip unquantized (lossless) floating point image,
-    # current versions of astropy (4.0.1 and earlier, at least) write
-    # the ZQUANTIZ header value as NO_DITHER, while cfitsio expects
-    # this to be NONE for unquantized data.  The only way to overwrite
-    # this reserved header keyword is to manually overwrite the bytes
-    # in the file.  The following code uses mmap to overwrite the
-    # necessary header keyword without loading the full image into
-    # memory.  Note that healsparse files only have one compressed
-    # extension, so there will only be one use of ZQUANTIZ in the file.
-    if compress and not is_integer_value(sparse_map[0]):
-        with open(filename, "r+b") as f:
+            if len(sparse_map) > (2**31 - 1):
+                _sparse_map = sparse_map.reshape((len(sparse_map)//compress_tilesize,
+                                                  compress_tilesize))
+                _tile_shape = (1, compress_tilesize)
+                s_hdr['RESHAPED'] = True
+            else:
+                _sparse_map = sparse_map
+                _tile_shape = (compress_tilesize, )
+                s_hdr['RESHAPED'] = False
+
             try:
-                mm = mmap.mmap(f.fileno(), 0)
-                loc = mm.find(b"ZQUANTIZ= 'NO_DITHER'")
-                if loc >= 0:
-                    mm.seek(loc)
-                    mm.write(b"ZQUANTIZ= 'NONE     '")
-            except OSError:
-                # Some systems do not have the mmap available,
-                # we need to read in the full file.
-                data = f.read()
-                loc = data.find(b"ZQUANTIZ= 'NO_DITHER'")
-                if loc >= 0:
-                    f.seek(loc)
-                    f.write(b"ZQUANTIZ= 'NONE     '")
+                # Try new tile_shape API (astropy>=5.3).
+                hdu = fits.CompImageHDU(data=_sparse_map, header=fits.Header(),
+                                        compression_type='GZIP_2',
+                                        tile_shape=_tile_shape,
+                                        quantize_level=0.0)
+            except TypeError:
+                # Fall back to old tile_size API.
+                hdu = fits.CompImageHDU(data=sparse_map, header=fits.Header(),
+                                        compression_type='GZIP_2',
+                                        tile_size=_tile_shape,
+                                        quantize_level=0.0)
+        else:
+            if sparse_map.dtype.fields is not None:
+                hdu = fits.BinTableHDU(data=sparse_map, header=fits.Header())
+            else:
+                hdu = fits.ImageHDU(data=sparse_map, header=fits.Header())
+
+        _make_hierarch_header(s_hdr, hdu.header)
+        hdu_list.append(hdu)
+
+        hdu_list.writeto(filename, overwrite=True)
+
+        # When writing a gzip unquantized (lossless) floating point image,
+        # current versions of astropy (4.0.1 and earlier, at least) write
+        # the ZQUANTIZ header value as NO_DITHER, while cfitsio expects
+        # this to be NONE for unquantized data.  The only way to overwrite
+        # this reserved header keyword is to manually overwrite the bytes
+        # in the file.  The following code uses mmap to overwrite the
+        # necessary header keyword without loading the full image into
+        # memory.  Note that healsparse files only have one compressed
+        # extension, so there will only be one use of ZQUANTIZ in the file.
+        if compress and not is_integer_value(sparse_map[0]):
+            with open(filename, "r+b") as f:
+                try:
+                    mm = mmap.mmap(f.fileno(), 0)
+                    loc = mm.find(b"ZQUANTIZ= 'NO_DITHER'")
+                    if loc >= 0:
+                        mm.seek(loc)
+                        mm.write(b"ZQUANTIZ= 'NONE     '")
+                except OSError:
+                    # Some systems do not have the mmap available,
+                    # we need to read in the full file.
+                    data = f.read()
+                    loc = data.find(b"ZQUANTIZ= 'NO_DITHER'")
+                    if loc >= 0:
+                        f.seek(loc)
+                        f.write(b"ZQUANTIZ= 'NONE     '")
 
 
 def _make_header(metadata):
@@ -294,11 +356,11 @@ def _make_header(metadata):
     -------
     header : `fitsio.FITSHDR` or `astropy.io.fits.Header`
     """
-    # All headers are astropy headers until we update fitsio
-    # if use_fitsio:
-    #     hdr = fitsio.FITSHDR(metadata)
+    if use_fitsio:
+        hdr = fitsio.FITSHDR(metadata)
+    else:
+        hdr = fits.Header()
 
-    hdr = fits.Header()
     if metadata is not None:
         _make_hierarch_header(metadata, hdr)
 
