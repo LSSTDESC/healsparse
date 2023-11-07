@@ -10,6 +10,11 @@ import healsparse
 from healsparse import HealSparseMap, BitSparseMap
 
 
+skip_giant = False
+if "GITHUB_ACTIONS" in os.environ:
+    skip_giant = True
+
+
 class BitSparseMapTestCase(unittest.TestCase):
     """Tests for BitSparseMap."""
     def test_create(self):
@@ -271,6 +276,7 @@ class HealSparseBitMaskTestCase(unittest.TestCase):
                                             (cov_pixels == covered_pixels[10])]
         testing.assert_array_equal(sparse_map_in_partial.valid_pixels, pixel_sub)
 
+    @pytest.mark.skipif(skip_giant, reason='Giant test cannot be run on GHA')
     def test_bit_mask_map_fits_io_giant(self):
         # I don't know how to test this.
         nside_coverage = 32
