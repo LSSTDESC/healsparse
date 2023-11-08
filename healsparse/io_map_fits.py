@@ -5,7 +5,7 @@ import hpgeom as hpg
 from .fits_shim import HealSparseFits, _make_header, _write_filename
 from .utils import is_integer_value, _compute_bitshift, reduce_array, WIDE_MASK
 from .healSparseCoverage import HealSparseCoverage
-from .bitSparseMap import BitSparseMap
+from .packedBoolArray import _PackedBoolArray
 
 
 def _read_map_fits(healsparse_class, filename, nside_coverage=None, pixels=None, header=False,
@@ -331,7 +331,7 @@ def _read_healsparse_fits_file(filename, pixels=None):
     if isinstance(sentinel, bool):
         # Convert back to boolean or bit_mask
         if 'BITMASK' in s_hdr and s_hdr['BITMASK']:
-            sparse_map = BitSparseMap(data_buffer=sparse_map)
+            sparse_map = _PackedBoolArray(data_buffer=sparse_map)
         else:
             sparse_map = sparse_map.astype(bool)
 

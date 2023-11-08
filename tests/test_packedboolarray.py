@@ -7,35 +7,36 @@ import shutil
 import pytest
 
 import healsparse
-from healsparse import HealSparseMap, BitSparseMap
+from healsparse import HealSparseMap
+from healsparse.packedBoolArray import _PackedBoolArray
 
 
-class BitSparseMapTestCase(unittest.TestCase):
-    """Tests for BitSparseMap."""
+class PackedBoolArrayTestCase(unittest.TestCase):
+    """Tests for _PackedBoolArray."""
     def test_create(self):
-        m = BitSparseMap(size=0)
+        m = _PackedBoolArray(size=0)
         self.assertEqual(m.size, 0)
 
-        m = BitSparseMap(size=2**10)
+        m = _PackedBoolArray(size=2**10)
         self.assertEqual(m.size, 2**10)
         self.assertEqual(len(m.data_array), 2**10 // 8)
         testing.assert_array_equal(m.data_array, 0)
 
-        m = BitSparseMap(size=2**10, fill_value=True)
+        m = _PackedBoolArray(size=2**10, fill_value=True)
         self.assertEqual(m.size, 2**10)
         self.assertEqual(len(m.data_array), 2**10 // 8)
         testing.assert_array_equal(m.data_array, 255)
 
-        m2 = BitSparseMap(data_buffer=m.data_array)
+        m2 = _PackedBoolArray(data_buffer=m.data_array)
         self.assertEqual(m2.size, 2**10)
         self.assertEqual(len(m2.data_array), 2**10 // 8)
         testing.assert_array_equal(m2.data_array, 255)
 
         with self.assertRaises(ValueError):
-            m = BitSparseMap(size=6)
+            m = _PackedBoolArray(size=6)
 
     def test_resize(self):
-        m = BitSparseMap(size=0)
+        m = _PackedBoolArray(size=0)
         m.resize(2**10)
         self.assertEqual(m.size, 2**10)
         self.assertEqual(len(m.data_array), 2**10 // 8)
@@ -45,7 +46,7 @@ class BitSparseMapTestCase(unittest.TestCase):
             m.resize(67)
 
     def test_copy(self):
-        m = BitSparseMap(size=2**5)
+        m = _PackedBoolArray(size=2**5)
         m[0] = True
 
         m2 = m.copy()
@@ -55,10 +56,10 @@ class BitSparseMapTestCase(unittest.TestCase):
         self.assertFalse(np.all(m2.data_array == m.data_array))
 
     def test_view(self):
-        m = BitSparseMap(size=2**10)
+        m = _PackedBoolArray(size=2**10)
         m[0] = True
 
-        m2 = BitSparseMap(data_buffer=m.data_array)
+        m2 = _PackedBoolArray(data_buffer=m.data_array)
         testing.assert_array_equal(m2.data_array, m.data_array)
 
         # This should change both.
@@ -74,20 +75,20 @@ class BitSparseMapTestCase(unittest.TestCase):
         testing.assert_array_equal(m3.data_array, m.data_array)
 
     def test_repr(self):
-        m = BitSparseMap(size=2**10)
+        m = _PackedBoolArray(size=2**10)
 
-        self.assertEqual(repr(m), f"BitSparseMap(size={2**10})")
-        self.assertEqual(str(m), f"BitSparseMap(size={2**10})")
+        self.assertEqual(repr(m), f"_PackedBoolArray(size={2**10})")
+        self.assertEqual(str(m), f"_PackedBoolArray(size={2**10})")
 
     def test_setitem_single(self):
         # Test setting a single location.
-        m = BitSparseMap(size=2**10)
+        m = _PackedBoolArray(size=2**10)
 
         m[100] = True
         self.assertEqual(m[100], True)
 
     def test_setitem_slice_optimized_single(self):
-        m = BitSparseMap(size=2**10)
+        m = _PackedBoolArray(size=2**10)
 
         # Set True
         m[0: 64] = True
@@ -101,7 +102,7 @@ class BitSparseMapTestCase(unittest.TestCase):
         testing.assert_array_equal(m[64:], False)
 
     def test_setitiem_slice_unoptimized_single(self):
-        m = BitSparseMap(size=2**10)
+        m = _PackedBoolArray(size=2**10)
 
         # Set True
         m[0: 63] = True
@@ -117,7 +118,7 @@ class BitSparseMapTestCase(unittest.TestCase):
         testing.assert_array_equal(arr[63:], False)
 
     def test_setitem_slice_optimized_array(self):
-        m = BitSparseMap(size=2**10)
+        m = _PackedBoolArray(size=2**10)
 
         values = np.zeros(64, dtype=np.bool_)
         values[10: 20] = True
@@ -126,7 +127,7 @@ class BitSparseMapTestCase(unittest.TestCase):
         testing.assert_array_equal(m[0: 64], values)
 
     def test_setitiem_slice_unoptimized_array(self):
-        m = BitSparseMap(size=2**10)
+        m = _PackedBoolArray(size=2**10)
 
         values = np.zeros(62, dtype=np.bool_)
         values[10: 20] = True
@@ -136,7 +137,7 @@ class BitSparseMapTestCase(unittest.TestCase):
         testing.assert_array_equal(arr[0: 62], values)
 
     def test_setgetitiem_indices(self):
-        m = BitSparseMap(size=2**10)
+        m = _PackedBoolArray(size=2**10)
 
         inds = np.array([1, 5, 10, 20])
         m[inds] = True
@@ -149,7 +150,7 @@ class BitSparseMapTestCase(unittest.TestCase):
         testing.assert_array_equal(m[inds], values)
 
     def test_setgetitem_list(self):
-        m = BitSparseMap(size=2**10)
+        m = _PackedBoolArray(size=2**10)
 
         inds = [1, 5, 10, 20]
         m[inds] = True
@@ -162,14 +163,14 @@ class BitSparseMapTestCase(unittest.TestCase):
         testing.assert_array_equal(m[tuple(inds)], values)
 
     def test_getitem_single(self):
-        m = BitSparseMap(size=2**10)
+        m = _PackedBoolArray(size=2**10)
 
         m[10] = True
 
         self.assertEqual(m[10], True)
 
     def test_getitem_slice(self):
-        m = BitSparseMap(size=2**10)
+        m = _PackedBoolArray(size=2**10)
 
         m[16: 64] = True
 
@@ -186,7 +187,7 @@ class BitSparseMapTestCase(unittest.TestCase):
             _ = m[8: 32: 4]
 
     def test_sum(self):
-        m = BitSparseMap(size=2**10)
+        m = _PackedBoolArray(size=2**10)
 
         m[0] = True
         m[10] = True

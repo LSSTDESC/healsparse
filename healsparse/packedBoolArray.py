@@ -4,7 +4,7 @@ import numbers
 from .utils import is_integer_value
 
 
-class BitSparseMap:
+class _PackedBoolArray:
     """Bit-packed map to be used as a healsparse sparse_map.
 
     Parameters
@@ -27,7 +27,7 @@ class BitSparseMap:
         else:
             # Check if size is multiple of 8.
             if (size % 8) != 0:
-                raise ValueError("BitSparseMap must have a size that is a multiple of 8.")
+                raise ValueError("_PackedBoolArray must have a size that is a multiple of 8.")
 
             self._data = np.zeros(size // 8, dtype=np.uint8)
             # We need to rething this part.
@@ -58,7 +58,7 @@ class BitSparseMap:
 
     def resize(self, newsize, refcheck=False):
         if (newsize % 8) != 0:
-            raise ValueError("BitSparseMap must have a size that is a multiple of 8.")
+            raise ValueError("_PackedBoolArray must have a size that is a multiple of 8.")
 
         self._data.resize(newsize // 8, refcheck=refcheck)
 
@@ -91,42 +91,42 @@ class BitSparseMap:
 
         Returns
         -------
-        copy : `BitSparseMap`
+        copy : `_PackedBoolArray`
         """
-        return BitSparseMap(data_buffer=self._data.copy())
+        return _PackedBoolArray(data_buffer=self._data.copy())
 
     def __repr__(self):
         return self.__str__()
 
     def __str__(self):
-        return f"BitSparseMap(size={self.size})"
+        return f"_PackedBoolArray(size={self.size})"
 
     def __len__(self):
         return self.size
 
     def __getitem__(self, key):
-        # If it's a slice, we return a BitSparseMap view.
+        # If it's a slice, we return a _PackedBoolArray view.
         if isinstance(key, slice):
             if key.start is not None:
                 if key.start % 8 != 0:
-                    raise ValueError("Slices of BitSparseMap must start with a multiple of 8.")
+                    raise ValueError("Slices of _PackedBoolArray must start with a multiple of 8.")
                 start = key.start // 8
             else:
                 start = None
             if key.stop is not None:
                 if key.stop % 8 != 0:
-                    raise ValueError("Slices of BitSparseMap must end with a multiple of 8.")
+                    raise ValueError("Slices of _PackedBoolArray must end with a multiple of 8.")
                 stop = key.stop // 8
             else:
                 stop = None
             if key.step is not None:
                 if key.step % 8 != 0:
-                    raise ValueError("Slices of BitSparseMap must have a step multiple of 8.")
+                    raise ValueError("Slices of _PackedBoolArray must have a step multiple of 8.")
                 step = key.step // 8
             else:
                 step = None
 
-            return BitSparseMap(data_buffer=self._data[slice(start, stop, step)])
+            return _PackedBoolArray(data_buffer=self._data[slice(start, stop, step)])
         elif isinstance(key, numbers.Integral):
             return self._test_bits_at_locs(key)[0]
         elif isinstance(key, np.ndarray):
@@ -140,7 +140,7 @@ class BitSparseMap:
                     raise IndexError("List array indices must be integers for __getitem__")
             return self._test_bits_at_locs(arr)
         else:
-            raise IndexError("Illegal index type (%s) for __getitem__ in BitSparseMap." %
+            raise IndexError("Illegal index type (%s) for __getitem__ in _PackedBoolArray." %
                              (key.__class__))
 
     def __setitem__(self, key, value):
@@ -256,29 +256,29 @@ class BitSparseMap:
             else:
                 raise ValueError("Can only set to bool or array of bools")
         else:
-            raise IndexError("Illegal index type (%s) for __setitem__ in BitSparseMap." %
+            raise IndexError("Illegal index type (%s) for __setitem__ in _PackedBoolArray." %
                              (key.__class__))
 
     def __array__(self):
         return np.unpackbits(self._data, bitorder="little")
 
     def __and__(self, other):
-        pass
+        raise NotImplementedError("and function not supported for _PackedBoolArray")
 
     def __iand__(self, other):
-        pass
+        raise NotImplementedError("and function not supported for _PackedBoolArray")
 
     def __or__(self, other):
-        pass
+        raise NotImplementedError("or function not supported for _PackedBoolArray")
 
     def __ior__(self, other):
-        pass
+        raise NotImplementedError("or function not supported for _PackedBoolArray")
 
     def __xor__(self, other):
-        pass
+        raise NotImplementedError("xor function not supported for _PackedBoolArray")
 
     def __ixor__(self, other):
-        pass
+        raise NotImplementedError("xor function not supported for _PackedBoolArray")
 
     def _set_bits_at_locs(self, locs):
         _locs = np.atleast_1d(locs)

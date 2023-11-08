@@ -6,7 +6,7 @@ from .healSparseCoverage import HealSparseCoverage
 from .utils import reduce_array, check_sentinel, _get_field_and_bitval, WIDE_NBIT, WIDE_MASK
 from .utils import is_integer_value, _compute_bitshift
 from .io_map import _read_map, _write_map, _write_moc
-from .bitSparseMap import BitSparseMap
+from .packedBoolArray import _PackedBoolArray
 import warnings
 
 
@@ -104,7 +104,7 @@ class HealSparseMap(object):
                 self._is_wide_mask = True
                 self._wide_mask_width = self._sparse_map.shape[1]
                 self._wide_mask_maxbits = WIDE_NBIT * self._wide_mask_width
-            elif isinstance(self._sparse_map, BitSparseMap):
+            elif isinstance(self._sparse_map, _PackedBoolArray):
                 self._is_bit_mask = True
                 if sentinel is not False:
                     raise NotImplementedError("Can only use False sentinel for bit_mask maps.")
@@ -227,7 +227,7 @@ class HealSparseMap(object):
                                  "healpix levels between coverage and mask.")
             if _sentinel:
                 raise NotImplementedError("Can only create a bit_mask map with False sentinel value.")
-            sparse_map = BitSparseMap(size=cov_map.nfine_per_cov*npix)
+            sparse_map = _PackedBoolArray(size=cov_map.nfine_per_cov*npix)
         elif test_arr.dtype.fields is None:
             # Non-recarray
             _sentinel = check_sentinel(test_arr.dtype.type, sentinel)
@@ -1888,7 +1888,7 @@ class HealSparseMap(object):
         coverage_pixels, = np.where(self.coverage_mask)
         n_cov = len(coverage_pixels)
 
-        bitmask_map = BitSparseMap(size=(n_cov + 1)*self._cov_map.nfine_per_cov)
+        bitmask_map = _PackedBoolArray(size=(n_cov + 1)*self._cov_map.nfine_per_cov)
 
         # This is the map without the offset.
         cov_index_map_temp = self._cov_map[:] + np.arange(hpg.nside_to_npixel(self._cov_map.nside_coverage),

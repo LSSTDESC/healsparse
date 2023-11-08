@@ -24,4 +24,3 @@ from . import geom
 from .geom import Circle, Ellipse, Polygon, realize_geom
 from .utils import WIDE_MASK
 from .cat_healsparse_files import cat_healsparse_files
-from .bitSparseMap import BitSparseMap
