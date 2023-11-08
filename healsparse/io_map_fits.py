@@ -177,7 +177,7 @@ def _read_moc_fits(healsparse_class, filename, nside_coverage):
     with HealSparseFits(filename) as fits:
         data = fits.read_ext_data(1)
 
-    order = np.round(np.log2(data['UNIQ']//4)).astype(np.int32)//2
+    order = np.floor(np.log2(data['UNIQ']//4)).astype(np.int32)//2
     index = data['UNIQ'] - 4*(4**order)
 
     max_order = np.max(order)
