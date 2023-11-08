@@ -116,6 +116,7 @@ def _read_map_parquet(healsparse_class, filepath, pixels=None, header=False,
         is_bit_packed = True
         wdiv = 8
     else:
+        is_bit_packed = False
         wdiv = 1
 
     if md['healsparse::primary'] != '':
