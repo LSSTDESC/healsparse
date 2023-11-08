@@ -276,7 +276,7 @@ def _read_healsparse_fits_file(filename, pixels=None):
             else:
                 wmult = 1
 
-            if 'BITMASK' in s_hdr and s_hdr['BITMASK']:
+            if 'BITPACK' in s_hdr and s_hdr['BITPACK']:
                 wdiv = 8
             else:
                 wdiv = 1
@@ -329,8 +329,8 @@ def _read_healsparse_fits_file(filename, pixels=None):
                                                           _pixels)
 
     if isinstance(sentinel, bool):
-        # Convert back to boolean or bit_mask
-        if 'BITMASK' in s_hdr and s_hdr['BITMASK']:
+        # Convert back to boolean or bit_packed
+        if 'BITPACK' in s_hdr and s_hdr['BITPACK']:
             sparse_map = _PackedBoolArray(data_buffer=sparse_map)
         else:
             sparse_map = sparse_map.astype(bool)
@@ -430,8 +430,8 @@ def _read_healsparse_fits_file_and_degrade(filename, pixels, nside_out, reductio
             wmult = 1
             is_wide_mask = False
 
-        if 'BITMASK' in s_hdr and s_hdr['BITMASK']:
-            raise NotImplementedError("degrade on read does not support bit_mask maps.")
+        if 'BITPACK' in s_hdr and s_hdr['BITPACK']:
+            raise NotImplementedError("degrade on read does not support bit_packed maps.")
 
         reshaped = False
         col_range = None
@@ -605,8 +605,8 @@ def _write_map_fits(hsp_map, filename, clobber=False, nocompress=False):
         _write_filename(filename, c_hdr, s_hdr, hsp_map._cov_map[:], hsp_map._sparse_map.ravel(),
                         compress=not nocompress,
                         compress_tilesize=hsp_map._wide_mask_width*hsp_map._cov_map.nfine_per_cov)
-    elif hsp_map._is_bit_mask:
-        s_hdr['BITMASK'] = hsp_map._is_bit_mask
+    elif hsp_map._is_bit_packed:
+        s_hdr['BITPACK'] = hsp_map._is_bit_packed
         # Bit array masks can be compressed.
         _write_filename(filename, c_hdr, s_hdr, hsp_map._cov_map[:], hsp_map._sparse_map.data_array,
                         compress=not nocompress,

@@ -206,13 +206,13 @@ class PackedBoolArrayTestCase(unittest.TestCase):
         self.assertEqual(sum2[1000 // 8], 1)
 
 
-class HealSparseBitMaskTestCase(unittest.TestCase):
-    """Tests for HealSparseMap with bit_mask."""
-    def test_make_bit_mask_map(self):
+class HealSparseBitPackedTestCase(unittest.TestCase):
+    """Tests for HealSparseMap with bit_packed."""
+    def test_make_bit_packed_map(self):
         nside_coverage = 32
 
-        sparse_map = HealSparseMap.make_empty(nside_coverage, 2**15, np.bool_, bit_mask=True)
-        self.assertTrue(sparse_map.is_bit_mask_map)
+        sparse_map = HealSparseMap.make_empty(nside_coverage, 2**15, np.bool_, bit_packed=True)
+        self.assertTrue(sparse_map.is_bit_packed_map)
         self.assertEqual(sparse_map.sentinel, False)
         self.assertTrue(sparse_map.dtype, np.bool_)
 
@@ -228,28 +228,28 @@ class HealSparseBitMaskTestCase(unittest.TestCase):
                 nside_coverage,
                 2**15,
                 np.bool_,
-                bit_mask=True,
+                bit_packed=True,
                 sentinel=True,
             )
 
         with self.assertRaises(ValueError):
-            sparse_map = HealSparseMap.make_empty(nside_coverage, 64, np.bool_, bit_mask=True)
+            sparse_map = HealSparseMap.make_empty(nside_coverage, 64, np.bool_, bit_packed=True)
 
-    def test_bit_mask_map_fits_io(self):
+    def test_bit_packed_map_fits_io(self):
         nside_coverage = 32
         nside_map = 1024
 
         self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
 
-        sparse_map = HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_, bit_mask=True)
+        sparse_map = HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_, bit_packed=True)
 
         sparse_map[10_000_000: 11_000_000] = True
 
-        fname = os.path.join(self.test_dir, f"healsparse_bitmask_{nside_map}.hsp")
+        fname = os.path.join(self.test_dir, f"healsparse_bitpacked_{nside_map}.hsp")
         sparse_map.write(fname, clobber=True)
         sparse_map_in = HealSparseMap.read(fname)
 
-        self.assertTrue(sparse_map_in.is_bit_mask_map)
+        self.assertTrue(sparse_map_in.is_bit_packed_map)
         self.assertEqual(sparse_map_in.dtype, np.bool_)
         self.assertEqual(sparse_map_in.sentinel, False)
 
@@ -263,7 +263,7 @@ class HealSparseBitMaskTestCase(unittest.TestCase):
             fname,
             pixels=[covered_pixels[1], covered_pixels[10]],
         )
-        self.assertTrue(sparse_map_in_partial.is_bit_mask_map)
+        self.assertTrue(sparse_map_in_partial.is_bit_packed_map)
         self.assertEqual(sparse_map_in_partial.dtype, np.bool_)
         self.assertEqual(sparse_map_in_partial.sentinel, False)
 
@@ -273,7 +273,7 @@ class HealSparseBitMaskTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map_in_partial.valid_pixels, pixel_sub)
 
     @pytest.mark.skipif("GITHUB_ACTIONS" in os.environ, reason='Giant test cannot be run on GHA')
-    def test_bit_mask_map_fits_io_giant(self):
+    def test_bit_packed_map_fits_io_giant(self):
         # I don't know how to test this.
         nside_coverage = 32
         nside_map = 2**17
@@ -283,19 +283,19 @@ class HealSparseBitMaskTestCase(unittest.TestCase):
             nside_coverage,
             nside_map,
             np.bool_,
-            bit_mask=True,
+            bit_packed=True,
             cov_pixels=np.arange(1500),
         )
 
         sparse_map[1_000_000] = True
         sparse_map[100_000_000] = True
 
-        fname = os.path.join(self.test_dir, f"healsparse_bitmask_{nside_map}_giant.hsp")
+        fname = os.path.join(self.test_dir, f"healsparse_bitpacked_{nside_map}_giant.hsp")
         sparse_map.write(fname, clobber=True)
         sparse_map_in = HealSparseMap.read(fname)
 
         # Confirm it's the correct type.
-        self.assertTrue(sparse_map_in.is_bit_mask_map)
+        self.assertTrue(sparse_map_in.is_bit_packed_map)
         self.assertEqual(sparse_map_in.dtype, np.bool_)
         self.assertEqual(sparse_map_in.sentinel, False)
         # Confirm that it was reshaped on write.
@@ -311,7 +311,7 @@ class HealSparseBitMaskTestCase(unittest.TestCase):
             fname,
             pixels=cov_pixels,
         )
-        self.assertTrue(sparse_map_in_partial.is_bit_mask_map)
+        self.assertTrue(sparse_map_in_partial.is_bit_packed_map)
         self.assertEqual(sparse_map_in_partial.dtype, np.bool_)
         self.assertEqual(sparse_map_in_partial.sentinel, False)
 
@@ -320,23 +320,23 @@ class HealSparseBitMaskTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map_in_partial.valid_pixels, [1_000_000, 100_000_000])
 
     @pytest.mark.skipif(not healsparse.parquet_shim.use_pyarrow, reason='Requires pyarrow')
-    def test_bit_mask_map_parquet_io(self):
+    def test_bit_packed_map_parquet_io(self):
         pass
 
-    def test_bit_mask_map_fits_io_compression(self):
+    def test_bit_packed_map_fits_io_compression(self):
         nside_coverage = 32
         nside_map = 1024
 
         self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
 
-        sparse_map = HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_, bit_mask=True)
+        sparse_map = HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_, bit_packed=True)
 
         sparse_map[10_000_000: 11_000_000] = True
 
-        fname = os.path.join(self.test_dir, f"healsparse_bitmask_{nside_map}.hsp")
+        fname = os.path.join(self.test_dir, f"healsparse_bitpacked_{nside_map}.hsp")
         fname_nocomp = os.path.join(
             self.test_dir,
-            f"healsparse_bitmask_{nside_map}_nocomp.hsp",
+            f"healsparse_bitpacked_{nside_map}_nocomp.hsp",
         )
 
         sparse_map.write(fname, nocompress=False)
@@ -345,19 +345,19 @@ class HealSparseBitMaskTestCase(unittest.TestCase):
         sparse_map_in = HealSparseMap.read(fname)
         sparse_map_in_nocomp = HealSparseMap.read(fname_nocomp)
 
-        self.assertTrue(sparse_map_in_nocomp.is_bit_mask_map)
+        self.assertTrue(sparse_map_in_nocomp.is_bit_packed_map)
         self.assertEqual(sparse_map_in_nocomp.dtype, np.bool_)
         self.assertEqual(sparse_map_in_nocomp.sentinel, False)
 
         testing.assert_array_equal(sparse_map_in_nocomp.valid_pixels, sparse_map_in.valid_pixels)
 
-    def test_bit_mask_fracdet(self):
+    def test_bit_packed_fracdet(self):
         nside_coverage = 32
         nside_map = 2**13
 
-        # We compare the fracdet map generated with the bit_mask code to that
+        # We compare the fracdet map generated with the bit_packed code to that
         # generated with a regular boolean map.
-        sparse_map = HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_, bit_mask=True)
+        sparse_map = HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_, bit_packed=True)
         sparse_map_bool = HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_)
 
         sparse_map[10000: 20000] = True
@@ -375,7 +375,7 @@ class HealSparseBitMaskTestCase(unittest.TestCase):
             fracdet_bool[fracdet_bool.valid_pixels],
         )
 
-    def test_bit_mask_from_other_map(self):
+    def test_bit_packed_from_other_map(self):
         nside_coverage = 32
 
         for mode in ['regular', 'wide', 'recarray']:
@@ -401,23 +401,23 @@ class HealSparseBitMaskTestCase(unittest.TestCase):
                 )
                 value = np.zeros(1, dtype=dtype)
                 value['a'] = 1.0
-            elif mode == 'bitmask':
+            elif mode == 'bitpacked':
                 sparse_map = HealSparseMap.make_empty(
                     nside_coverage,
                     2**15,
                     np.bool_,
-                    bit_mask=True,
+                    bit_packed=True,
                 )
                 value = True
 
             sparse_map[0: 100] = value
             sparse_map[10_000_000: 11_000_000] = value
 
-            bitmask_map = sparse_map.as_bit_mask_map()
+            bitpacked_map = sparse_map.as_bit_packed_map()
 
-            self.assertTrue(bitmask_map.is_bit_mask_map)
-            self.assertEqual(bitmask_map.n_valid, sparse_map.n_valid)
-            testing.assert_array_equal(bitmask_map.valid_pixels, sparse_map.valid_pixels)
+            self.assertTrue(bitpacked_map.is_bit_packed_map)
+            self.assertEqual(bitpacked_map.n_valid, sparse_map.n_valid)
+            testing.assert_array_equal(bitpacked_map.valid_pixels, sparse_map.valid_pixels)
 
     def setUp(self):
         self.test_dir = None
