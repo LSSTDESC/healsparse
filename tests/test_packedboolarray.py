@@ -321,7 +321,41 @@ class HealSparseBitPackedTestCase(unittest.TestCase):
 
     @pytest.mark.skipif(not healsparse.parquet_shim.use_pyarrow, reason='Requires pyarrow')
     def test_bit_packed_map_parquet_io(self):
-        pass
+        nside_coverage = 32
+        nside_map = 1024
+
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        sparse_map = HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_, bit_packed=True)
+
+        sparse_map[10_000_000: 11_000_000] = True
+
+        fname = os.path.join(self.test_dir, f"healsparse_bitpacked_{nside_map}.hsp.parquet")
+        sparse_map.write(fname, clobber=True, format="parquet")
+        sparse_map_in = HealSparseMap.read(fname)
+
+        self.assertTrue(sparse_map_in.is_bit_packed_map)
+        self.assertEqual(sparse_map_in.dtype, np.bool_)
+        self.assertEqual(sparse_map_in.sentinel, False)
+
+        testing.assert_array_equal(sparse_map_in.valid_pixels, sparse_map.valid_pixels)
+
+        # Test reading back partial coverage.
+        cov = healsparse.HealSparseCoverage.read(fname)
+        covered_pixels, = np.where(cov.coverage_mask)
+
+        sparse_map_in_partial = healsparse.HealSparseMap.read(
+            fname,
+            pixels=[covered_pixels[1], covered_pixels[10]],
+        )
+        self.assertTrue(sparse_map_in_partial.is_bit_packed_map)
+        self.assertEqual(sparse_map_in_partial.dtype, np.bool_)
+        self.assertEqual(sparse_map_in_partial.sentinel, False)
+
+        cov_pixels = sparse_map._cov_map.cov_pixels(sparse_map.valid_pixels)
+        pixel_sub = sparse_map.valid_pixels[(cov_pixels == covered_pixels[1]) |
+                                            (cov_pixels == covered_pixels[10])]
+        testing.assert_array_equal(sparse_map_in_partial.valid_pixels, pixel_sub)
 
     def test_bit_packed_map_fits_io_compression(self):
         nside_coverage = 32
