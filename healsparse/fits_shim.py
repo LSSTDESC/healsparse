@@ -236,10 +236,6 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map,
     compress : `bool`, optional
        Write with FITS compression?
     """
-    # Currently, all writing is done with astropy.io.fits because it supports
-    # lossless compression of floating point data.  Unfortunately, the header
-    # is wrong so we have a header patch below.
-
     c_hdr['EXTNAME'] = 'COV'
     s_hdr['EXTNAME'] = 'SPARSE'
 
@@ -249,35 +245,37 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map,
     else:
         compression = "GZIP_2"
 
+    if compress:
+        # The maximum that ZNAXIS1 can be is 2**31 - 1 when using FITS
+        # compression.  Therefore, we do a reshape here if necessary,
+        # and also record that there has been a reshape in the header.
+
+        if len(sparse_map) > (2**31 - 1):
+            _sparse_map = sparse_map.reshape((len(sparse_map)//compress_tilesize,
+                                              compress_tilesize))
+            _tile_shape = (1, compress_tilesize)
+            s_hdr['RESHAPED'] = True
+        else:
+            _sparse_map = sparse_map
+            _tile_shape = (compress_tilesize, )
+            s_hdr['RESHAPED'] = False
+
     if use_fitsio and integer_map:
         # Preferred because it is faster for integer writes.
-        # Floating point writing with compression needs to
-        # be investigated.
+        # Floating point writing with compression has only just
+        # been fixed and I don't want to put a lower limit on
+        # fitsio versioning yet.
 
         with fitsio.FITS(filename, mode="rw", clobber=True) as f:
             f.write(cov_index_map, extname=c_hdr["EXTNAME"], header=c_hdr)
 
             if compress:
-                # The maximum that ZNAXIS1 can be is 2**31 - 1 when using FITS
-                # compression.  Therefore, we do a reshape here if necessary,
-                # and also record that there has been a reshape in the header.
-
-                if len(sparse_map) > (2**31 - 1):
-                    _sparse_map = sparse_map.reshape((len(sparse_map)//compress_tilesize,
-                                                      compress_tilesize))
-                    _tile_dims = (1, compress_tilesize)
-                    s_hdr['RESHAPED'] = True
-                else:
-                    _sparse_map = sparse_map
-                    _tile_dims = (compress_tilesize, )
-                    s_hdr['RESHAPED'] = False
-
                 f.write(
                     _sparse_map,
                     extname=s_hdr["EXTNAME"],
                     header=s_hdr,
                     compress=compression,
-                    tile_dims=_tile_dims,
+                    tile_dims=_tile_shape,
                     qlevel=0.0,
                     qmethod=None,
                 )
@@ -292,20 +290,6 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map,
         hdu_list.append(hdu)
 
         if compress:
-            # The maximum that ZNAXIS1 can be is 2**31 - 1 when using FITS
-            # compression.  Therefore, we do a reshape here if necessary,
-            # and also record that there has been a reshape in the header.
-
-            if len(sparse_map) > (2**31 - 1):
-                _sparse_map = sparse_map.reshape((len(sparse_map)//compress_tilesize,
-                                                  compress_tilesize))
-                _tile_shape = (1, compress_tilesize)
-                s_hdr['RESHAPED'] = True
-            else:
-                _sparse_map = sparse_map
-                _tile_shape = (compress_tilesize, )
-                s_hdr['RESHAPED'] = False
-
             try:
                 # Try new tile_shape API (astropy>=5.3).
                 hdu = fits.CompImageHDU(data=_sparse_map, header=fits.Header(),
