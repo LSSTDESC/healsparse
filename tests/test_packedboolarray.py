@@ -99,6 +99,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
         m[16: 32] = False
         testing.assert_array_equal(m[0: 16], True)
         testing.assert_array_equal(m[16: 32], False)
+        testing.assert_array_equal(m[32: 64], True)
         testing.assert_array_equal(m[64:], False)
 
     def test_setitiem_slice_unoptimized_single(self):
@@ -157,6 +158,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
 
         testing.assert_array_equal(m[inds], True)
 
+        # Test tuple as well as list.
         values = np.array([True, False, True, True])
         m[tuple(inds)] = values
 
@@ -179,6 +181,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
         m2[0] = False
         self.assertEqual(m[16], False)
 
+        # These slices are not multiples of 8 and will raise ValueError.
         with self.assertRaises(ValueError):
             _ = m[5: 32]
         with self.assertRaises(ValueError):
