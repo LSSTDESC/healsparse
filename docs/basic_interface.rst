@@ -169,6 +169,36 @@ Wide mask bits are always specified by giving a list of integer positions rather
     >>> [ True]
 
 
+Bit-Packed Boolean Maps
+-----------------------
+
+:code:`HealSparseMap` also supports bit-packed boolean maps.
+For boolean coverage masks (True/False) this fits 8 one-bit pixels per byte (rather than the default numpy boolean array which uses one byte per boolean).
+In this way the full 5000 deg2 Dark Energy Survey coverage mask can be stored with nside 131072 (1.6 arcsecond resolution) in less than 4Gb of memory and very fast lookup performance.
+On disk this is stored with better than 4x compression.
+Note that the in-memory performance is superior to that of the Multi-Order Coverage (MOC) because of the need for MOC to store two 64-bit integers for each (hierarchical) pixel, vs. `HealSparse` using 1 bit per pixel.
+Currently, the sentinel value for bit-packed boolean maps must be :code:`False`.
+
+Note that for very large bit-packed maps the lookup performance is very good, but using :code:`valid_pixels` can be very inefficient, as you have to store all the 64-bit valid pixel indices in memory at once.
+In this case, looping over coverage pixels for sub-maps (using :code:`get_covpix_maps()`) is recommended.
+
+
+.. code-block :: python
+
+    import numpy as np
+    import healsparse
+
+    map_packed = healsparse.HealSparseMap.make_empty(32, 131072, bool, bit_packed=True)
+    print(map_packed)
+    >>> HealSparseMap: nside_coverage = 32, nside_sparse = 131072, boolean bit-packed mask, 0 valid pixels
+
+    map_packed[1_000_000: 2_000_000] = True
+    print(map_packed.n_valid)
+    >>> 1000000
+    print(map_packed[1_500_000])
+    >>> True
+
+
 Writing Maps
 ------------
 
