@@ -1,7 +1,7 @@
 .. role:: python(code)
    :language: python
 
-HealSparseMap File Specification v1.4.0
+HealSparseMap File Specification v1.8.0
 =======================================
 
 A :code:`HealSparseMap` file can be either a standard FITS file or a Parquet dataset.
@@ -108,6 +108,12 @@ As with the sparse map image, each additional block of :code:`nfine_per_cov` is 
 These blocks may be in any arbitrary order, allowing for easy appending of new coverage pixels.
 All invalid pixels must have the :code:`primary` field set to :code:`sentinel`.
 
+**Sparse Map Bit-Packed Mask**
+
+If the sparse map is a bit-packed mask, the sparse map is held in memory as an array of :code:`numpy.uint8`, bit-packed with lowest significant bit (LSB) ordering.
+It is this array of :code:`numpy.uint8` that is serialized, with an additional flag in the header.
+The sentinel value for sparse bit-packed masks must be :code:`False`.
+
 .. _fits_format:
 
 HealSparseMap FITS Serialization
@@ -150,6 +156,10 @@ If the sparse map is a wide mask, it must contain:
 * **WIDEMASK** must be :code:`True`
 * **WWIDTH** must be the width (in bytes) of the wide mask.
 
+If the sparse map is a bit-packed mask it must contain:
+
+* **BITPACK** must be :code:`True`
+
 **Sparse Map Image**
 
 If the sparse map is not of a numpy record array type, it is stored as a one dimensional image array.
@@ -165,6 +175,11 @@ The wide mask image may be stored with FITS tile compression, with the tile size
 **Sparse Map Table**
 
 If the sparse map is a numpy record array type, it is stored as a one dimensional table array.
+
+**Sparse Map Bit-Packed Mask**
+
+If the sparse map is a bit-packed mask, the sparse map is stored as an array of unsigned 8-bit integers.
+This will be used directly as the data buffer backing the bit-packing array structure.
 
 .. _parquet_format:
 
@@ -196,6 +211,7 @@ The following metadata strings are required:
 * :code:`'healsparse::sentinel'`: :code:`str(sentinel)` or :code:`'UNSEEN'`
 * :code:`'healsparse::widemask'`: :code:`'True'` or :code:`'False'`
 * :code:`'healsparse::wwidth'`: :code:`str(wide_mask_width)` or :code:`'1'`
+* :code:`'healsparse::bitpacked'`: :code:`str(is_bit_mask_map)`
 
 Note that the string :code:`'UNSEEN'` will use the special value :code:`hpgeom.UNSEEN` to fill empty/overflow pixels.
 
@@ -255,3 +271,8 @@ If the sparse map is a numpy record array type, it is stored as a multi-column P
 Unlike the FITS serialization, the initial "overflow" coverage pixel is not serialized.
 Instead, on read this is filled in with the :code:`sentinel` value from the Parquet metadata for the :code:`primary` column.
 The other columns in the overflow coverage pixel are filled with the default sentinel for that datatype (e.g., :code:`hpgeom.UNSEEN` for floating-point columns and :code:`-MAXINT` for integer columns).
+
+**Sparse Map Bit-Packed Mask**
+
+If the sparse map is a bit-packed mask, the schema is the same as for a regular sparse map image.
+In this case, as with the FITS serialization, the sparse map is stored as an array of unsigned 8-bit integers which is the in-memory backing of the bit-packed array.

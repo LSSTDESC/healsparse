@@ -184,7 +184,7 @@ class FitsShimTestCase(unittest.TestCase):
 
             self.assertRaises(RuntimeError, HealSparseFits, filename, mode='rw')
 
-    def write_testfile(self, filename, data0, data1, header):
+    def write_testfile_unused(self, filename, data0, data1, header):
         """
         Write a testfile, using astropy.io.fits only.  This is in place
         until we get full compression support working in both.
@@ -197,7 +197,7 @@ class FitsShimTestCase(unittest.TestCase):
         healsparse.fits_shim.fits.append(filename, data1,
                                          header=_header, overwrite=False)
 
-    def write_testfile_unused(self, filename, data0, data1, header):
+    def write_testfile(self, filename, data0, data1, header):
         """
         Write a testfile.
         """

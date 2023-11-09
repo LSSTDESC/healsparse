@@ -7,6 +7,7 @@ from .utils import is_integer_value, _compute_bitshift, WIDE_MASK
 from .utils import check_sentinel
 from .healSparseCoverage import HealSparseCoverage
 from .fits_shim import _make_header
+from .packedBoolArray import _PackedBoolArray
 
 use_pyarrow = False
 try:
@@ -111,6 +112,13 @@ def _read_map_parquet(healsparse_class, filepath, pixels=None, header=False,
         is_wide_mask = False
         wmult = 1
 
+    if md['healsparse::bitpacked'] == 'True':
+        is_bit_packed = True
+        wdiv = 8
+    else:
+        is_bit_packed = False
+        wdiv = 1
+
     if md['healsparse::primary'] != '':
         # This is a multi-column table.
         is_rec_array = True
@@ -150,8 +158,8 @@ def _read_map_parquet(healsparse_class, filepath, pixels=None, header=False,
                 continue
             sparse_map[d[0]][: cov_map.nfine_per_cov] = check_sentinel(d[1], None)
     else:
-        sparse_map = np.zeros((_pixels.size + 1)*cov_map.nfine_per_cov*wmult, dtype=dtype)
-        sparse_map[: cov_map.nfine_per_cov*wmult] = sentinel
+        sparse_map = np.zeros((_pixels.size + 1)*cov_map.nfine_per_cov*wmult//wdiv, dtype=dtype)
+        sparse_map[: cov_map.nfine_per_cov*wmult//wdiv] = sentinel
 
     if _pixels_io is None:
         # Read the full table
@@ -175,11 +183,13 @@ def _read_map_parquet(healsparse_class, filepath, pixels=None, header=False,
         for name in columns:
             sparse_map[name][cov_map.nfine_per_cov:] = tab[name].to_numpy()
     else:
-        sparse_map[cov_map.nfine_per_cov*wmult:] = tab['sparse'].to_numpy()
+        sparse_map[cov_map.nfine_per_cov*wmult//wdiv:] = tab['sparse'].to_numpy()
 
         if is_wide_mask:
             sparse_map = sparse_map.reshape((sparse_map.size // wmult,
                                              wmult)).astype(WIDE_MASK)
+        elif is_bit_packed:
+            sparse_map = _PackedBoolArray(data_buffer=sparse_map)
 
     healsparse_map = healsparse_class(cov_map=cov_map, sparse_map=sparse_map,
                                       nside_sparse=nside_sparse, primary=primary,
@@ -245,6 +255,11 @@ def _write_map_parquet(hsp_map, filepath, clobber=False, nside_io=4):
     else:
         wmult = 1
 
+    if hsp_map.is_bit_packed_map:
+        wdiv = 8
+    else:
+        wdiv = 1
+
     if np.isclose(hsp_map._sentinel, hpg.UNSEEN):
         sentinel_string = 'UNSEEN'
     else:
@@ -258,17 +273,23 @@ def _write_map_parquet(hsp_map, filepath, clobber=False, nside_io=4):
                 'healsparse::primary': '' if hsp_map.primary is None else hsp_map.primary,
                 'healsparse::sentinel': sentinel_string,
                 'healsparse::widemask': str(hsp_map.is_wide_mask_map),
-                'healsparse::wwidth': str(hsp_map._wide_mask_width)}
+                'healsparse::wwidth': str(hsp_map._wide_mask_width),
+                'healsparse::bitpacked': str(hsp_map.is_bit_packed_map)}
 
     # Add additional metadata
     if hsp_map.metadata is not None:
         # Use the fits header serialization for compatibility
-        hdr_string = _make_header(hsp_map.metadata).tostring()
+        hdr_string = str(_make_header(hsp_map.metadata, force_astropy=True))
         metadata['healsparse::header'] = hdr_string
+
+    if hsp_map.is_bit_packed_map:
+        sparse_map = hsp_map._sparse_map.data_array
+    else:
+        sparse_map = hsp_map._sparse_map.ravel()
 
     if not hsp_map.is_rec_array:
         schema = pa.schema([('cov_pix', pa.from_numpy_dtype(np.int32)),
-                            ('sparse', pa.from_numpy_dtype(hsp_map.dtype))],
+                            ('sparse', pa.from_numpy_dtype(sparse_map.dtype))],
                            metadata=metadata)
     else:
         type_list = [(name, pa.from_numpy_dtype(hsp_map.dtype[name].type)) for
@@ -277,11 +298,10 @@ def _write_map_parquet(hsp_map, filepath, clobber=False, nside_io=4):
         schema = pa.schema(type_list, metadata=metadata)
 
     cov_map = hsp_map._cov_map
-    sparse_map = hsp_map._sparse_map.ravel()
     cov_index_map_temp = cov_map[:] + np.arange(hpg.nside_to_npixel(hsp_map.nside_coverage),
                                                 dtype=np.int64)*cov_map.nfine_per_cov
 
-    cpix_arr = np.zeros(cov_map.nfine_per_cov*wmult, dtype=np.int32)
+    cpix_arr = np.zeros(cov_map.nfine_per_cov*wmult//wdiv, dtype=np.int32)
 
     last_cpix_io = -1
     writer = None
@@ -303,8 +323,8 @@ def _write_map_parquet(hsp_map, filepath, clobber=False, nside_io=4):
             writer = parquet.ParquetWriter(iopixfile, schema)
             row_group_ctr = 0
 
-        sparsepix = sparse_map[cov_index_map_temp[cpix]*wmult:
-                               (cov_index_map_temp[cpix] + cov_map.nfine_per_cov)*wmult]
+        sparsepix = sparse_map[cov_index_map_temp[cpix]*wmult//wdiv:
+                               (cov_index_map_temp[cpix] + cov_map.nfine_per_cov)*wmult//wdiv]
         cpix_arr[:] = cpix
         if not hsp_map.is_rec_array:
             arrays = [pa.array(cpix_arr),
