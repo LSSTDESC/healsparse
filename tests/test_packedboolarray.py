@@ -208,6 +208,155 @@ class PackedBoolArrayTestCase(unittest.TestCase):
         self.assertEqual(sum2[100 // 8], 1)
         self.assertEqual(sum2[1000 // 8], 1)
 
+    def test_and(self):
+        m = _PackedBoolArray(size=128)
+        m[8: 24] = True
+
+        # Test __and__ (boolean)
+        m2 = m & True
+        testing.assert_array_equal(np.array(m2), np.array(m) & True)
+        m2 = m & False
+        testing.assert_array_equal(np.array(m2), np.array(m) & False)
+
+        # Test __and__ (_PackedBoolArray)
+        m2 = _PackedBoolArray(size=128)
+        m2[8: 32] = True
+        m3 = m & m2
+        testing.assert_array_equal(np.array(m3), np.array(m) & np.array(m2))
+
+        # Illegal __and__ operations.
+        with self.assertRaises(ValueError):
+            m3 = m & _PackedBoolArray(size=64)
+
+        with self.assertRaises(NotImplementedError):
+            m3 = m & 1
+
+        # Test __iand__ (boolean)
+        m2 = m.copy()
+        m2 &= True
+        testing.assert_array_equal(np.array(m2), np.array(m) & True)
+        m2 = m.copy()
+        m2 &= False
+        testing.assert_array_equal(np.array(m2), np.array(m) & False)
+
+        # Test __iand__ (_PackedBoolArray)
+        m2 = _PackedBoolArray(size=128)
+        m2[8: 32] = True
+        m3 = m.copy()
+        m3 &= m2
+        testing.assert_array_equal(np.array(m3), np.array(m) & np.array(m2))
+
+        # Illegal __iand__ operations.
+        with self.assertRaises(ValueError):
+            m3 = m.copy()
+            m3 &= _PackedBoolArray(size=64)
+
+        with self.assertRaises(NotImplementedError):
+            m3 = m.copy()
+            m3 &= 1
+
+    def test_or(self):
+        m = _PackedBoolArray(size=128)
+        m[8: 24] = True
+
+        # Test __or__ (boolean)
+        m2 = m | True
+        testing.assert_array_equal(np.array(m2), np.array(m) | True)
+        m2 = m | False
+        testing.assert_array_equal(np.array(m2), np.array(m) | False)
+
+        # Test __or__ (_PackedBoolArray)
+        m2 = _PackedBoolArray(size=128)
+        m2[8: 32] = True
+        m3 = m | m2
+        testing.assert_array_equal(np.array(m3), np.array(m) | np.array(m2))
+
+        # Illegal __or__ operations.
+        with self.assertRaises(ValueError):
+            m3 = m | _PackedBoolArray(size=64)
+
+        with self.assertRaises(NotImplementedError):
+            m3 = m | 1
+
+        # Test __ior__ (boolean)
+        m2 = m.copy()
+        m2 |= True
+        testing.assert_array_equal(np.array(m2), np.array(m) | True)
+        m2 = m.copy()
+        m2 |= False
+        testing.assert_array_equal(np.array(m2), np.array(m) | False)
+
+        # Test __ior__ (_PackedBoolArray)
+        m2 = _PackedBoolArray(size=128)
+        m2[8: 32] = True
+        m3 = m.copy()
+        m3 |= m2
+        testing.assert_array_equal(np.array(m3), np.array(m) | np.array(m2))
+
+        # Illegal __ior__ operations.
+        with self.assertRaises(ValueError):
+            m3 = m.copy()
+            m3 |= _PackedBoolArray(size=64)
+
+        with self.assertRaises(NotImplementedError):
+            m3 = m.copy()
+            m3 |= 1
+
+    def test_xor(self):
+        m = _PackedBoolArray(size=128)
+        m[8: 24] = True
+
+        # Test __xor__ (boolean)
+        m2 = m ^ True
+        testing.assert_array_equal(np.array(m2), np.array(m) ^ True)
+        m2 = m ^ False
+        testing.assert_array_equal(np.array(m2), np.array(m) ^ False)
+
+        # Test __xor__ (_PackedBoolArray)
+        m2 = _PackedBoolArray(size=128)
+        m2[8: 32] = True
+        m3 = m ^ m2
+        testing.assert_array_equal(np.array(m3), np.array(m) ^ np.array(m2))
+
+        # Illegal __xor__ operations.
+        with self.assertRaises(ValueError):
+            m3 = m ^ _PackedBoolArray(size=64)
+
+        with self.assertRaises(NotImplementedError):
+            m3 = m ^ 1
+
+        # Test __ixor__ (boolean)
+        m2 = m.copy()
+        m2 ^= True
+        testing.assert_array_equal(np.array(m2), np.array(m) ^ True)
+        m2 = m.copy()
+        m2 ^= False
+        testing.assert_array_equal(np.array(m2), np.array(m) ^ False)
+
+        # Test __ixor__ (_PackedBoolArray)
+        m2 = _PackedBoolArray(size=128)
+        m2[8: 32] = True
+        m3 = m.copy()
+        m3 ^= m2
+        testing.assert_array_equal(np.array(m3), np.array(m) ^ np.array(m2))
+
+        # Illegal __ixor__ operations.
+        with self.assertRaises(ValueError):
+            m3 = m.copy()
+            m3 ^= _PackedBoolArray(size=64)
+
+        with self.assertRaises(NotImplementedError):
+            m3 = m.copy()
+            m3 ^= 1
+
+    def test_invert(self):
+        m = _PackedBoolArray(size=128)
+        m[8: 24] = True
+
+        # Test __invert__
+        m2 = ~m
+        testing.assert_array_equal(np.array(m2), ~np.array(m))
+
 
 class HealSparseBitPackedTestCase(unittest.TestCase):
     """Tests for HealSparseMap with bit_packed."""

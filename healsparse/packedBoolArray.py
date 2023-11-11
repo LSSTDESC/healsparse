@@ -44,6 +44,11 @@ class _PackedBoolArray:
         self._s0F = np.uint8(0x0F)
         self._s01 = np.uint8(0x01)
 
+        self._uint8_truefalse = {
+            True: ~np.uint8(0),
+            False: np.uint8(0),
+        }
+
     @property
     def dtype(self):
         return self._dtype
@@ -144,9 +149,6 @@ class _PackedBoolArray:
                              (key.__class__))
 
     def __setitem__(self, key, value):
-        # FIXME:
-        # - consolidate code
-        # - check bounds
         if isinstance(key, numbers.Integral):
             # Need to check that value is single-valued; and bool.
             if value:
@@ -260,25 +262,64 @@ class _PackedBoolArray:
                              (key.__class__))
 
     def __array__(self):
-        return np.unpackbits(self._data, bitorder="little")
+        return np.unpackbits(self._data, bitorder="little").astype(np.bool_)
 
     def __and__(self, other):
-        raise NotImplementedError("and function not supported for _PackedBoolArray")
+        if isinstance(other, (bool, np.bool_)):
+            return _PackedBoolArray(data_buffer=(self._data & self._uint8_truefalse[other]))
+        elif isinstance(other, _PackedBoolArray):
+            return _PackedBoolArray(data_buffer=(self._data & other._data))
+        else:
+            raise NotImplementedError("and function only supports bool and _PackedBoolArray")
 
     def __iand__(self, other):
-        raise NotImplementedError("and function not supported for _PackedBoolArray")
+        if isinstance(other, (bool, np.bool_)):
+            self._data &= self._uint8_truefalse[other]
+            return self
+        elif isinstance(other, _PackedBoolArray):
+            self._data &= other._data
+            return self
+        else:
+            raise NotImplementedError("iand function only supports bool and _PackedBoolArray")
 
     def __or__(self, other):
-        raise NotImplementedError("or function not supported for _PackedBoolArray")
+        if isinstance(other, (bool, np.bool_)):
+            return _PackedBoolArray(data_buffer=(self._data | self._uint8_truefalse[other]))
+        elif isinstance(other, _PackedBoolArray):
+            return _PackedBoolArray(data_buffer=(self._data | other._data))
+        else:
+            raise NotImplementedError("or function only supports bool and _PackedBoolArray")
 
     def __ior__(self, other):
-        raise NotImplementedError("or function not supported for _PackedBoolArray")
+        if isinstance(other, (bool, np.bool_)):
+            self._data |= self._uint8_truefalse[other]
+            return self
+        elif isinstance(other, _PackedBoolArray):
+            self._data |= other._data
+            return self
+        else:
+            raise NotImplementedError("ior function only supports bool and _PackedBoolArray")
 
     def __xor__(self, other):
-        raise NotImplementedError("xor function not supported for _PackedBoolArray")
+        if isinstance(other, (bool, np.bool_)):
+            return _PackedBoolArray(data_buffer=(self._data ^ self._uint8_truefalse[other]))
+        elif isinstance(other, _PackedBoolArray):
+            return _PackedBoolArray(data_buffer=(self._data ^ other._data))
+        else:
+            raise NotImplementedError("xor function only supports bool and _PackedBoolArray")
 
     def __ixor__(self, other):
-        raise NotImplementedError("xor function not supported for _PackedBoolArray")
+        if isinstance(other, (bool, np.bool_)):
+            self._data ^= self._uint8_truefalse[other]
+            return self
+        elif isinstance(other, _PackedBoolArray):
+            self._data ^= other._data
+            return self
+        else:
+            raise NotImplementedError("ixor function only supports bool and _PackedBoolArray")
+
+    def __invert__(self):
+        return _PackedBoolArray(data_buffer=~self._data)
 
     def _set_bits_at_locs(self, locs):
         _locs = np.atleast_1d(locs)
