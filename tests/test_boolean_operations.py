@@ -316,7 +316,7 @@ class BooleanOperationsTestCase(unittest.TestCase):
 
         m_temp = HealSparseMap.make_empty(32, 256, np.int32)
         with self.assertRaises(NotImplementedError):
-            m_temp2 = ~m_temp
+            _ = ~m_temp
 
         m_temp = HealSparseMap.make_empty(32, 256, np.int32)
         with self.assertRaises(NotImplementedError):
