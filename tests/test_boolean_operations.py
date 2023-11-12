@@ -314,6 +314,14 @@ class BooleanOperationsTestCase(unittest.TestCase):
             ~m_packed._sparse_map[m_packed2._cov_map.nfine_per_cov:],
         )
 
+        m_temp = HealSparseMap.make_empty(32, 256, np.int32)
+        with self.assertRaises(NotImplementedError):
+            m_temp2 = ~m_temp
+
+        m_temp = HealSparseMap.make_empty(32, 256, np.int32)
+        with self.assertRaises(NotImplementedError):
+            m_temp.invert()
+
 
 if __name__ == '__main__':
     unittest.main()
