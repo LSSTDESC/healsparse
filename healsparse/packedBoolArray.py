@@ -49,6 +49,28 @@ class _PackedBoolArray:
             False: np.uint8(0),
         }
 
+    @classmethod
+    def from_boolean_array(cls, arr):
+        """Create a _PackedBoolArray from a numpy boolean array.
+
+        Note that the array must have a length a multiple of 8.
+
+        Parameters
+        ----------
+        arr : `np.ndarray`
+            Numpy array; must be of np.bool_ dtype.
+
+        Returns
+        -------
+        _PackedBoolArray
+        """
+        if arr.dtype != np.bool_:
+            raise NotImplementedError("Can only use from_boolean_array with a boolean array.")
+        if (arr.size % 8) != 0:
+            raise ValueError("_PackedBoolArray must have a size that is a multiple of 8.")
+
+        return cls(data_buffer=np.packbits(arr, bitorder="little"))
+
     @property
     def dtype(self):
         return self._dtype
@@ -196,6 +218,10 @@ class _PackedBoolArray:
                     if len(range(*s8.indices(len(self._data)))) != value.size // 8:
                         raise ValueError("Length of values does not match slice.")
                     self._data[s8] = np.packbits(value, bitorder="little")
+                elif isinstance(value, _PackedBoolArray):
+                    self._data[s8] = value._data
+                else:
+                    raise ValueError("Can only set to bool or array of bools or _PackedBoolArray")
             else:
                 # Unoptimized operations
                 start = key.start if key.start is not None else 0

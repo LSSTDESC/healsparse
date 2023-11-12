@@ -35,6 +35,23 @@ class PackedBoolArrayTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             m = _PackedBoolArray(size=6)
 
+    def test_create_from_bool_array(self):
+        arr = np.zeros(128, dtype=np.bool_)
+        arr[100: 120] = True
+
+        m = _PackedBoolArray.from_boolean_array(arr)
+
+        self.assertEqual(m.size, arr.size)
+        testing.assert_array_equal(np.array(m), arr)
+
+        with self.assertRaises(ValueError):
+            arr = np.zeros(122, dtype=np.bool_)
+            m = _PackedBoolArray.from_boolean_array(arr)
+
+        with self.assertRaises(NotImplementedError):
+            arr = np.zeros(128, dtype=np.int32)
+            m = _PackedBoolArray.from_boolean_array(arr)
+
     def test_resize(self):
         m = _PackedBoolArray(size=0)
         m.resize(2**10)
@@ -136,6 +153,18 @@ class PackedBoolArrayTestCase(unittest.TestCase):
         m[0: 62] = values
         arr = np.array(m)
         testing.assert_array_equal(arr[0: 62], values)
+
+    def test_setitem_slice_optimized_pba(self):
+        m = _PackedBoolArray(size=2**10)
+
+        values = _PackedBoolArray(size=64)
+        values[10: 20] = True
+
+        m[0: 64] = values
+        testing.assert_array_equal(m[0: 64], values)
+
+        # Note there isn't an "unoptimized" version because you can't have
+        # non-8 slices of a _PackedBoolArray.
 
     def test_setgetitiem_indices(self):
         m = _PackedBoolArray(size=2**10)
