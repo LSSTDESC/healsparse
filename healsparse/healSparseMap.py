@@ -2069,6 +2069,33 @@ class HealSparseMap(object):
         else:
             return self._apply_operation(other, np.bitwise_or, int_only=True, in_place=True)
 
+    def invert(self):
+        """Perform a bitwise inversion, over the coverage pixels, in place.
+        """
+        if self.dtype != np.bool_:
+            raise NotImplementedError("Can only use invert(~) on boolean maps.")
+
+        self._sparse_map[self._cov_map.nfine_per_cov:] = ~self._sparse_map[self._cov_map.nfine_per_cov:]
+        return self
+
+    def __invert__(self):
+        """
+        Perform a bit inversion, over the coverage pixels.
+
+        Only available on boolean maps.
+        """
+        if self.dtype != np.bool_:
+            raise NotImplementedError("Can only use invert(~) on boolean maps.")
+
+        sparse_map_temp = self._sparse_map.copy()
+        sparse_map_temp[self._cov_map.nfine_per_cov:] = ~sparse_map_temp[self._cov_map.nfine_per_cov:]
+        return HealSparseMap(
+            cov_map=self._cov_map.copy(),
+            sparse_map=sparse_map_temp,
+            nside_sparse=self._nside_sparse,
+            sentinel=self._sentinel,
+        )
+
     def _apply_operation(self, other, func, int_only=False, in_place=False):
         """
         Apply a generic arithmetic function.

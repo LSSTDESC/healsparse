@@ -277,6 +277,43 @@ class BooleanOperationsTestCase(unittest.TestCase):
                 map3 ^= map2
                 self._check_operated_maps_map(map3, map1, "xor", map2)
 
+    def test_invert(self):
+        m_bool = HealSparseMap.make_empty(32, 256, np.bool_)
+        m_bool[0: 1000] = True
+        m_bool[500_000: 600_000] = True
+
+        m_bool2 = ~m_bool
+
+        testing.assert_array_equal(
+            m_bool2._sparse_map[m_bool2._cov_map.nfine_per_cov:],
+            ~m_bool._sparse_map[m_bool2._cov_map.nfine_per_cov:],
+        )
+
+        m_bool2 = m_bool.copy()
+        m_bool2.invert()
+
+        testing.assert_array_equal(
+            m_bool2._sparse_map[m_bool2._cov_map.nfine_per_cov:],
+            ~m_bool._sparse_map[m_bool2._cov_map.nfine_per_cov:],
+        )
+
+        m_packed = m_bool.as_bit_packed_map()
+        m_packed2 = ~m_packed
+
+        testing.assert_array_equal(
+            m_packed2._sparse_map[m_packed2._cov_map.nfine_per_cov:],
+            ~m_packed._sparse_map[m_packed2._cov_map.nfine_per_cov:],
+        )
+
+        m_packed = m_bool.as_bit_packed_map()
+        m_packed2 = m_packed.copy()
+        m_packed2.invert()
+
+        testing.assert_array_equal(
+            m_packed2._sparse_map[m_packed2._cov_map.nfine_per_cov:],
+            ~m_packed._sparse_map[m_packed2._cov_map.nfine_per_cov:],
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
