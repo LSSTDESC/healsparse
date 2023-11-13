@@ -443,6 +443,8 @@ class HealSparseMap(object):
         values : `np.ndarray` or `None`
             Value or Array of values.  Must be same type as sparse_map.
             If None, then the pixels will be set to the sentinel map value.
+            If None is selected then no additional coverage pixels will be
+            added as a result of the operation.
         lonlat : `bool`, optional
             If True, input angles are longitude and latitude in degrees.
             Otherwise, they are co-latitude and longitude in radians.
@@ -480,6 +482,8 @@ class HealSparseMap(object):
         values : `np.ndarray` or `None`
             Value or Array of values.  Must be same type as sparse_map.
             If None, then the pixels will be set to the sentinel map value.
+            If None is selected then no additional coverage pixels will be
+            added as a result of the operation.
         operation : `str`, optional
             Operation to use to update values.  May be 'replace' (default);
             'add'; 'or', or 'and' (for bit masks).
@@ -500,6 +504,7 @@ class HealSparseMap(object):
         self._n_valid = None
 
         # When None is specified, we use the sentinel value.
+        no_append = False
         if values is None:
             if operation != 'replace':
                 raise ValueError("Can only use 'None' with 'replace' operation.")
@@ -511,6 +516,7 @@ class HealSparseMap(object):
                 values[self._primary] = self._sentinel
             else:
                 values = self._sentinel
+            no_append = True
 
         if operation != 'replace':
             if self._is_bit_packed:
@@ -631,7 +637,7 @@ class HealSparseMap(object):
                 np.bitwise_and.at(self._sparse_map, _indices, _values[in_cov])
 
         # Update the coverage map for the rest of the pixels (if necessary)
-        if out_cov.sum() > 0:
+        if out_cov.sum() > 0 and not no_append:
             # New version to minimize data copying
 
             # Faster trick for getting unique values

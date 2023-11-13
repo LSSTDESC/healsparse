@@ -264,6 +264,20 @@ class GetSetTestCase(unittest.TestCase):
         testing.assert_array_almost_equal(sparse_map.generate_healpix_map(),
                                           full_map)
 
+        # Test None
+        sparse_map[10000] = None
+        full_map[10000] = sparse_map.sentinel
+        testing.assert_array_almost_equal(sparse_map.generate_healpix_map(),
+                                          full_map)
+
+        # Test None (no append)
+        covmask_orig = sparse_map.coverage_mask
+        sparse_map[10500: 15000] = None
+        full_map[10500: 15000] = sparse_map.sentinel
+        testing.assert_array_almost_equal(sparse_map.generate_healpix_map(),
+                                          full_map)
+        testing.assert_array_equal(sparse_map.coverage_mask, covmask_orig)
+
         # Test all
         sparse_map[:] = np.array([1.0])
         full_map[:] = np.array([1.0])

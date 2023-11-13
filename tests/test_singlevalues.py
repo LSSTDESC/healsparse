@@ -40,6 +40,11 @@ class SingleValuesTestCase(unittest.TestCase):
         m[50] = None
         self.assertEqual(m[50], m.sentinel)
 
+        # Test None (no append)
+        covmask_orig = m.coverage_mask
+        m[1000] = None
+        testing.assert_array_equal(m.coverage_mask, covmask_orig)
+
         # Test floating point
         self.assertRaises(ValueError, m.update_values_pix, np.arange(100),
                           1.0)
@@ -87,6 +92,11 @@ class SingleValuesTestCase(unittest.TestCase):
         m[50] = None
         self.assertEqual(m[50], m.sentinel)
 
+        # Test None (no append)
+        covmask_orig = m.coverage_mask
+        m[1000] = None
+        testing.assert_array_equal(m.coverage_mask, covmask_orig)
+
         # Test int
         self.assertRaises(ValueError, m.update_values_pix, np.arange(100),
                           1)
@@ -120,6 +130,11 @@ class SingleValuesTestCase(unittest.TestCase):
         m[50] = None
         self.assertEqual(m[50][m.primary], m.sentinel)
 
+        # Test None (no append)
+        covmask_orig = m.coverage_mask
+        m[1000] = None
+        testing.assert_array_equal(m.coverage_mask, covmask_orig)
+
         # Test wrong dtype recarray
         val = np.ones(1, dtype=[('a', 'f4'), ('b', 'f4')])
         self.assertRaises(ValueError, m.update_values_pix, np.arange(100), val)
@@ -149,6 +164,11 @@ class SingleValuesTestCase(unittest.TestCase):
         m[50] = None
         self.assertEqual(m[50][0], 0)
         self.assertEqual(m[50][1], 0)
+
+        # Test None (no append)
+        covmask_orig = m.coverage_mask
+        m[1000] = None
+        testing.assert_array_equal(m.coverage_mask, covmask_orig)
 
         self.assertRaises(ValueError, m.update_values_pix, np.arange(100), 1)
         self.assertRaises(ValueError, m.update_values_pix, np.arange(100),
