@@ -2081,6 +2081,9 @@ class HealSparseMap(object):
         if self.dtype != np.bool_:
             raise NotImplementedError("Can only use invert(~) on boolean maps.")
 
+        # We invalidate the n_valid cache here.
+        self._n_valid = None
+
         self._sparse_map[self._cov_map.nfine_per_cov:] = ~self._sparse_map[self._cov_map.nfine_per_cov:]
         return self
 
@@ -2137,6 +2140,10 @@ class HealSparseMap(object):
             # If not int_only then it can't be used with a wide mask.
             if self._is_wide_mask:
                 raise NotImplementedError("Cannot use %s with wide mask maps" % (name))
+
+        if in_place:
+            # We invalidate the n_valid cache here.
+            self._n_valid = None
 
         other_int = False
         other_float = False
@@ -2216,6 +2223,10 @@ class HealSparseMap(object):
         """
         if name not in ("and", "or", "xor"):
             raise NotImplementedError("_apply_boolean_map_operation does not support %s" % (name))
+
+        if in_place:
+            # We invalidate the n_valid cache here.
+            self._n_valid = None
 
         start = self._cov_map.nfine_per_cov
         if in_place:
