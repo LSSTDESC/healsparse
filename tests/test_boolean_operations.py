@@ -31,16 +31,23 @@ class BooleanOperationsTestCase(unittest.TestCase):
         coverage_mask = map1.coverage_mask | map2.coverage_mask
         testing.assert_array_equal(map_new.coverage_mask, coverage_mask)
 
+        cov_pixels2, = map2.coverage_mask.nonzero()
+
         # Over these coverage pixels, we should match.
         for cov_pixel in coverage_mask.nonzero()[0]:
             pixels = np.arange(map_new._cov_map.nfine_per_cov) + cov_pixel*map_new._cov_map.nfine_per_cov
+            if cov_pixel in cov_pixels2:
+                # These should be altered.
+                if operation == "and":
+                    compare = map1[pixels] & map2[pixels]
+                elif operation == "or":
+                    compare = map1[pixels] | map2[pixels]
+                elif operation == "xor":
+                    compare = map1[pixels] ^ map2[pixels]
+            else:
+                # These should be untouched.
+                compare = map1[pixels]
 
-            if operation == "and":
-                compare = map1[pixels] & map2[pixels]
-            elif operation == "or":
-                compare = map1[pixels] | map2[pixels]
-            elif operation == "xor":
-                compare = map1[pixels] ^ map2[pixels]
             testing.assert_array_equal(
                 map_new[pixels],
                 compare,

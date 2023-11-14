@@ -2166,18 +2166,18 @@ class HealSparseMap(object):
         Parameters
         ----------
         other : `int` or `float` (or numpy equivalents)
-           The other item to perform the operator on.
+            The other item to perform the operator on.
         func : `np.ufunc`
-           The numpy universal function to apply.
+            The numpy universal function to apply.
         int_only : `bool`, optional
-           Only accept integer types.  Default is False.
+            Only accept integer types.
         in_place : `bool`, optional
-           Perform operation in-place.  Default is False.
+            Perform operation in-place.
 
         Returns
         -------
         result : `HealSparseMap`
-           Resulting map
+            Resulting map
         """
         name = func.__str__()
 
@@ -2266,7 +2266,7 @@ class HealSparseMap(object):
         name : `str`
             The name of the operation: ``and``, ``or``, or ``xor``.
         in_place : `bool`, optional
-            Perform operation in-place.  Default is False.
+            Perform operation in-place.
 
         Returns
         -------
@@ -2313,29 +2313,31 @@ class HealSparseMap(object):
                                           "False sentinel.")
 
             # This routine will combine the coverage maps of the two masks.
-            # We then loop over coverage pixels to do the operation.
+            # We then loop over coverage pixels in the other map to do the
+            # operation.
 
             coverage_mask = self.coverage_mask | other.coverage_mask
             cov_pixels_combined, = coverage_mask.nonzero()
+            cov_pixels_run, = other.coverage_mask.nonzero()
 
+            new_cov_pix, = (coverage_mask & ~self.coverage_mask).nonzero()
             if in_place:
                 new_cov_pix, = (coverage_mask & ~self.coverage_mask).nonzero()
                 self._reserve_cov_pix(new_cov_pix)
                 cov_map_temp = self._cov_map
                 sparse_map_temp = self._sparse_map
             else:
-                cov_map_temp = HealSparseCoverage.make_from_pixels(
-                    self.nside_coverage,
-                    self.nside_sparse,
-                    cov_pixels_combined,
-                )
+                # Extend the coverage pixel map and copy data into new buffer.
+                cov_map_temp = self._cov_map.append_pixels(len(self._sparse_map), new_cov_pix, check=False)
                 nsparse = (cov_pixels_combined.size + 1)*cov_map_temp.nfine_per_cov
                 if self._is_bit_packed:
                     sparse_map_temp = _PackedBoolArray(size=nsparse)
                 else:
                     sparse_map_temp = np.zeros(nsparse, dtype=np.bool_)
 
-            for cov_pixel in cov_pixels_combined:
+                sparse_map_temp[0: len(self._sparse_map)] = self._sparse_map[0: len(self._sparse_map)]
+
+            for cov_pixel in cov_pixels_run:
                 start_self = self._cov_map[cov_pixel] + cov_pixel*cov_map_temp.nfine_per_cov
                 end_self = start_self + cov_map_temp.nfine_per_cov
                 start_other = other._cov_map[cov_pixel] + cov_pixel*cov_map_temp.nfine_per_cov
