@@ -254,7 +254,7 @@ class _PackedBoolArray:
                 if value:
                     return self._set_bits_at_locs(key)
                 else:
-                    return self._clear_bits(self._data, key)
+                    return self._clear_bits_at_locs(key)
             elif isinstance(value, np.ndarray):
                 if value.dtype != self._dtype:
                     raise ValueError("Can only set to bool or array of bools")
