@@ -148,7 +148,7 @@ class SingleCovpixTestCase(unittest.TestCase):
             testing.assert_array_equal(sub_map.valid_pixels, pixels[i])
             testing.assert_almost_equal(sub_map[pixels[i]], 1.0)
 
-        for i, sub_valid_pixels in enumerate(sparse_map.get_valid_pixels_per_covpix()):
+        for i, sub_valid_pixels in enumerate(sparse_map.iter_valid_pixels_by_covpix()):
             self.assertEqual(len(sub_valid_pixels), 1)
             testing.assert_array_equal(sub_valid_pixels, pixels[i])
 

@@ -1313,7 +1313,7 @@ class HealSparseMap(object):
         self._n_valid = n_valid
         return n_valid
 
-    def get_valid_pixels_per_covpix(self):
+    def iter_valid_pixels_by_covpix(self):
         """
         Generator to get valid_pixels associated with each coverage pixel,
         yielded one coverage pixel at a time.
@@ -1324,7 +1324,7 @@ class HealSparseMap(object):
 
         Examples
         --------
-        >>> for valid_pixels in m.get_valid_pixels_per_covpix():
+        >>> for valid_pixels in m.iter_valid_pixels_by_covpix():
         ...     print(valid_pixels)
         """
         cov_pixels, = np.where(self._cov_map.coverage_mask)
