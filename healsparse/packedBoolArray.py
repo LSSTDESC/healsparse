@@ -44,6 +44,33 @@ class _PackedBoolArray:
         self._s0F = np.uint8(0x0F)
         self._s01 = np.uint8(0x01)
 
+        self._uint8_truefalse = {
+            True: ~np.uint8(0),
+            False: np.uint8(0),
+        }
+
+    @classmethod
+    def from_boolean_array(cls, arr):
+        """Create a _PackedBoolArray from a numpy boolean array.
+
+        Note that the array must have a length a multiple of 8.
+
+        Parameters
+        ----------
+        arr : `np.ndarray`
+            Numpy array; must be of np.bool_ dtype.
+
+        Returns
+        -------
+        _PackedBoolArray
+        """
+        if arr.dtype != np.bool_:
+            raise NotImplementedError("Can only use from_boolean_array with a boolean array.")
+        if (arr.size % 8) != 0:
+            raise ValueError("_PackedBoolArray must have a size that is a multiple of 8.")
+
+        return cls(data_buffer=np.packbits(arr, bitorder="little"))
+
     @property
     def dtype(self):
         return self._dtype
@@ -144,9 +171,6 @@ class _PackedBoolArray:
                              (key.__class__))
 
     def __setitem__(self, key, value):
-        # FIXME:
-        # - consolidate code
-        # - check bounds
         if isinstance(key, numbers.Integral):
             # Need to check that value is single-valued; and bool.
             if value:
@@ -194,6 +218,10 @@ class _PackedBoolArray:
                     if len(range(*s8.indices(len(self._data)))) != value.size // 8:
                         raise ValueError("Length of values does not match slice.")
                     self._data[s8] = np.packbits(value, bitorder="little")
+                elif isinstance(value, _PackedBoolArray):
+                    self._data[s8] = value._data
+                else:
+                    raise ValueError("Can only set to bool or array of bools or _PackedBoolArray")
             else:
                 # Unoptimized operations
                 start = key.start if key.start is not None else 0
@@ -226,7 +254,7 @@ class _PackedBoolArray:
                 if value:
                     return self._set_bits_at_locs(key)
                 else:
-                    return self._clear_bits(self._data, key)
+                    return self._clear_bits_at_locs(key)
             elif isinstance(value, np.ndarray):
                 if value.dtype != self._dtype:
                     raise ValueError("Can only set to bool or array of bools")
@@ -260,25 +288,64 @@ class _PackedBoolArray:
                              (key.__class__))
 
     def __array__(self):
-        return np.unpackbits(self._data, bitorder="little")
+        return np.unpackbits(self._data, bitorder="little").astype(np.bool_)
 
     def __and__(self, other):
-        raise NotImplementedError("and function not supported for _PackedBoolArray")
+        if isinstance(other, (bool, np.bool_)):
+            return _PackedBoolArray(data_buffer=(self._data & self._uint8_truefalse[other]))
+        elif isinstance(other, _PackedBoolArray):
+            return _PackedBoolArray(data_buffer=(self._data & other._data))
+        else:
+            raise NotImplementedError("and function only supports bool and _PackedBoolArray")
 
     def __iand__(self, other):
-        raise NotImplementedError("and function not supported for _PackedBoolArray")
+        if isinstance(other, (bool, np.bool_)):
+            self._data &= self._uint8_truefalse[other]
+            return self
+        elif isinstance(other, _PackedBoolArray):
+            self._data &= other._data
+            return self
+        else:
+            raise NotImplementedError("iand function only supports bool and _PackedBoolArray")
 
     def __or__(self, other):
-        raise NotImplementedError("or function not supported for _PackedBoolArray")
+        if isinstance(other, (bool, np.bool_)):
+            return _PackedBoolArray(data_buffer=(self._data | self._uint8_truefalse[other]))
+        elif isinstance(other, _PackedBoolArray):
+            return _PackedBoolArray(data_buffer=(self._data | other._data))
+        else:
+            raise NotImplementedError("or function only supports bool and _PackedBoolArray")
 
     def __ior__(self, other):
-        raise NotImplementedError("or function not supported for _PackedBoolArray")
+        if isinstance(other, (bool, np.bool_)):
+            self._data |= self._uint8_truefalse[other]
+            return self
+        elif isinstance(other, _PackedBoolArray):
+            self._data |= other._data
+            return self
+        else:
+            raise NotImplementedError("ior function only supports bool and _PackedBoolArray")
 
     def __xor__(self, other):
-        raise NotImplementedError("xor function not supported for _PackedBoolArray")
+        if isinstance(other, (bool, np.bool_)):
+            return _PackedBoolArray(data_buffer=(self._data ^ self._uint8_truefalse[other]))
+        elif isinstance(other, _PackedBoolArray):
+            return _PackedBoolArray(data_buffer=(self._data ^ other._data))
+        else:
+            raise NotImplementedError("xor function only supports bool and _PackedBoolArray")
 
     def __ixor__(self, other):
-        raise NotImplementedError("xor function not supported for _PackedBoolArray")
+        if isinstance(other, (bool, np.bool_)):
+            self._data ^= self._uint8_truefalse[other]
+            return self
+        elif isinstance(other, _PackedBoolArray):
+            self._data ^= other._data
+            return self
+        else:
+            raise NotImplementedError("ixor function only supports bool and _PackedBoolArray")
+
+    def __invert__(self):
+        return _PackedBoolArray(data_buffer=~self._data)
 
     def _set_bits_at_locs(self, locs):
         _locs = np.atleast_1d(locs)

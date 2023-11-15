@@ -443,6 +443,8 @@ class HealSparseMap(object):
         values : `np.ndarray` or `None`
             Value or Array of values.  Must be same type as sparse_map.
             If None, then the pixels will be set to the sentinel map value.
+            If None is selected then no additional coverage pixels will be
+            added as a result of the operation.
         lonlat : `bool`, optional
             If True, input angles are longitude and latitude in degrees.
             Otherwise, they are co-latitude and longitude in radians.
@@ -480,6 +482,8 @@ class HealSparseMap(object):
         values : `np.ndarray` or `None`
             Value or Array of values.  Must be same type as sparse_map.
             If None, then the pixels will be set to the sentinel map value.
+            If None is selected then no additional coverage pixels will be
+            added as a result of the operation.
         operation : `str`, optional
             Operation to use to update values.  May be 'replace' (default);
             'add'; 'or', or 'and' (for bit masks).
@@ -500,6 +504,7 @@ class HealSparseMap(object):
         self._n_valid = None
 
         # When None is specified, we use the sentinel value.
+        no_append = False
         if values is None:
             if operation != 'replace':
                 raise ValueError("Can only use 'None' with 'replace' operation.")
@@ -511,6 +516,7 @@ class HealSparseMap(object):
                 values[self._primary] = self._sentinel
             else:
                 values = self._sentinel
+            no_append = True
 
         if operation != 'replace':
             if self._is_bit_packed:
@@ -631,7 +637,7 @@ class HealSparseMap(object):
                 np.bitwise_and.at(self._sparse_map, _indices, _values[in_cov])
 
         # Update the coverage map for the rest of the pixels (if necessary)
-        if out_cov.sum() > 0:
+        if out_cov.sum() > 0 and not no_append:
             # New version to minimize data copying
 
             # Faster trick for getting unique values
@@ -1307,6 +1313,64 @@ class HealSparseMap(object):
         self._n_valid = n_valid
         return n_valid
 
+    def iter_valid_pixels_by_covpix(self):
+        """
+        Generator to get valid_pixels associated with each coverage pixel,
+        yielded one coverage pixel at a time.
+
+        Yields
+        ------
+        single_pixel_valid_pixels : `np.ndarray`
+
+        Examples
+        --------
+        >>> for valid_pixels in m.iter_valid_pixels_by_covpix():
+        ...     print(valid_pixels)
+        """
+        cov_pixels, = np.where(self._cov_map.coverage_mask)
+
+        for cov_pix in cov_pixels:
+            yield self.valid_pixels_single_covpix(cov_pix)
+
+    def valid_pixels_single_covpix(self, cov_pix):
+        """Get an array with the valid pixels in a single coverage pixel.
+
+        This uses much less memory than a full valid_pixels list for large
+        maps.
+
+        Parameters
+        ----------
+        cov_pix : `int`
+            Coverage pixel to get valid pixels.
+
+        Returns
+        -------
+        valid_pixels : `np.ndarray`
+            Array of valid pixels in the given coverage pixel.
+        """
+        # Check if this is in the coverage mask.
+        if not self.coverage_mask[cov_pix]:
+            return np.array([], dtype=np.int64)
+
+        # This is the start of the coverage pixel slice.
+        start = (self._cov_map[cov_pix] +
+                 self._cov_map.nfine_per_cov*cov_pix)
+        s = slice(start, start + self._cov_map.nfine_per_cov)
+
+        if self._is_rec_array:
+            valid_pixel_inds, = np.where(self._sparse_map[self._primary][s] != self._sentinel)
+        elif self._is_wide_mask:
+            valid_pixel_inds, = np.where(np.any(self._sparse_map[s, :] != self._sentinel, axis=1))
+        elif self._is_bit_packed:
+            valid_pixel_inds, = np.where(np.array(self._sparse_map[s]) != self._sentinel)
+        else:
+            valid_pixel_inds, = np.where(self._sparse_map[s] != self._sentinel)
+
+        # We need to get the correct offsets for our valid pixel subset.
+        return (valid_pixel_inds -
+                self._cov_map[self._cov_map.cov_pixels_from_index(start)] +
+                start)
+
     def get_valid_area(self, degrees=True):
         """
         Get the area covered by valid pixels
@@ -1820,11 +1884,20 @@ class HealSparseMap(object):
 
     def get_covpix_maps(self):
         """
-        Get all single covpixel maps, one at a time.
+        Generator to get individual maps associated with each coverage pixel,
+        yielded one coverage pixel at a time.
+
+        This routine makes a copy of the data for each individual coverage
+        pixel map.
 
         Yields
         ------
         single_pixel_map : `HealSparseMap`
+
+        Examples
+        --------
+        >>> for covpix_map in m.get_covpix_maps():
+        ...     print(covpix_map.valid_pixels)
         """
         cov_pixels, = np.where(self._cov_map.coverage_mask)
 
@@ -1920,7 +1993,6 @@ class HealSparseMap(object):
 
         Cannot be used with recarray maps.
         """
-
         return self._apply_operation(other, np.add)
 
     def __iadd__(self, other):
@@ -2010,8 +2082,10 @@ class HealSparseMap(object):
 
         Cannot be used with recarray maps.
         """
-
-        return self._apply_operation(other, np.bitwise_and, int_only=True)
+        if self.dtype == np.bool_:
+            return self._apply_boolean_map_operation(other, "and")
+        else:
+            return self._apply_operation(other, np.bitwise_and, int_only=True)
 
     def __iand__(self, other):
         """
@@ -2019,8 +2093,10 @@ class HealSparseMap(object):
 
         Cannot be used with recarray maps.
         """
-
-        return self._apply_operation(other, np.bitwise_and, int_only=True, in_place=True)
+        if self.dtype == np.bool_:
+            return self._apply_boolean_map_operation(other, "and", in_place=True)
+        else:
+            return self._apply_operation(other, np.bitwise_and, int_only=True, in_place=True)
 
     def __xor__(self, other):
         """
@@ -2028,8 +2104,10 @@ class HealSparseMap(object):
 
         Cannot be used with recarray maps.
         """
-
-        return self._apply_operation(other, np.bitwise_xor, int_only=True)
+        if self.dtype == np.bool_:
+            return self._apply_boolean_map_operation(other, "xor")
+        else:
+            return self._apply_operation(other, np.bitwise_xor, int_only=True)
 
     def __ixor__(self, other):
         """
@@ -2037,8 +2115,10 @@ class HealSparseMap(object):
 
         Cannot be used with recarray maps.
         """
-
-        return self._apply_operation(other, np.bitwise_xor, int_only=True, in_place=True)
+        if self.dtype == np.bool_:
+            return self._apply_boolean_map_operation(other, "xor", in_place=True)
+        else:
+            return self._apply_operation(other, np.bitwise_xor, int_only=True, in_place=True)
 
     def __or__(self, other):
         """
@@ -2046,8 +2126,10 @@ class HealSparseMap(object):
 
         Cannot be used with recarray maps.
         """
-
-        return self._apply_operation(other, np.bitwise_or, int_only=True)
+        if self.dtype == np.bool_:
+            return self._apply_boolean_map_operation(other, "or")
+        else:
+            return self._apply_operation(other, np.bitwise_or, int_only=True)
 
     def __ior__(self, other):
         """
@@ -2055,8 +2137,40 @@ class HealSparseMap(object):
 
         Cannot be used with recarray maps.
         """
+        if self.dtype == np.bool_:
+            return self._apply_boolean_map_operation(other, "or", in_place=True)
+        else:
+            return self._apply_operation(other, np.bitwise_or, int_only=True, in_place=True)
 
-        return self._apply_operation(other, np.bitwise_or, int_only=True, in_place=True)
+    def invert(self):
+        """Perform a bitwise inversion, over the coverage pixels, in place.
+        """
+        if self.dtype != np.bool_:
+            raise NotImplementedError("Can only use invert(~) on boolean maps.")
+
+        # We invalidate the n_valid cache here.
+        self._n_valid = None
+
+        self._sparse_map[self._cov_map.nfine_per_cov:] = ~self._sparse_map[self._cov_map.nfine_per_cov:]
+        return self
+
+    def __invert__(self):
+        """
+        Perform a bit inversion, over the coverage pixels.
+
+        Only available on boolean maps.
+        """
+        if self.dtype != np.bool_:
+            raise NotImplementedError("Can only use invert(~) on boolean maps.")
+
+        sparse_map_temp = self._sparse_map.copy()
+        sparse_map_temp[self._cov_map.nfine_per_cov:] = ~sparse_map_temp[self._cov_map.nfine_per_cov:]
+        return HealSparseMap(
+            cov_map=self._cov_map.copy(),
+            sparse_map=sparse_map_temp,
+            nside_sparse=self._nside_sparse,
+            sentinel=self._sentinel,
+        )
 
     def _apply_operation(self, other, func, int_only=False, in_place=False):
         """
@@ -2067,25 +2181,25 @@ class HealSparseMap(object):
         Parameters
         ----------
         other : `int` or `float` (or numpy equivalents)
-           The other item to perform the operator on.
+            The other item to perform the operator on.
         func : `np.ufunc`
-           The numpy universal function to apply.
+            The numpy universal function to apply.
         int_only : `bool`, optional
-           Only accept integer types.  Default is False.
+            Only accept integer types.
         in_place : `bool`, optional
-           Perform operation in-place.  Default is False.
+            Perform operation in-place.
 
         Returns
         -------
         result : `HealSparseMap`
-           Resulting map
+            Resulting map
         """
         name = func.__str__()
 
         if self._is_rec_array:
             raise NotImplementedError("Cannot use %s with recarray maps" % (name))
-        if self._is_bit_packed:
-            raise NotImplementedError("Operations not yet supported for bit_packed maps")
+        if self.dtype == np.bool_:
+            raise NotImplementedError("Cannot ue %s with boolean maps" % (name))
         if int_only:
             if not self.is_integer_map:
                 raise NotImplementedError("Can only apply %s to integer maps" % (name))
@@ -2093,6 +2207,10 @@ class HealSparseMap(object):
             # If not int_only then it can't be used with a wide mask.
             if self._is_wide_mask:
                 raise NotImplementedError("Cannot use %s with wide mask maps" % (name))
+
+        if in_place:
+            # We invalidate the n_valid cache here.
+            self._n_valid = None
 
         other_int = False
         other_float = False
@@ -2151,6 +2269,128 @@ class HealSparseMap(object):
             else:
                 func(combinedSparseMap, other, out=combinedSparseMap, where=valid_sparse_pixels)
             return HealSparseMap(cov_map=self._cov_map, sparse_map=combinedSparseMap,
+                                 nside_sparse=self._nside_sparse, sentinel=self._sentinel)
+
+    def _apply_boolean_map_operation(self, other, name, in_place=False):
+        """Apply an operation to a boolean mask map.
+
+        Parameters
+        ----------
+        other : `int` or `float` (or numpy equivalents)
+            The other item to perform the operator on.
+        name : `str`
+            The name of the operation: ``and``, ``or``, or ``xor``.
+        in_place : `bool`, optional
+            Perform operation in-place.
+
+        Returns
+        -------
+        result : `HealSparseMap`
+            Resulting map
+        """
+        if name not in ("and", "or", "xor"):
+            raise NotImplementedError("_apply_boolean_map_operation does not support %s" % (name))
+
+        if in_place:
+            # We invalidate the n_valid cache here.
+            self._n_valid = None
+
+        start = self._cov_map.nfine_per_cov
+        if in_place:
+            sparse_map_temp = self._sparse_map
+        else:
+            sparse_map_temp = self._sparse_map.copy()
+
+        cov_map_temp = self._cov_map
+
+        if isinstance(other, (bool, np.bool_)):
+            # Do a straight bit operation on all pixels outside the overflow
+            # pixel.
+            start = self._cov_map.nfine_per_cov
+            if name == "and":
+                sparse_map_temp[start:] &= other
+            elif name == "or":
+                sparse_map_temp[start:] |= other
+            elif name == "xor":
+                sparse_map_temp[start:] ^= other
+        elif isinstance(other, HealSparseMap):
+            # Do an operation if these are allowed
+            if not other.dtype == np.bool_:
+                raise NotImplementedError("Can only combine a boolean map with another boolean map.")
+            if self.nside_sparse != other.nside_sparse:
+                raise NotImplementedError("Boolean map operations only supported between maps with the "
+                                          "same nside_sparse.")
+            if self.nside_coverage != other.nside_coverage:
+                raise NotImplementedError("Boolean map operations only supported between maps with the "
+                                          "same nside_coverage.")
+            if self.sentinel or other.sentinel:
+                raise NotImplementedError("Boolean map operations only supported for maps with "
+                                          "False sentinel.")
+
+            # This routine will combine the coverage maps of the two masks.
+            # We then loop over coverage pixels in the other map to do the
+            # operation.
+
+            coverage_mask = self.coverage_mask | other.coverage_mask
+            cov_pixels_combined, = coverage_mask.nonzero()
+            cov_pixels_run, = other.coverage_mask.nonzero()
+
+            new_cov_pix, = (coverage_mask & ~self.coverage_mask).nonzero()
+            if in_place:
+                new_cov_pix, = (coverage_mask & ~self.coverage_mask).nonzero()
+                self._reserve_cov_pix(new_cov_pix)
+                cov_map_temp = self._cov_map
+                sparse_map_temp = self._sparse_map
+            else:
+                # Extend the coverage pixel map and copy data into new buffer.
+                cov_map_temp = self._cov_map.append_pixels(len(self._sparse_map), new_cov_pix, check=False)
+                nsparse = (cov_pixels_combined.size + 1)*cov_map_temp.nfine_per_cov
+                if self._is_bit_packed:
+                    sparse_map_temp = _PackedBoolArray(size=nsparse)
+                else:
+                    sparse_map_temp = np.zeros(nsparse, dtype=np.bool_)
+
+                sparse_map_temp[0: len(self._sparse_map)] = self._sparse_map[0: len(self._sparse_map)]
+
+            for cov_pixel in cov_pixels_run:
+                start_self = self._cov_map[cov_pixel] + cov_pixel*cov_map_temp.nfine_per_cov
+                end_self = start_self + cov_map_temp.nfine_per_cov
+                start_other = other._cov_map[cov_pixel] + cov_pixel*cov_map_temp.nfine_per_cov
+                end_other = start_other + cov_map_temp.nfine_per_cov
+                start_temp = cov_map_temp[cov_pixel] + cov_pixel*cov_map_temp.nfine_per_cov
+                end_temp = start_temp + cov_map_temp.nfine_per_cov
+
+                # The LHS will be guaranteed to have coverage (from above),
+                # and the RHS may point to the overflow bin or data.
+
+                if not in_place:
+                    # Need to copy data.
+                    sparse_map_temp[start_temp: end_temp] = self._sparse_map[start_self: end_self]
+
+                lhs = sparse_map_temp[start_temp: end_temp]
+                if self._is_bit_packed == other._is_bit_packed:
+                    # These match, no conversions necessary.
+                    rhs = other._sparse_map[start_other: end_other]
+                elif self._is_bit_packed and not other._is_bit_packed:
+                    # Convert the RHS to a _PackedBoolArray.
+                    rhs = _PackedBoolArray.from_boolean_array(other._sparse_map[start_other: end_other])
+                elif not self._is_bit_packed and other._is_bit_packed:
+                    # Expand the RHS to a regular boolean array.
+                    rhs = np.array(other._sparse_map[start_other: end_other])
+
+                if name == "and":
+                    lhs &= rhs
+                elif name == "or":
+                    lhs |= rhs
+                elif name == "xor":
+                    lhs ^= rhs
+        else:
+            raise NotImplementedError("Can only use a boolean or a boolean map with operation %s" % (name))
+
+        if in_place:
+            return self
+        else:
+            return HealSparseMap(cov_map=cov_map_temp, sparse_map=sparse_map_temp,
                                  nside_sparse=self._nside_sparse, sentinel=self._sentinel)
 
     def __copy__(self):
