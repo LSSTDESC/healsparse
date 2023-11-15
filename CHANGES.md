@@ -3,6 +3,7 @@ Version 1.8.1
 - Add CHANGES.md
 - Add boolean mask operations (and, or, xor, invert).
 - When setting pixels with None, do not expand the coverage mask.
+- Add get_valid_pixels_per_covpix() and valid_pixels_single_covpix() to save memory when computing valid_pixels in chunks.
 
 Version 1.8.0
 -------------
