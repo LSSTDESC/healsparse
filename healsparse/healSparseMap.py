@@ -1315,11 +1315,17 @@ class HealSparseMap(object):
 
     def get_valid_pixels_per_covpix(self):
         """
-        Get all single covpixel valid_pixels, one at a time.
+        Generator to get valid_pixels associated with each coverage pixel,
+        yielded one coverage pixel at a time.
 
         Yields
         ------
         single_pixel_valid_pixels : `np.ndarray`
+
+        Examples
+        --------
+        >>> for valid_pixels in m.get_valid_pixels_per_covpix():
+        ...     print(valid_pixels)
         """
         cov_pixels, = np.where(self._cov_map.coverage_mask)
 
@@ -1878,11 +1884,20 @@ class HealSparseMap(object):
 
     def get_covpix_maps(self):
         """
-        Get all single covpixel maps, one at a time.
+        Generator to get individual maps associated with each coverage pixel,
+        yielded one coverage pixel at a time.
+
+        This routine makes a copy of the data for each individual coverage
+        pixel map.
 
         Yields
         ------
         single_pixel_map : `HealSparseMap`
+
+        Examples
+        --------
+        >>> for covpix_map in m.get_covpix_maps():
+        ...     print(covpix_map.valid_pixels)
         """
         cov_pixels, = np.where(self._cov_map.coverage_mask)
 
