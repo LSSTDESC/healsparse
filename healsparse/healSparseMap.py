@@ -1313,6 +1313,58 @@ class HealSparseMap(object):
         self._n_valid = n_valid
         return n_valid
 
+    def get_valid_pixels_per_covpix(self):
+        """
+        Get all single covpixel valid_pixels, one at a time.
+
+        Yields
+        ------
+        single_pixel_valid_pixels : `np.ndarray`
+        """
+        cov_pixels, = np.where(self._cov_map.coverage_mask)
+
+        for cov_pix in cov_pixels:
+            yield self.valid_pixels_single_covpix(cov_pix)
+
+    def valid_pixels_single_covpix(self, cov_pix):
+        """Get an array with the valid pixels in a single coverage pixel.
+
+        This uses much less memory than a full valid_pixels list for large
+        maps.
+
+        Parameters
+        ----------
+        cov_pix : `int`
+            Coverage pixel to get valid pixels.
+
+        Returns
+        -------
+        valid_pixels : `np.ndarray`
+            Array of valid pixels in the given coverage pixel.
+        """
+        # Check if this is in the coverage mask.
+        if not self.coverage_mask[cov_pix]:
+            return np.array([], dtype=np.int64)
+
+        # This is the start of the coverage pixel slice.
+        start = (self._cov_map[cov_pix] +
+                 self._cov_map.nfine_per_cov*cov_pix)
+        s = slice(start, start + self._cov_map.nfine_per_cov)
+
+        if self._is_rec_array:
+            valid_pixel_inds, = np.where(self._sparse_map[self._primary][s] != self._sentinel)
+        elif self._is_wide_mask:
+            valid_pixel_inds, = np.where(np.any(self._sparse_map[s, :] != self._sentinel, axis=1))
+        elif self._is_bit_packed:
+            valid_pixel_inds, = np.where(np.array(self._sparse_map[s]) != self._sentinel)
+        else:
+            valid_pixel_inds, = np.where(self._sparse_map[s] != self._sentinel)
+
+        # We need to get the correct offsets for our valid pixel subset.
+        return (valid_pixel_inds -
+                self._cov_map[self._cov_map.cov_pixels_from_index(start)] +
+                start)
+
     def get_valid_area(self, degrees=True):
         """
         Get the area covered by valid pixels

@@ -30,6 +30,11 @@ class SingleCovpixTestCase(unittest.TestCase):
             testing.assert_array_equal(sub_map.valid_pixels, pixels[i])
             testing.assert_almost_equal(sub_map[pixels[i]], 1.0)
 
+            # Test getting the cov_pixel valid_pixels from the full map.
+            sub_valid_pixels = sparse_map.valid_pixels_single_covpix(cov_pixel)
+            self.assertEqual(len(sub_valid_pixels), 1)
+            testing.assert_array_equal(sub_valid_pixels, pixels[i])
+
     def test_get_single_pixel_in_map_recarray(self):
         """
         Test getting a single coverage pixel in a recarray map.
@@ -59,6 +64,11 @@ class SingleCovpixTestCase(unittest.TestCase):
             testing.assert_almost_equal(sub_map[pixels[i]]['a'], 1.0)
             self.assertEqual(sub_map[pixels[i]]['b'], 1)
 
+            # Test getting the cov_pixel valid_pixels from the full map.
+            sub_valid_pixels = sparse_map.valid_pixels_single_covpix(cov_pixel)
+            self.assertEqual(len(sub_valid_pixels), 1)
+            testing.assert_array_equal(sub_valid_pixels, pixels[i])
+
     def test_get_single_pixel_in_map_wide(self):
         """
         Test getting a single coverage pixel in a wide mask map.
@@ -87,6 +97,11 @@ class SingleCovpixTestCase(unittest.TestCase):
             self.assertEqual(sub_map.check_bits_pix(pixels[i], [4]), True)
             self.assertEqual(sub_map.check_bits_pix(pixels[i], [13]), True)
 
+            # Test getting the cov_pixel valid_pixels from the full map.
+            sub_valid_pixels = sparse_map.valid_pixels_single_covpix(cov_pixel)
+            self.assertEqual(len(sub_valid_pixels), 1)
+            testing.assert_array_equal(sub_valid_pixels, pixels[i])
+
     def test_get_single_pixel_not_in_map(self):
         """
         Test getting a single coverage pixel map that is not in the map.
@@ -105,6 +120,9 @@ class SingleCovpixTestCase(unittest.TestCase):
         self.assertEqual(len(sub_cov_pixels), 0)
         self.assertEqual(sub_map.n_valid, 0)
         self.assertEqual(len(sub_map.valid_pixels), 0)
+
+        sub_valid_pixels = sparse_map.valid_pixels_single_covpix(40)
+        self.assertEqual(len(sub_valid_pixels), 0)
 
     def test_single_pixel_generator(self):
         """
@@ -129,6 +147,10 @@ class SingleCovpixTestCase(unittest.TestCase):
             self.assertEqual(sub_map.n_valid, 1)
             testing.assert_array_equal(sub_map.valid_pixels, pixels[i])
             testing.assert_almost_equal(sub_map[pixels[i]], 1.0)
+
+        for i, sub_valid_pixels in enumerate(sparse_map.get_valid_pixels_per_covpix()):
+            self.assertEqual(len(sub_valid_pixels), 1)
+            testing.assert_array_equal(sub_valid_pixels, pixels[i])
 
 
 if __name__ == '__main__':
