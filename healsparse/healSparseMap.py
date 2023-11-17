@@ -675,6 +675,72 @@ class HealSparseMap(object):
                 elif operation == 'and':
                     np.bitwise_and.at(self._sparse_map[oldsize:], _indices, _values[out_cov])
 
+    def update_values_pixel_ranges(self, pixel_ranges, value, operation="replace"):
+        """
+        Update a set of pixel ranges with a given value.  Not multiple values.
+        """
+        _pixel_ranges = np.atleast_2d(pixel_ranges)
+
+        # Check that pixel ranges is the correct shape.
+        if _pixel_ranges.ndim != 2 or _pixel_ranges.shape[1] != 2 or _pixel_ranges.dtype != np.int64:
+            raise ValueError("pixel_ranges must be a (N, 2) array of np.int64.")
+
+        # Compute the coverage pixels.
+        cov_pix_ranges = np.right_shift(_pixel_ranges, self._cov_map.bit_shift)
+
+        # Which coverage pixels are needed?  This is the trick.
+        # Can we use a new expander in hpgeom for this?  Possibly.
+        # Definitely want to expose that, with inclusive/exclusive.
+        # We can also probably compress/uniqify along the first axis.
+        cov_pix_to_set = np.zeros(np.sum(cov_pix_ranges[:, 1] + 1 - cov_pix_ranges[:, 0]), dtype=np.int64)
+        counter = 0
+        for i in range(cov_pix_ranges.shape[0]):
+            cov_pix_to_set[counter: counter + cov_pix_ranges[i, 1] + 1 - cov_pix_ranges[i, 0]] = np.arange(cov_pix_ranges[i, 0], cov_pix_ranges[i, 1] + 1)
+            counter += (cov_pix_ranges[i, 1] + 1 - cov_pix_ranges[i, 0])
+        cov_pix_to_set = np.unique(cov_pix_to_set)
+
+        cov_mask = self.coverage_mask
+
+        new_cov_pixels = cov_pix_to_set[~cov_mask[cov_pix_to_set]]
+
+        if len(new_cov_pixels) > 0:
+            self._reserve_cov_pix(new_cov_pixels)
+
+        # Check which of these ranges cover more than one pixel?
+        delta_pix = _pixel_ranges[:, 1] - _pixel_ranges[:, 0]
+        delta_covpix = cov_pix_ranges[:, 1] - cov_pix_ranges[:, 0]
+
+        covpix_start_values = (self._cov_map[cov_pix_ranges.ravel()] + self._cov_map.nfine_per_cov*cov_pix_ranges.ravel()).reshape(cov_pix_ranges.shape)
+        covpix_offset_values = self._cov_map[self._cov_map.cov_pixels_from_index(covpix_start_values.ravel())].reshape(cov_pix_ranges.shape)
+
+        # Loop over ranges.
+        for i in range(_pixel_ranges.shape[0]):
+            if delta_covpix[i] > 0:
+                # This range overlaps multiple coverage pixels.
+
+                # The first coverage pixel will be partly covered.
+                start = _pixel_ranges[i, 0] + covpix_offset_values[i, 0]
+                stop = self._cov_map[cov_pix_ranges[i, 0]] + self._cov_map.nfine_per_cov*(cov_pix_ranges[i, 0] + 1)
+                self._sparse_map[start: stop] = value
+
+                # The middle coverage pixels will be fully covered.
+                for cov_pix_full in range(cov_pix_ranges[i, 0] + 1, cov_pix_ranges[i, 1]):
+                    start = (self._cov_map[cov_pix_full] + self._cov_map.nfine_per_cov*cov_pix_full)
+                    stop = start + self._cov_map.nfine_per_cov
+                    self._sparse_map[start: stop] = value
+
+                # The final coverage pixel will be partly covered.
+                start = self._cov_map[cov_pix_ranges[i, 1]] + self._cov_map.nfine_per_cov*(cov_pix_ranges[i, 1])
+                stop = _pixel_ranges[i, 1] + covpix_offset_values[i, 1]
+                self._sparse_map[start: stop] = value
+            else:
+                # This range is fully contained in a coverage pixel.
+                start = _pixel_ranges[i, 0] + covpix_offset_values[i, 0]
+                stop = start + delta_pix[i]
+
+                # Check if replace or not or what.
+                self._sparse_map[start: stop] = value
+
     def set_bits_pix(self, pixels, bits, nest=True):
         """
         Set bits of a wide_mask map.

@@ -120,6 +120,17 @@ class GeomBase(object):
         """
         raise NotImplementedError('Implement get_pixels')
 
+    def get_pixel_ranges(self, *, nside):
+        """
+        Get pixel ranges for this geometric shape.
+
+        Parameters
+        ----------
+        nside : `int`
+            HEALPix nside for the pixels.
+        """
+        raise NotImplementedError("Implement get_pixel_ranges")
+
     def get_map(self, *, nside_coverage, nside_sparse, dtype, wide_mask_maxbits=None):
         """
         Get a healsparse map corresponding to this geometric primitive.
@@ -258,6 +269,17 @@ class Circle(GeomBase):
             inclusive=False,
         )
 
+    def get_pixel_ranges(self, *, nside):
+        return hpg.query_circle(
+            nside,
+            self._ra,
+            self._dec,
+            self._radius,
+            nest=True,
+            inclusive=False,
+            return_pixel_ranges=True,
+        )
+
     def __repr__(self):
         s = 'Circle(ra=%.16g, dec=%.16g, radius=%.16g, value=%s)'
         return s % (self._ra, self._dec, self._radius, repr(self._value))
@@ -315,15 +337,23 @@ class Polygon(GeomBase):
         return self._vertices
 
     def get_pixels(self, *, nside):
-        pixels = hpg.query_polygon(
+       return hpg.query_polygon(
+           nside,
+           self._ra,
+           self._dec,
+           nest=True,
+           inclusive=False,
+        )
+
+    def get_pixel_ranges(self, *, nside):
+        return hpg.query_polygon(
             nside,
             self._ra,
             self._dec,
             nest=True,
             inclusive=False,
+            return_pixel_ranges=True,
         )
-
-        return pixels
 
     def __repr__(self):
         ras = repr(self._ra)
@@ -413,7 +443,20 @@ class Ellipse(GeomBase):
             self._semi_minor,
             self._alpha,
             nest=True,
-            inclusive=False
+            inclusive=False,
+        )
+
+    def get_pixel_ranges(self, *, nside):
+        return hpg.query_ellipse(
+            nside,
+            self._ra,
+            self._dec,
+            self._semi_major,
+            self._semi_minor,
+            self._alpha,
+            nest=True,
+            inclusive=False,
+            return_pixel_ranges=True,
         )
 
     def __repr__(self):
