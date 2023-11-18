@@ -337,12 +337,12 @@ class Polygon(GeomBase):
         return self._vertices
 
     def get_pixels(self, *, nside):
-       return hpg.query_polygon(
-           nside,
-           self._ra,
-           self._dec,
-           nest=True,
-           inclusive=False,
+        return hpg.query_polygon(
+            nside,
+            self._ra,
+            self._dec,
+            nest=True,
+            inclusive=False,
         )
 
     def get_pixel_ranges(self, *, nside):

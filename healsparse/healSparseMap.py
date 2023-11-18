@@ -695,7 +695,9 @@ class HealSparseMap(object):
         cov_pix_to_set = np.zeros(np.sum(cov_pix_ranges[:, 1] + 1 - cov_pix_ranges[:, 0]), dtype=np.int64)
         counter = 0
         for i in range(cov_pix_ranges.shape[0]):
-            cov_pix_to_set[counter: counter + cov_pix_ranges[i, 1] + 1 - cov_pix_ranges[i, 0]] = np.arange(cov_pix_ranges[i, 0], cov_pix_ranges[i, 1] + 1)
+            cov_pix_to_set[counter: counter + cov_pix_ranges[i, 1] + 1 - cov_pix_ranges[i, 0]] = (
+                np.arange(cov_pix_ranges[i, 0], cov_pix_ranges[i, 1] + 1)
+            )
             counter += (cov_pix_ranges[i, 1] + 1 - cov_pix_ranges[i, 0])
         cov_pix_to_set = np.unique(cov_pix_to_set)
 
@@ -710,8 +712,13 @@ class HealSparseMap(object):
         delta_pix = _pixel_ranges[:, 1] - _pixel_ranges[:, 0]
         delta_covpix = cov_pix_ranges[:, 1] - cov_pix_ranges[:, 0]
 
-        covpix_start_values = (self._cov_map[cov_pix_ranges.ravel()] + self._cov_map.nfine_per_cov*cov_pix_ranges.ravel()).reshape(cov_pix_ranges.shape)
-        covpix_offset_values = self._cov_map[self._cov_map.cov_pixels_from_index(covpix_start_values.ravel())].reshape(cov_pix_ranges.shape)
+        covpix_start_values = (self._cov_map[cov_pix_ranges.ravel()] +
+                               self._cov_map.nfine_per_cov*cov_pix_ranges.ravel()
+                               ).reshape(cov_pix_ranges.shape)
+
+        covpix_offset_values = self._cov_map[self._cov_map.cov_pixels_from_index(
+            covpix_start_values.ravel()
+        )].reshape(cov_pix_ranges.shape)
 
         # Loop over ranges.
         for i in range(_pixel_ranges.shape[0]):
@@ -720,7 +727,10 @@ class HealSparseMap(object):
 
                 # The first coverage pixel will be partly covered.
                 start = _pixel_ranges[i, 0] + covpix_offset_values[i, 0]
-                stop = self._cov_map[cov_pix_ranges[i, 0]] + self._cov_map.nfine_per_cov*(cov_pix_ranges[i, 0] + 1)
+                stop = (
+                    self._cov_map[cov_pix_ranges[i, 0]] +
+                    self._cov_map.nfine_per_cov*(cov_pix_ranges[i, 0] + 1)
+                )
                 self._sparse_map[start: stop] = value
 
                 # The middle coverage pixels will be fully covered.
@@ -730,7 +740,9 @@ class HealSparseMap(object):
                     self._sparse_map[start: stop] = value
 
                 # The final coverage pixel will be partly covered.
-                start = self._cov_map[cov_pix_ranges[i, 1]] + self._cov_map.nfine_per_cov*(cov_pix_ranges[i, 1])
+                start = (self._cov_map[cov_pix_ranges[i, 1]] +
+                         self._cov_map.nfine_per_cov*(cov_pix_ranges[i, 1])
+                         )
                 stop = _pixel_ranges[i, 1] + covpix_offset_values[i, 1]
                 self._sparse_map[start: stop] = value
             else:
