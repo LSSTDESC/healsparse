@@ -208,7 +208,7 @@ class _PackedBoolArray:
                 if isinstance(value, (bool, np.bool_)):
                     if value:
                         # This is all True.
-                        self._data[s8] = np.uint8(-1)
+                        self._data[s8] = np.array(-1).astype(np.uint8)
                     else:
                         # This is all False.
                         self._data[s8] = np.uint8(0)
