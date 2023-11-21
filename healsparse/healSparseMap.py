@@ -519,9 +519,10 @@ class HealSparseMap(object):
             no_append = True
 
         if operation != 'replace':
-            if self._is_bit_packed:
-                raise NotImplementedError("bit_packed maps only support ``replace``.")
-            if operation in ['or', 'and']:
+            if self.dtype == np.bool_:
+                if operation not in ['or', 'and']:
+                    raise NotImplementedError("Booleam maps Can only use replace/and/or operations.")
+            elif operation in ['or', 'and']:
                 if not self.is_integer_map or self._sentinel != 0:
                     raise ValueError("Can only use and/or with integer map with 0 sentinel")
             elif operation == 'add':
@@ -529,12 +530,6 @@ class HealSparseMap(object):
                     raise ValueError("Cannot use 'add' operation with a recarray map.")
             else:
                 raise ValueError("Only 'replace', 'add', 'or', and 'and' are supported operations")
-
-        if operation == 'replace':
-            # Check for unique pixel positions
-            if hasattr(pixels, "__len__"):
-                if len(np.unique(pixels)) < len(pixels):
-                    raise ValueError("List of pixels must be unique if operation='replace'")
 
         # If _not_ recarray, we can use a single int/float
         is_single_value = False
@@ -579,11 +574,6 @@ class HealSparseMap(object):
             # Nothing to do
             return
 
-        if not nest:
-            _pix = hpg.ring_to_nest(self._nside_sparse, pixels)
-        else:
-            _pix = pixels
-
         # Check numpy data type for everything but wide_mask single value
         if not self._is_wide_mask or (self._is_wide_mask and not is_single_value):
             if self._is_rec_array:
@@ -591,6 +581,19 @@ class HealSparseMap(object):
                     raise ValueError("Data-type mismatch between sparse_map and values")
             elif self._sparse_map.dtype.type != _values.dtype.type:
                 raise ValueError("Data-type mismatch between sparse_map and values")
+
+        if operation == 'replace':
+            # Check for unique pixel positions
+            if hasattr(pixels, "__len__"):
+                if len(np.unique(pixels)) < len(pixels):
+                    raise ValueError("List of pixels must be unique if operation='replace'")
+
+        # FIXME: Check for pixel ranges, call the special function.
+
+        if not nest:
+            _pix = hpg.ring_to_nest(self._nside_sparse, pixels)
+        else:
+            _pix = pixels
 
         # Check array lengths
         if not is_single_value and len(_values) != pixels.size:
@@ -620,9 +623,15 @@ class HealSparseMap(object):
                     self._sparse_map[_indices[self._sparse_map[_indices] == self._sentinel]] = 0
                 np.add.at(self._sparse_map, _indices, _values[0])
             elif operation == 'or':
-                np.bitwise_or.at(self._sparse_map, _indices, _values[0])
+                if self._is_bit_packed:
+                    self._sparse_map[_indices] |= _values[0]
+                else:
+                    np.bitwise_or.at(self._sparse_map, _indices, _values[0])
             elif operation == 'and':
-                np.bitwise_and.at(self._sparse_map, _indices, _values[0])
+                if self._is_bit_packed:
+                    self._sparse_map[_indices] &= _values[0]
+                else:
+                    np.bitwise_and.at(self._sparse_map, _indices, _values[0])
         else:
             if operation == 'replace':
                 self._sparse_map[_indices] = _values[in_cov]
@@ -632,9 +641,15 @@ class HealSparseMap(object):
                     self._sparse_map[_indices[self._sparse_map[_indices] == self._sentinel]] = 0
                 np.add.at(self._sparse_map, _indices, _values[in_cov])
             elif operation == 'or':
-                np.bitwise_or.at(self._sparse_map, _indices, _values[in_cov])
+                if self._is_bit_packed:
+                    self._sparse_map[_indices] |= _values[in_cov]
+                else:
+                    np.bitwise_or.at(self._sparse_map, _indices, _values[in_cov])
             elif operation == 'and':
-                np.bitwise_and.at(self._sparse_map, _indices, _values[in_cov])
+                if self._is_bit_packed:
+                    self._sparse_map[_indices] &= _values[in_cov]
+                else:
+                    np.bitwise_and.at(self._sparse_map, _indices, _values[in_cov])
 
         # Update the coverage map for the rest of the pixels (if necessary)
         if out_cov.sum() > 0 and not no_append:
@@ -659,9 +674,15 @@ class HealSparseMap(object):
                         self._sparse_map[oldsize:][_indices[self._sparse_map[_indices] == self._sentinel]] = 0
                     np.add.at(self._sparse_map[oldsize:], _indices, _values[0])
                 elif operation == 'or':
-                    np.bitwise_or.at(self._sparse_map[oldsize:], _indices, _values[0])
+                    if self._is_bit_packed:
+                        self._sparse_map[oldsize:][_indices] |= _values[0]
+                    else:
+                        np.bitwise_or.at(self._sparse_map[oldsize:], _indices, _values[0])
                 elif operation == 'and':
-                    np.bitwise_and.at(self._sparse_map[oldsize:], _indices, _values[0])
+                    if self._is_bit_packed:
+                        self._sparse_map[oldsize:][_indices] &= _values[0]
+                    else:
+                        np.bitwise_and.at(self._sparse_map[oldsize:], _indices, _values[0])
             else:
                 if operation == 'replace':
                     self._sparse_map[oldsize:][_indices] = _values[out_cov]
@@ -671,9 +692,15 @@ class HealSparseMap(object):
                         self._sparse_map[oldsize:][_indices[self._sparse_map[_indices] == self._sentinel]] = 0
                     np.add.at(self._sparse_map[oldsize:], _indices, _values[out_cov])
                 elif operation == 'or':
-                    np.bitwise_or.at(self._sparse_map[oldsize:], _indices, _values[out_cov])
+                    if self._is_bit_packed:
+                        self._sparse_map[oldsize:][_indices] |= _values[out_cov]
+                    else:
+                        np.bitwise_or.at(self._sparse_map[oldsize:], _indices, _values[out_cov])
                 elif operation == 'and':
-                    np.bitwise_and.at(self._sparse_map[oldsize:], _indices, _values[out_cov])
+                    if self._is_bit_packed:
+                        self._sparse_map[oldsize:][_indices] &= _values[out_cov]
+                    else:
+                        np.bitwise_and.at(self._sparse_map[oldsize:], _indices, _values[out_cov])
 
     def update_values_pixel_ranges(self, pixel_ranges, value, operation="replace"):
         """

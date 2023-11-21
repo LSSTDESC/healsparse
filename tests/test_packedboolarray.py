@@ -634,6 +634,58 @@ class HealSparseBitPackedTestCase(unittest.TestCase):
             self.assertEqual(bitpacked_map.n_valid, sparse_map.n_valid)
             testing.assert_array_equal(bitpacked_map.valid_pixels, sparse_map.valid_pixels)
 
+    def test_bit_packed_update_replace(self):
+        nside_coverage = 32
+        nside_map = 2**10
+
+        bitpacked_map = HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_, bit_packed=True)
+        bool_map = HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_)
+
+        bitpacked_map.update_values_pix(np.arange(10000, 20000), True, operation="replace")
+        bool_map.update_values_pix(np.arange(10000, 20000), True, operation="replace")
+
+        testing.assert_array_equal(bitpacked_map.valid_pixels, bool_map.valid_pixels)
+
+    def test_bit_packed_update_and(self):
+        nside_coverage = 32
+        nside_map = 2**10
+
+        bitpacked_map = HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_, bit_packed=True)
+        bool_map = HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_)
+
+        bitpacked_map[10000: 20000] = True
+        bool_map[10000: 20000] = True
+
+        bitpacked_map.update_values_pix(np.arange(15000, 25000), True, operation="and")
+        bool_map.update_values_pix(np.arange(15000, 25000), True, operation="and")
+
+        testing.assert_array_equal(bitpacked_map.valid_pixels, bool_map.valid_pixels)
+
+        bitpacked_map.update_values_pix(np.arange(15000, 25000), False, operation="and")
+        bool_map.update_values_pix(np.arange(15000, 25000), False, operation="and")
+
+        testing.assert_array_equal(bitpacked_map.valid_pixels, bool_map.valid_pixels)
+
+    def test_bit_packed_update_or(self):
+        nside_coverage = 32
+        nside_map = 2**10
+
+        bitpacked_map = HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_, bit_packed=True)
+        bool_map = HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_)
+
+        bitpacked_map[10000: 20000] = True
+        bool_map[10000: 20000] = True
+
+        bitpacked_map.update_values_pix(np.arange(15000, 25000), True, operation="or")
+        bool_map.update_values_pix(np.arange(15000, 25000), True, operation="or")
+
+        testing.assert_array_equal(bitpacked_map.valid_pixels, bool_map.valid_pixels)
+
+        bitpacked_map.update_values_pix(np.arange(15000, 30000), False, operation="or")
+        bool_map.update_values_pix(np.arange(15000, 30000), False, operation="or")
+
+        testing.assert_array_equal(bitpacked_map.valid_pixels, bool_map.valid_pixels)
+
     def setUp(self):
         self.test_dir = None
 
