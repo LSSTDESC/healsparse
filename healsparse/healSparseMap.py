@@ -626,44 +626,33 @@ class HealSparseMap(object):
         in_cov = cov_mask[ipnest_cov]
         out_cov = ~cov_mask[ipnest_cov]
 
+        # This little internal function is used by several modes below
+        # and it is much clearer to pull it out.
+        def _do_operation_on_sparse_map(operation, sparse_map, indices, values):
+            if operation == "replace":
+                sparse_map[indices] = values
+            elif operation == "add":
+                # Put in a check to reset uncovered pixels to 0
+                if self._sentinel != 0:
+                    sparse_map[indices[sparse_map[indices] == self._sentinel]] = 0
+                np.add.at(sparse_map, indices, values)
+            elif operation == "or":
+                if self._is_bit_packed:
+                    sparse_map[indices] |= values
+                else:
+                    np.bitwise_or.at(sparse_map, indices, values)
+            elif operation == "and":
+                if self._is_bit_packed:
+                    sparse_map[indices] &= values
+                else:
+                    np.bitwise_and.at(sparse_map, indices, values)
+
         # Replace values for those pixels in the coverage map
         _indices = _pix[in_cov] + self._cov_map[ipnest_cov[in_cov]]
         if is_single_value:
-            if operation == 'replace':
-                self._sparse_map[_indices] = _values[0]
-            elif operation == 'add':
-                # Put in a check to reset uncovered pixels to 0
-                if self._sentinel != 0:
-                    self._sparse_map[_indices[self._sparse_map[_indices] == self._sentinel]] = 0
-                np.add.at(self._sparse_map, _indices, _values[0])
-            elif operation == 'or':
-                if self._is_bit_packed:
-                    self._sparse_map[_indices] |= _values[0]
-                else:
-                    np.bitwise_or.at(self._sparse_map, _indices, _values[0])
-            elif operation == 'and':
-                if self._is_bit_packed:
-                    self._sparse_map[_indices] &= _values[0]
-                else:
-                    np.bitwise_and.at(self._sparse_map, _indices, _values[0])
+            _do_operation_on_sparse_map(operation, self._sparse_map, _indices, _values[0])
         else:
-            if operation == 'replace':
-                self._sparse_map[_indices] = _values[in_cov]
-            elif operation == 'add':
-                # Put in a check to reset uncovered pixels to 0
-                if self._sentinel != 0:
-                    self._sparse_map[_indices[self._sparse_map[_indices] == self._sentinel]] = 0
-                np.add.at(self._sparse_map, _indices, _values[in_cov])
-            elif operation == 'or':
-                if self._is_bit_packed:
-                    self._sparse_map[_indices] |= _values[in_cov]
-                else:
-                    np.bitwise_or.at(self._sparse_map, _indices, _values[in_cov])
-            elif operation == 'and':
-                if self._is_bit_packed:
-                    self._sparse_map[_indices] &= _values[in_cov]
-                else:
-                    np.bitwise_and.at(self._sparse_map, _indices, _values[in_cov])
+            _do_operation_on_sparse_map(operation, self._sparse_map, _indices, _values[in_cov])
 
         # Update the coverage map for the rest of the pixels (if necessary)
         if out_cov.sum() > 0 and not no_append:
@@ -680,41 +669,9 @@ class HealSparseMap(object):
 
             _indices = _pix[out_cov] + self._cov_map[ipnest_cov[out_cov]] - oldsize
             if is_single_value:
-                if operation == 'replace':
-                    self._sparse_map[oldsize:][_indices] = _values[0]
-                elif operation == 'add':
-                    # Put in a check to reset uncovered pixels to 0
-                    if self._sentinel != 0:
-                        self._sparse_map[oldsize:][_indices[self._sparse_map[_indices] == self._sentinel]] = 0
-                    np.add.at(self._sparse_map[oldsize:], _indices, _values[0])
-                elif operation == 'or':
-                    if self._is_bit_packed:
-                        self._sparse_map[oldsize:][_indices] |= _values[0]
-                    else:
-                        np.bitwise_or.at(self._sparse_map[oldsize:], _indices, _values[0])
-                elif operation == 'and':
-                    if self._is_bit_packed:
-                        self._sparse_map[oldsize:][_indices] &= _values[0]
-                    else:
-                        np.bitwise_and.at(self._sparse_map[oldsize:], _indices, _values[0])
+                _do_operation_on_sparse_map(operation, self._sparse_map[oldsize:], _indices, _values[0])
             else:
-                if operation == 'replace':
-                    self._sparse_map[oldsize:][_indices] = _values[out_cov]
-                elif operation == 'add':
-                    # Put in a check to reset uncovered pixels to 0
-                    if self._sentinel != 0:
-                        self._sparse_map[oldsize:][_indices[self._sparse_map[_indices] == self._sentinel]] = 0
-                    np.add.at(self._sparse_map[oldsize:], _indices, _values[out_cov])
-                elif operation == 'or':
-                    if self._is_bit_packed:
-                        self._sparse_map[oldsize:][_indices] |= _values[out_cov]
-                    else:
-                        np.bitwise_or.at(self._sparse_map[oldsize:], _indices, _values[out_cov])
-                elif operation == 'and':
-                    if self._is_bit_packed:
-                        self._sparse_map[oldsize:][_indices] &= _values[out_cov]
-                    else:
-                        np.bitwise_and.at(self._sparse_map[oldsize:], _indices, _values[out_cov])
+                _do_operation_on_sparse_map(operation, self._sparse_map[oldsize:], _indices, _values[out_cov])
 
     def _update_values_pixel_ranges(self, pixel_ranges, value, operation):
         """
