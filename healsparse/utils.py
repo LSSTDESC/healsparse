@@ -5,6 +5,7 @@ import numbers
 
 WIDE_NBIT = 8
 WIDE_MASK = np.uint8
+PIXEL_RANGE_THRESHOLD = 100_000
 
 
 def reduce_array(x, reduction='mean', axis=2, weights=None):

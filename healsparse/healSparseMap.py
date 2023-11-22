@@ -3,7 +3,8 @@ import hpgeom as hpg
 import numbers
 
 from .healSparseCoverage import HealSparseCoverage
-from .utils import reduce_array, check_sentinel, _get_field_and_bitval, WIDE_NBIT, WIDE_MASK
+from .utils import reduce_array, check_sentinel, _get_field_and_bitval
+from .utils import WIDE_NBIT, WIDE_MASK, PIXEL_RANGE_THRESHOLD
 from .utils import is_integer_value, _compute_bitshift
 from .io_map import _read_map, _write_map, _write_moc
 from .packedBoolArray import _PackedBoolArray
@@ -589,8 +590,21 @@ class HealSparseMap(object):
                     raise ValueError("List of pixels must be unique if operation='replace'")
 
         # FIXME: Check for pixel ranges, call the special function.
+        if pixels.ndim == 2 and pixels.shape[1] == 2:
+            # These are pixel ranges.
+            if not is_single_value:
+                raise ValueError("Can only use a single value with pixel ranges (N, 2) input.")
+            if not nest:
+                raise ValueError("Can only use pixel ranges with nest ordering.")
 
-        if not nest:
+            # At the risk of premature optimization, we only call the special function
+            # if the number of pixels is above some threshold.
+            pixels_to_set = np.sum(pixels[:, 1] - pixels[:, 0])
+            if pixels_to_set > PIXEL_RANGE_THRESHOLD:
+                return self._update_values_pixel_ranges(pixels, values[0], operation)
+            else:
+                _pix = hpg.pixel_ranges_to_pixels(pixels)
+        elif not nest:
             _pix = hpg.ring_to_nest(self._nside_sparse, pixels)
         else:
             _pix = pixels
@@ -702,30 +716,22 @@ class HealSparseMap(object):
                     else:
                         np.bitwise_and.at(self._sparse_map[oldsize:], _indices, _values[out_cov])
 
-    def update_values_pixel_ranges(self, pixel_ranges, value, operation="replace"):
+    def _update_values_pixel_ranges(self, pixel_ranges, value, operation):
         """
         Update a set of pixel ranges with a given value.  Not multiple values.
+
+        Everything here has been previously checked.
         """
-        _pixel_ranges = np.atleast_2d(pixel_ranges)
+        # _pixel_ranges = np.atleast_2d(pixel_ranges)
 
         # Check that pixel ranges is the correct shape.
-        if _pixel_ranges.ndim != 2 or _pixel_ranges.shape[1] != 2 or _pixel_ranges.dtype != np.int64:
-            raise ValueError("pixel_ranges must be a (N, 2) array of np.int64.")
+        # if _pixel_ranges.ndim != 2 or _pixel_ranges.shape[1] != 2 or _pixel_ranges.dtype != np.int64:
+        #     raise ValueError("pixel_ranges must be a (N, 2) array of np.int64.")
 
         # Compute the coverage pixels.
-        cov_pix_ranges = np.right_shift(_pixel_ranges, self._cov_map.bit_shift)
-
-        # Which coverage pixels are needed?  This is the trick.
-        # Can we use a new expander in hpgeom for this?  Possibly.
-        # Definitely want to expose that, with inclusive/exclusive.
-        # We can also probably compress/uniqify along the first axis.
-        cov_pix_to_set = np.zeros(np.sum(cov_pix_ranges[:, 1] + 1 - cov_pix_ranges[:, 0]), dtype=np.int64)
-        counter = 0
-        for i in range(cov_pix_ranges.shape[0]):
-            cov_pix_to_set[counter: counter + cov_pix_ranges[i, 1] + 1 - cov_pix_ranges[i, 0]] = (
-                np.arange(cov_pix_ranges[i, 0], cov_pix_ranges[i, 1] + 1)
-            )
-            counter += (cov_pix_ranges[i, 1] + 1 - cov_pix_ranges[i, 0])
+        cov_pix_ranges = np.right_shift(pixel_ranges, self._cov_map.bit_shift)
+        # After the bit shift these pixel ranges are inclusive, not exclusive.
+        cov_pix_to_set = hpg.pixel_ranges_to_pixels(cov_pix_ranges, inclusive=True)
         cov_pix_to_set = np.unique(cov_pix_to_set)
 
         cov_mask = self.coverage_mask
@@ -736,7 +742,7 @@ class HealSparseMap(object):
             self._reserve_cov_pix(new_cov_pixels)
 
         # Check which of these ranges cover more than one pixel?
-        delta_pix = _pixel_ranges[:, 1] - _pixel_ranges[:, 0]
+        delta_pix = pixel_ranges[:, 1] - pixel_ranges[:, 0]
         delta_covpix = cov_pix_ranges[:, 1] - cov_pix_ranges[:, 0]
 
         covpix_start_values = (self._cov_map[cov_pix_ranges.ravel()] +
@@ -748,17 +754,24 @@ class HealSparseMap(object):
         )].reshape(cov_pix_ranges.shape)
 
         # Loop over ranges.
-        for i in range(_pixel_ranges.shape[0]):
+        for i in range(pixel_ranges.shape[0]):
             if delta_covpix[i] > 0:
                 # This range overlaps multiple coverage pixels.
 
                 # The first coverage pixel will be partly covered.
-                start = _pixel_ranges[i, 0] + covpix_offset_values[i, 0]
+                start = pixel_ranges[i, 0] + covpix_offset_values[i, 0]
                 stop = (
                     self._cov_map[cov_pix_ranges[i, 0]] +
                     self._cov_map.nfine_per_cov*(cov_pix_ranges[i, 0] + 1)
                 )
-                self._sparse_map[start: stop] = value
+                if operation == "replace":
+                    self._sparse_map[start: stop] = value
+                elif operation == "and":
+                    pass
+                elif operation == "or":
+                    pass
+                elif operation == "add":
+                    pass
 
                 # The middle coverage pixels will be fully covered.
                 for cov_pix_full in range(cov_pix_ranges[i, 0] + 1, cov_pix_ranges[i, 1]):
@@ -770,11 +783,11 @@ class HealSparseMap(object):
                 start = (self._cov_map[cov_pix_ranges[i, 1]] +
                          self._cov_map.nfine_per_cov*(cov_pix_ranges[i, 1])
                          )
-                stop = _pixel_ranges[i, 1] + covpix_offset_values[i, 1]
+                stop = pixel_ranges[i, 1] + covpix_offset_values[i, 1]
                 self._sparse_map[start: stop] = value
             else:
                 # This range is fully contained in a coverage pixel.
-                start = _pixel_ranges[i, 0] + covpix_offset_values[i, 0]
+                start = pixel_ranges[i, 0] + covpix_offset_values[i, 0]
                 stop = start + delta_pix[i]
 
                 # Check if replace or not or what.
