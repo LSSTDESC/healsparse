@@ -3,7 +3,7 @@ import hpgeom as hpg
 import numbers
 
 from .healSparseCoverage import HealSparseCoverage
-from .utils import reduce_array, check_sentinel, _get_field_and_bitval
+from .utils import reduce_array, check_sentinel, _bitvals_to_packed_array
 from .utils import WIDE_NBIT, WIDE_MASK, PIXEL_RANGE_THRESHOLD
 from .utils import is_integer_value, _compute_bitshift
 from .io_map import _read_map, _write_map, _write_moc
@@ -795,10 +795,7 @@ class HealSparseMap(object):
             raise ValueError("Bit position %d too large (>= %d)" % (np.max(bits),
                                                                     self._wide_mask_maxbits))
 
-        value = self._sparse_map[0].copy()
-        for bit in bits:
-            field, bitval = _get_field_and_bitval(bit)
-            value[field] |= bitval
+        value = _bitvals_to_packed_array(bits, self._wide_mask_maxbits)
 
         self.update_values_pix(pixels, value, nest=nest, operation='or')
 
@@ -820,10 +817,7 @@ class HealSparseMap(object):
             raise ValueError("Bit position %d too large (>= %d)" % (np.max(bits),
                                                                     self._wide_mask_maxbits))
 
-        value = self._sparse_map[0].copy()
-        for bit in bits:
-            field, bitval = _get_field_and_bitval(bit)
-            value[field] |= bitval
+        value = _bitvals_to_packed_array(bits, self._wide_mask_maxbits)
 
         # A bit reset is performed with &= ~(bit1 | bit2)
         self.update_values_pix(pixels, ~value, nest=nest, operation='and')
@@ -967,15 +961,9 @@ class HealSparseMap(object):
            set
         """
         values = self.get_values_pix(np.atleast_1d(pixels), nest=nest)
-        bit_flags = None
-        for bit in bits:
-            field, bitval = _get_field_and_bitval(bit)
-            if bit_flags is None:
-                bit_flags = ((values[:, field] & bitval) > 0)
-            else:
-                bit_flags |= ((values[:, field] & bitval) > 0)
 
-        return bit_flags
+        bit_value = _bitvals_to_packed_array(bits, self._wide_mask_maxbits)
+        return np.any((values & bit_value) > 0, axis=1)
 
     @property
     def sentinel(self):
@@ -1735,16 +1723,10 @@ class HealSparseMap(object):
                 if mask_bit_arr is None:
                     bad_pixels, = np.where(mask_map.get_values_pix(valid_pixels).sum(axis=1) > 0)
                 else:
-                    # loop over mask_bit_arr
                     mask_values = mask_map.get_values_pix(valid_pixels)
-                    bad_pixel_flag = None
-                    for bit in mask_bit_arr:
-                        field, bitval = _get_field_and_bitval(bit)
-                        if bad_pixel_flag is None:
-                            bad_pixel_flag = ((mask_values[:, field] & bitval) > 0)
-                        else:
-                            bad_pixel_flag |= ((mask_values[:, field] & bitval) > 0)
-                    bad_pixels, = np.where(bad_pixel_flag)
+
+                    bit_value = _bitvals_to_packed_array(mask_bit_arr, mask_map._wide_mask_maxbits)
+                    bad_pixels, = np.where(np.any((mask_values & bit_value) > 0, axis=1))
             else:
                 bad_pixels, = np.where(mask_map.get_values_pix(valid_pixels) > 0)
         else:
@@ -2347,10 +2329,7 @@ class HealSparseMap(object):
         if self._is_wide_mask:
             valid_sparse_pixels = (self._sparse_map != self._sentinel).sum(axis=1, dtype=np.bool_)
 
-            other_value = np.zeros(self._wide_mask_width, self._sparse_map.dtype)
-            for bit in other:
-                field, bitval = _get_field_and_bitval(bit)
-                other_value[field] |= bitval
+            other_value = _bitvals_to_packed_array(other, self._wide_mask_maxbits)
         else:
             valid_sparse_pixels = (self._sparse_map != self._sentinel)
 

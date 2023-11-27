@@ -140,20 +140,44 @@ def _get_field_and_bitval(bit):
     Parameters
     ----------
     bit : `int`
-       Bit position
+        Bit position
 
     Returns
     -------
     field : `int`
-       Field index for the shifted bit
+        Field index for the shifted bit
     bitval : `healsparse.WIDE_MASK`
-       Shifted bit value in its field
+        Shifted bit value in its field
     """
 
     field = bit // WIDE_NBIT
     bitval = WIDE_MASK(np.left_shift(1, bit - field*WIDE_NBIT))
 
     return field, bitval
+
+
+def _bitvals_to_packed_array(bits, maxbits):
+    """
+    Convert a list/tuple/array of bitvals to a packed array.
+
+    Parameters
+    ----------
+    bits : iterable
+        Array of bit positions.
+    maxbits : `int`
+        Maximum number of bits (to fill).
+
+    Returns
+    -------
+    packed_array : `np.ndarray` (N, )
+        Packed bit array, where N is maxbits//8.
+    """
+    if maxbits % 8 != 0:
+        raise ValueError("maxbits must be a multiple of 8.")
+
+    arr = np.zeros(maxbits, dtype=np.bool_)
+    arr[bits] = True
+    return np.packbits(arr, bitorder="little")
 
 
 def _compute_bitshift(nside_coarse, nside_fine):
