@@ -61,10 +61,11 @@ class _PackedBoolArray:
 
             if ((size + self._start_index) % 8) == 0:
                 # This is aligned.
-                data_len = (size + self._start_index) // 8
+                offset_value = 0
             else:
                 # Unaligned; we need an extra data bin.
-                data_len = (size + self._start_index) // 8 + 1
+                offset_value = 1
+            data_len = (size + self._start_index) // 8 + offset_value
 
             self._data = np.zeros(data_len, dtype=np.uint8)
 
