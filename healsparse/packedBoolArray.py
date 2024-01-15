@@ -307,6 +307,10 @@ class _PackedBoolArray:
             # We first compute a "view" slice of the data, which makes
             # our setting math a lot simpler.
             temp_pba = self[key]
+
+            if len(temp_pba) == 0:
+                return
+
             # Extract the parts so that we have an unpacked array at the
             # start and end (if necessary) and an efficient packed array
             # for the bulk of the array.
@@ -361,6 +365,8 @@ class _PackedBoolArray:
             indices = np.atleast_1d(key)
             if not is_integer_value(indices.dtype.type(0)):
                 raise IndexError("Numpy array indices must be integers for __setitem__")
+            if len(indices) == 0:
+                return
             if isinstance(value, (bool, np.bool_)):
                 if value:
                     return self._set_bits_at_locs(np.atleast_1d(indices))

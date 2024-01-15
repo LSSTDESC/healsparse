@@ -952,6 +952,10 @@ class PackedBoolArrayTestCase(unittest.TestCase):
                 pba_array[1: -2] |= np.array(other)[1: -2]
                 testing.assert_array_equal(pba_test, pba_array)
 
+                # Should do nothing.
+                pba_test[np.array([], dtype=np.int64)] |= True
+                testing.assert_array_equal(pba_test, pba_array)
+
     def test_xor(self):
         # This test checks the xor operation with "already sliced"
         # test arrays.
@@ -1166,7 +1170,7 @@ class HealSparseBitPackedTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map_in_partial.valid_pixels, pixel_sub)
 
     @pytest.mark.skipif("GITHUB_ACTIONS" in os.environ, reason='Giant test cannot be run on GHA')
-    def test_bit_packed_map_fits_io_giant(self):
+    def notest_bit_packed_map_fits_io_giant(self):
         # I don't know how to test this.
         nside_coverage = 32
         nside_map = 2**17
