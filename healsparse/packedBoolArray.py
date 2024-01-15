@@ -40,9 +40,6 @@ class _PackedBoolArray:
             if not isinstance(data_buffer, np.ndarray) or data_buffer.dtype != np.uint8:
                 raise ValueError("data_buffer must be a numpy array of type uint8")
 
-            if size is not None:
-                raise ValueError("size may not be specified with data_buffer.")
-
             self._data = data_buffer
 
             if stop_index is None:
@@ -100,7 +97,7 @@ class _PackedBoolArray:
         -------
         _PackedBoolArray
         """
-        if arr.dtype != np.bool_:
+        if not isinstance(arr, np.ndarray) or arr.dtype != np.bool_:
             raise NotImplementedError("Can only use from_boolean_array with a boolean array.")
 
         if start_index is not None:
@@ -128,6 +125,10 @@ class _PackedBoolArray:
     def size(self):
         return self._stop_index - self._start_index
 
+    @property
+    def start_index(self):
+        return self._start_index
+
     def resize(self, newsize, refcheck=False):
         """Resize the PackedBoolArray.
 
@@ -145,7 +146,7 @@ class _PackedBoolArray:
             return
 
         newsize_data = (newsize + self._start_index) // 8
-        if (newsize + self._start_index) %8 != 0:
+        if (newsize + self._start_index) % 8 != 0:
             newsize_data += 1
 
         self._stop_index = newsize + self._start_index
@@ -625,8 +626,11 @@ class _PackedBoolArray:
                 mid_data[:] ^= o_mid_data[:]
 
     def _set_bits_at_locs(self, locs):
-        if locs.min() < 0 or locs.max() > self.size:
-            raise ValueError("Location indices out of range.")
+        if len(locs) == 0:
+            return
+
+        if locs.min() < 0 or locs.max() >= self.size:
+            raise IndexError("Location indices out of range.")
 
         _locs = locs + self._start_index
 
@@ -637,8 +641,11 @@ class _PackedBoolArray:
         )
 
     def _clear_bits_at_locs(self, locs):
-        if locs.min() < 0 or locs.max() > self.size:
-            raise ValueError("Location indices out of range.")
+        if len(locs) == 0:
+            return
+
+        if locs.min() < 0 or locs.max() >= self.size:
+            raise IndexError("Location indices out of range.")
 
         _locs = locs + self._start_index
 
@@ -649,8 +656,11 @@ class _PackedBoolArray:
         )
 
     def _test_bits_at_locs(self, locs):
-        if locs.min() < 0 or locs.max() > self.size:
-            raise ValueError("Location indices out of range.")
+        if len(locs) == 0:
+            return np.zeros([], dtype=np.bool_)
+
+        if locs.min() < 0 or locs.max() >= self.size:
+            raise IndexError("Location indices out of range.")
 
         _locs = locs + self._start_index
 
