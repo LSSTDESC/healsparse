@@ -13,378 +13,1090 @@ from healsparse.packedBoolArray import _PackedBoolArray
 
 class PackedBoolArrayTestCase(unittest.TestCase):
     """Tests for _PackedBoolArray."""
-    def test_create(self):
-        m = _PackedBoolArray(size=0)
-        self.assertEqual(m.size, 0)
+    def _make_short_arrays(self):
+        # This creates 4 short (<= 8) arrays:
+        # First is the full 8 (start = 0, end = 8).
+        # Second starts at 0, ends less than 8.
+        # Third starts at >0, ends at 8.
+        # Fourth starts at >0, ends at <8.
 
-        m = _PackedBoolArray(size=2**10)
-        self.assertEqual(m.size, 2**10)
-        self.assertEqual(len(m.data_array), 2**10 // 8)
-        testing.assert_array_equal(m.data_array, 0)
+        short_arrays = []
 
-        m = _PackedBoolArray(size=2**10, fill_value=True)
-        self.assertEqual(m.size, 2**10)
-        self.assertEqual(len(m.data_array), 2**10 // 8)
-        testing.assert_array_equal(m.data_array, 255)
+        array = np.zeros(8, dtype=np.bool_)
+        array[0] = True
+        array[4] = True
+        array[7] = True
 
-        m2 = _PackedBoolArray(data_buffer=m.data_array)
-        self.assertEqual(m2.size, 2**10)
-        self.assertEqual(len(m2.data_array), 2**10 // 8)
-        testing.assert_array_equal(m2.data_array, 255)
+        data = np.packbits(array, bitorder="little")
+
+        short_arrays.append(_PackedBoolArray(data_buffer=data.copy(), start_index=0, stop_index=8))
+        short_arrays.append(_PackedBoolArray(data_buffer=data.copy(), start_index=0, stop_index=6))
+        short_arrays.append(_PackedBoolArray(data_buffer=data.copy(), start_index=1, stop_index=8))
+        short_arrays.append(_PackedBoolArray(data_buffer=data.copy(), start_index=1, stop_index=6))
+
+        return short_arrays
+
+    def _make_middle_arrays(self):
+        # This creates 4 middle (8 < size < 16) arrays:
+        # First is the full 16 (start = 0, end = 16).
+        # Second starts at 0, ends less than 16.
+        # Third starts at >0, ends at 16.
+        # Fourth starts at >0, ends at <16.
+
+        middle_arrays = []
+
+        array = np.zeros(16, dtype=np.bool_)
+        array[0] = True
+        array[4] = True
+        array[7] = True
+        array[12] = True
+        array[15] = True
+
+        data = np.packbits(array, bitorder="little")
+
+        middle_arrays.append(_PackedBoolArray(data_buffer=data.copy(), start_index=0, stop_index=16))
+        middle_arrays.append(_PackedBoolArray(data_buffer=data.copy(), start_index=0, stop_index=15))
+        middle_arrays.append(_PackedBoolArray(data_buffer=data.copy(), start_index=1, stop_index=16))
+        middle_arrays.append(_PackedBoolArray(data_buffer=data.copy(), start_index=1, stop_index=15))
+
+        return middle_arrays
+
+    def _make_long_arrays(self):
+        # This creates 4 long (size > 16) arrays:
+        # First is the full 32 (start = 0, end = 32).
+        # Second starts at 0, ends less than 32.
+        # Third starts at >0, ends at 32.
+        # Fourth starts at >0, ends at <32.
+
+        long_arrays = []
+
+        array = np.zeros(32, dtype=np.bool_)
+        array[0] = True
+        array[4] = True
+        array[7] = True
+        array[12] = True
+        array[15] = True
+        array[20] = True
+        array[24] = True
+        array[29] = True
+        array[31] = True
+
+        data = np.packbits(array, bitorder="little")
+
+        long_arrays.append(_PackedBoolArray(data_buffer=data.copy(), start_index=0, stop_index=32))
+        long_arrays.append(_PackedBoolArray(data_buffer=data.copy(), start_index=0, stop_index=31))
+        long_arrays.append(_PackedBoolArray(data_buffer=data.copy(), start_index=1, stop_index=32))
+        long_arrays.append(_PackedBoolArray(data_buffer=data.copy(), start_index=1, stop_index=31))
+
+        return long_arrays
+
+    def test_create_size(self):
+        # Create specifying nothing, should be 0 size.
+        pba = _PackedBoolArray()
+        self.assertEqual(pba.size, 0)
+        testing.assert_array_equal(np.array(pba), np.zeros(0, dtype=np.bool_))
+
+        # Specify a few sizes.
+        for size in range(128):
+            pba = _PackedBoolArray(size=size)
+            self.assertEqual(pba.size, size)
+            testing.assert_array_equal(np.array(pba), np.zeros(size, dtype=np.bool_))
+
+        # Specify a few sizes with an offset.
+        for size in range(128):
+            pba = _PackedBoolArray(size=size, start_index=2)
+            self.assertEqual(pba.size, size)
+            testing.assert_array_equal(np.array(pba), np.zeros(size, dtype=np.bool_))
 
         with self.assertRaises(ValueError):
-            m = _PackedBoolArray(size=6)
+            pba = _PackedBoolArray(size=10, data_buffer=np.zeros(5, dtype=np.uint8))
+
+        with self.assertRaises(ValueError):
+            pba = _PackedBoolArray(size=20, start_index=-1)
+
+        with self.assertRaises(ValueError):
+            pba = _PackedBoolArray(size=20, start_index=10)
+
+        with self.assertRaises(ValueError):
+            pba = _PackedBoolArray(data_buffer=np.zeros(5, dtype=np.int64))
+
+        with self.assertRaises(ValueError):
+            pba = _PackedBoolArray(data_buffer=7)
+
+        with self.assertRaises(ValueError):
+            pba = _PackedBoolArray(data_buffer=np.zeros(5, dtype=np.int64), stop_index=10)
+
+        with self.assertRaises(ValueError):
+            pba = _PackedBoolArray(size=16, stop_index=10)
+
+    def test_create_data_buffer(self):
+        # Default, we can infer the size from the data buffer.
+        for size in range(0, 128, 8):
+            data_buffer = np.zeros(size // 8, dtype=np.uint8)
+            pba = _PackedBoolArray(data_buffer=data_buffer)
+            self.assertEqual(pba.size, size)
+            testing.assert_array_equal(np.array(pba), np.zeros(size, dtype=np.bool_))
+
+        # If we want a specific size, we must also specify the stop index.
+        for size in range(0, 128, 8):
+            for start_index in range(1, 8):
+                data_buffer = np.zeros(size // 8 + 1, dtype=np.uint8)
+                pba = _PackedBoolArray(
+                    data_buffer=data_buffer,
+                    start_index=start_index,
+                    stop_index=start_index + size,
+                )
+                self.assertEqual(pba.size, size)
+                testing.assert_array_equal(np.array(pba), np.zeros(size, dtype=np.bool_))
 
     def test_create_from_bool_array(self):
-        arr = np.zeros(128, dtype=np.bool_)
-        arr[100: 120] = True
+        for size in range(128):
+            arr = np.ones(size, dtype=np.bool_)
+            pba = _PackedBoolArray.from_boolean_array(arr)
+            self.assertEqual(pba.size, size)
+            testing.assert_array_equal(np.array(pba), arr)
 
-        m = _PackedBoolArray.from_boolean_array(arr)
-
-        self.assertEqual(m.size, arr.size)
-        testing.assert_array_equal(np.array(m), arr)
-
-        with self.assertRaises(ValueError):
-            arr = np.zeros(122, dtype=np.bool_)
-            m = _PackedBoolArray.from_boolean_array(arr)
+        for size in range(128):
+            for start_index in range(0, 8):
+                arr = np.ones(size, dtype=np.bool_)
+                pba = _PackedBoolArray.from_boolean_array(arr, start_index=start_index)
+                self.assertEqual(pba.size, size)
+                testing.assert_array_equal(np.array(pba), arr)
 
         with self.assertRaises(NotImplementedError):
-            arr = np.zeros(128, dtype=np.int32)
-            m = _PackedBoolArray.from_boolean_array(arr)
+            pba = _PackedBoolArray.from_boolean_array(7)
+
+        with self.assertRaises(NotImplementedError):
+            pba = _PackedBoolArray.from_boolean_array(np.zeros(10, dtype=np.int64))
 
     def test_resize(self):
-        m = _PackedBoolArray(size=0)
-        m.resize(2**10)
-        self.assertEqual(m.size, 2**10)
-        self.assertEqual(len(m.data_array), 2**10 // 8)
-        testing.assert_array_equal(m.data_array, 0)
+        for newsize in range(16, 128):
+            pba = _PackedBoolArray(size=8)
+            pba[[0, 4, 6]] = True
+
+            pba.resize(newsize)
+
+            self.assertEqual(pba.size, newsize)
+            comp_array = np.zeros(newsize, dtype=np.bool_)
+            comp_array[[0, 4, 6]] = True
+            testing.assert_array_equal(np.array(pba), comp_array)
+
+        for newsize in range(16, 128):
+            for start_index in range(8):
+                pba = _PackedBoolArray(size=8, start_index=start_index)
+                pba[[0, 4, 6]] = True
+
+                pba.resize(newsize)
+
+                self.assertEqual(pba.size, newsize)
+                comp_array = np.zeros(newsize, dtype=np.bool_)
+                comp_array[[0, 4, 6]] = True
+                testing.assert_array_equal(np.array(pba), comp_array)
 
         with self.assertRaises(ValueError):
-            m.resize(67)
+            pba = _PackedBoolArray(size=10)
+            pba.resize(6)
 
     def test_copy(self):
-        m = _PackedBoolArray(size=2**5)
-        m[0] = True
+        for mode in ("short", "middle", "long"):
+            if mode == "short":
+                pba_arrays = self._make_short_arrays()
+            elif mode == "middle":
+                pba_arrays = self._make_middle_arrays()
+            elif mode == "long":
+                pba_arrays = self._make_long_arrays()
 
-        m2 = m.copy()
-        testing.assert_array_equal(m2.data_array, m.data_array)
+            for pba in pba_arrays:
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
 
-        m2[0] = False
-        self.assertFalse(np.all(m2.data_array == m.data_array))
-
-    def test_view(self):
-        m = _PackedBoolArray(size=2**10)
-        m[0] = True
-
-        m2 = _PackedBoolArray(data_buffer=m.data_array)
-        testing.assert_array_equal(m2.data_array, m.data_array)
-
-        # This should change both.
-        m2[0] = False
-        testing.assert_array_equal(m2.data_array, m.data_array)
-
-        # And another way to get a view.
-        m3 = m[:]
-        testing.assert_array_equal(m3.data_array, m.data_array)
-
-        # This should change both.
-        m2[0] = True
-        testing.assert_array_equal(m3.data_array, m.data_array)
+                testing.assert_array_equal(np.array(pba_test), pba_array)
+                self.assertEqual(pba_test._start_index, pba._start_index)
+                self.assertEqual(pba_test._stop_index, pba._stop_index)
 
     def test_repr(self):
-        m = _PackedBoolArray(size=2**10)
+        pba = _PackedBoolArray(size=2**10)
+        self.assertEqual(repr(pba), f"_PackedBoolArray(size={2**10})")
+        self.assertEqual(str(pba), f"_PackedBoolArray(size={2**10})")
 
-        self.assertEqual(repr(m), f"_PackedBoolArray(size={2**10})")
-        self.assertEqual(str(m), f"_PackedBoolArray(size={2**10})")
-
-    def test_setitem_single(self):
-        # Test setting a single location.
-        m = _PackedBoolArray(size=2**10)
-
-        m[100] = True
-        self.assertEqual(m[100], True)
-
-    def test_setitem_slice_optimized_single(self):
-        m = _PackedBoolArray(size=2**10)
-
-        # Set True
-        m[0: 64] = True
-        testing.assert_array_equal(m[0: 64], True)
-        testing.assert_array_equal(m[64:], False)
-
-        # Set False
-        m[16: 32] = False
-        testing.assert_array_equal(m[0: 16], True)
-        testing.assert_array_equal(m[16: 32], False)
-        testing.assert_array_equal(m[32: 64], True)
-        testing.assert_array_equal(m[64:], False)
-
-    def test_setitiem_slice_unoptimized_single(self):
-        m = _PackedBoolArray(size=2**10)
-
-        # Set True
-        m[0: 63] = True
-        arr = np.array(m)
-        testing.assert_array_equal(arr[0: 63], True)
-        testing.assert_array_equal(arr[63:], False)
-
-        # Set False
-        m[17: 31] = False
-        arr = np.array(m)
-        testing.assert_array_equal(arr[0: 17], True)
-        testing.assert_array_equal(arr[17: 31], False)
-        testing.assert_array_equal(arr[63:], False)
-
-    def test_setitem_slice_optimized_array(self):
-        m = _PackedBoolArray(size=2**10)
-
-        values = np.zeros(64, dtype=np.bool_)
-        values[10: 20] = True
-
-        m[0: 64] = values
-        testing.assert_array_equal(m[0: 64], values)
-
-    def test_setitiem_slice_unoptimized_array(self):
-        m = _PackedBoolArray(size=2**10)
-
-        values = np.zeros(62, dtype=np.bool_)
-        values[10: 20] = True
-
-        m[0: 62] = values
-        arr = np.array(m)
-        testing.assert_array_equal(arr[0: 62], values)
-
-    def test_setitem_slice_optimized_pba(self):
-        m = _PackedBoolArray(size=2**10)
-
-        values = _PackedBoolArray(size=64)
-        values[10: 20] = True
-
-        m[0: 64] = values
-        testing.assert_array_equal(m[0: 64], values)
-
-        # Note there isn't an "unoptimized" version because you can't have
-        # non-8 slices of a _PackedBoolArray.
-
-    def test_setgetitiem_indices(self):
-        m = _PackedBoolArray(size=2**10)
-
-        inds = np.array([1, 5, 10, 20])
-        m[inds] = True
-
-        testing.assert_array_equal(m[inds], True)
-
-        values = np.array([True, False, True, True])
-        m[inds] = values
-
-        testing.assert_array_equal(m[inds], values)
-
-    def test_setgetitem_list(self):
-        m = _PackedBoolArray(size=2**10)
-
-        inds = [1, 5, 10, 20]
-        m[inds] = True
-
-        testing.assert_array_equal(m[inds], True)
-
-        # Test tuple as well as list.
-        values = np.array([True, False, True, True])
-        m[tuple(inds)] = values
-
-        testing.assert_array_equal(m[tuple(inds)], values)
-
-    def test_getitem_single(self):
-        m = _PackedBoolArray(size=2**10)
-
-        m[10] = True
-
-        self.assertEqual(m[10], True)
-
-    def test_getitem_slice(self):
-        m = _PackedBoolArray(size=2**10)
-
-        m[16: 64] = True
-
-        # This should return a view of the original map, and can be changed.
-        m2 = m[16: 64]
-        m2[0] = False
-        self.assertEqual(m[16], False)
-
-        # These slices are not multiples of 8 and will raise ValueError.
-        with self.assertRaises(ValueError):
-            _ = m[5: 32]
-        with self.assertRaises(ValueError):
-            _ = m[8: 31]
-        with self.assertRaises(ValueError):
-            _ = m[8: 32: 4]
+        pba = _PackedBoolArray(size=2**10, start_index=2)
+        self.assertEqual(repr(pba), f"_PackedBoolArray(size={2**10}, start_index=2)")
+        self.assertEqual(str(pba), f"_PackedBoolArray(size={2**10}, start_index=2)")
 
     def test_sum(self):
-        m = _PackedBoolArray(size=2**10)
+        # Do sums over all the array options.
+        for mode in ("short", "middle", "long"):
+            if mode == "short":
+                pba_arrays = self._make_short_arrays()
+            elif mode == "middle":
+                pba_arrays = self._make_middle_arrays()
+            elif mode == "long":
+                pba_arrays = self._make_long_arrays()
 
-        m[0] = True
-        m[10] = True
-        m[100] = True
-        m[1000] = True
+            for pba in pba_arrays:
+                self.assertEqual(pba.sum(), np.array(pba).sum())
 
-        self.assertEqual(m.sum(), 4)
+        # Do sums over aligned arrays, with and without reshaping.
+        for mode in ("short", "middle", "long"):
+            if mode == "short":
+                pba = self._make_short_arrays()[0]
+            elif mode == "middle":
+                pba = self._make_middle_arrays()[0]
+            elif mode == "long":
+                pba = self._make_long_arrays()[0]
 
-        sum2 = m.sum(shape=(128, 8), axis=1)
-        self.assertEqual(len(sum2), 128)
+            shape = (pba.size // 8, 8)
+            testing.assert_array_equal(
+                pba.sum(shape=shape),
+                np.array(pba).reshape(shape).sum(),
+            )
 
-        # This is a very simple test of the summation output.
-        self.assertEqual(sum2[0 // 8], 1)
-        self.assertEqual(sum2[10 // 8], 1)
-        self.assertEqual(sum2[100 // 8], 1)
-        self.assertEqual(sum2[1000 // 8], 1)
+            shape = (pba.size // 8, 8)
+            testing.assert_array_equal(
+                pba.sum(shape=shape, axis=1),
+                np.array(pba).reshape(shape).sum(axis=1),
+            )
+
+        with self.assertRaises(ValueError):
+            pba = _PackedBoolArray(size=10)
+            pba.sum(shape=(10, 1))
+
+        with self.assertRaises(ValueError):
+            pba = _PackedBoolArray(size=16, start_index=2)
+            pba.sum(shape=(8, 2))
+
+        with self.assertRaises(ValueError):
+            pba = _PackedBoolArray(size=16)
+            pba.sum(shape=(2, 8), axis=2)
+
+        with self.assertRaises(ValueError):
+            pba = _PackedBoolArray(size=16)
+            pba.sum(shape=(8, 2), axis=1)
+
+        with self.assertRaises(NotImplementedError):
+            pba = _PackedBoolArray(size=16)
+            pba.sum(shape=(2, 8), axis=0)
+
+    def test_data_array(self):
+        pba = _PackedBoolArray(size=16)
+        testing.assert_array_equal(pba.data_array, pba._data)
+
+        with self.assertRaises(NotImplementedError):
+            pba = _PackedBoolArray(size=16, start_index=2)
+            pba.data_array
+
+    def test_view(self):
+        for mode in ("short", "middle", "long"):
+            if mode == "short":
+                pba_arrays = self._make_short_arrays()
+            elif mode == "middle":
+                pba_arrays = self._make_middle_arrays()
+            elif mode == "long":
+                pba_arrays = self._make_long_arrays()
+
+            for pba in pba_arrays:
+                pba[0] = True
+
+                if pba.start_index == 0:
+                    # Only use this method of accessing data_array if
+                    # start_index == 0.
+                    pba2 = _PackedBoolArray(data_buffer=pba.data_array)
+                    testing.assert_array_equal(pba2._data, pba._data)
+
+                    # This should change both.
+                    pba2[0] = False
+                    testing.assert_array_equal(pba2._data, pba._data)
+
+                # And another way to get a view.
+                pba3 = pba[:]
+                testing.assert_array_equal(pba3._data, pba._data)
+
+                # This should change both.
+                pba2[0] = True
+                testing.assert_array_equal(pba3._data, pba._data)
+
+    def test_setitem_short(self):
+        short_arrays = self._make_short_arrays()
+
+        for pba in short_arrays:
+            # Test setting a single index to True or False.
+            pba_test = pba.copy()
+            pba_array = np.array(pba)
+
+            pba_test[2] = True
+            pba_array[2] = True
+            testing.assert_array_equal(pba_test, pba_array)
+
+            pba_test[2] = False
+            pba_array[2] = False
+
+            testing.assert_array_equal(pba_test, pba_array)
+
+            # Test setting a list/array of indexes to True or False.
+            pba_test = pba.copy()
+            pba_array = np.array(pba)
+
+            pba_test[[1, 2, 4]] = True
+            pba_array[[1, 2, 4]] = True
+            testing.assert_array_equal(pba_test, pba_array)
+
+            pba_test[np.array([1, 2, 4])] = False
+            pba_array[np.array([1, 2, 4])] = False
+            testing.assert_array_equal(pba_test, pba_array)
+
+            pba_test[np.array([], dtype=np.int64)] = True
+            testing.assert_array_equal(pba_test, pba_array)
+
+            pba_test[np.array([], dtype=np.int64)] = False
+            testing.assert_array_equal(pba_test, pba_array)
+
+            # Test setting a list/array of indices to an array.
+            pba_test = pba.copy()
+            pba_array = np.array(pba)
+
+            pba_test[[1, 2, 4]] = np.array([True, True, False])
+            pba_array[[1, 2, 4]] = np.array([True, True, False])
+            testing.assert_array_equal(pba_test, pba_array)
+
+            # Test setting slices: setting to True/False
+            for full in (True, False):
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
+
+                if full:
+                    s = slice(None, None, None)
+                else:
+                    s = slice(1, 4, None)
+
+                pba_test[s] = True
+                pba_array[s] = True
+                testing.assert_array_equal(pba_test, pba_array)
+
+                pba_test[s] = False
+                pba_array[s] = False
+                testing.assert_array_equal(pba_test, pba_array)
+
+            # Test setting slices: setting to a numpy array.
+            for full in (True, False):
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
+
+                if full:
+                    s = slice(None, None, None)
+                else:
+                    s = slice(1, 4, None)
+
+                target = np.ones(len(pba_test[s]), dtype=np.bool_)
+                pba_test[s] = target
+                pba_array[s] = target
+                testing.assert_array_equal(pba_test, pba_array)
+
+            # Test setting slices: setting to packed boolean array.
+            for full in (True, False):
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
+
+                if full:
+                    s = slice(None, None, None)
+                else:
+                    # The slice must be aligned.
+                    s = slice(1, 4, None)
+
+                # This gets us an "aligned" array.  Otherwise I think
+                # we need to unpack prior to setting.
+                target = pba_test[s].copy()
+                target[:] = True
+
+                pba_test[s] = target
+                pba_array[s] = np.array(target)
+                testing.assert_array_equal(pba_test, pba_array)
+
+        with self.assertRaises(ValueError):
+            pba = short_arrays[0].copy()
+            pba[:] = np.zeros(len(pba), dtype=np.int64)
+
+        with self.assertRaises(ValueError):
+            pba = short_arrays[0].copy()
+            pba[:] = np.zeros(len(pba) - 1, dtype=np.bool_)
+
+        with self.assertRaises(ValueError):
+            pba = short_arrays[0].copy()
+            pba[:] = _PackedBoolArray(size=len(pba), start_index=2)
+
+        with self.assertRaises(ValueError):
+            pba = short_arrays[0].copy()
+            pba[:] = 8
+
+        with self.assertRaises(IndexError):
+            pba = short_arrays[0].copy()
+            pba[[5.0]] = True
+
+        with self.assertRaises(IndexError):
+            pba = short_arrays[0].copy()
+            pba[5.0] = True
+
+    def test_setitem_middle(self):
+        middle_arrays = self._make_middle_arrays()
+
+        for pba in middle_arrays:
+            # Test setting a single index to True or False.
+            pba_test = pba.copy()
+            pba_array = np.array(pba)
+
+            pba_test[10] = True
+            pba_array[10] = True
+            testing.assert_array_equal(pba_test, pba_array)
+
+            pba_test[10] = False
+            pba_array[10] = False
+
+            testing.assert_array_equal(pba_test, pba_array)
+
+            # Test setting a list/array of indexes to True or False.
+            pba_test = pba.copy()
+            pba_array = np.array(pba)
+
+            pba_test[[1, 2, 4, 10]] = True
+            pba_array[[1, 2, 4, 10]] = True
+            testing.assert_array_equal(pba_test, pba_array)
+
+            pba_test[np.array([1, 2, 4, 10])] = False
+            pba_array[np.array([1, 2, 4, 10])] = False
+            testing.assert_array_equal(pba_test, pba_array)
+
+            # Test setting a list/array of indices to an array.
+            pba_test = pba.copy()
+            pba_array = np.array(pba)
+
+            pba_test[[1, 2, 4, 10]] = np.array([True, True, False, False])
+            pba_array[[1, 2, 4, 10]] = np.array([True, True, False, False])
+            testing.assert_array_equal(pba_test, pba_array)
+
+            # Test setting slices: setting to True/False
+            for full in (True, False):
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
+
+                if full:
+                    s = slice(None, None, None)
+                else:
+                    s = slice(6, 11, None)
+
+                pba_test[s] = True
+                pba_array[s] = True
+                testing.assert_array_equal(pba_test, pba_array)
+
+                pba_test[s] = False
+                pba_array[s] = False
+                testing.assert_array_equal(pba_test, pba_array)
+
+            # Test setting slices: setting to a numpy array.
+            for full in (True, False):
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
+
+                if full:
+                    s = slice(None, None, None)
+                else:
+                    s = slice(6, 11, None)
+
+                target = np.ones(len(pba_test[s]), dtype=np.bool_)
+                pba_test[s] = target
+                pba_array[s] = target
+                testing.assert_array_equal(pba_test, pba_array)
+
+            # Test setting slices: setting to packed boolean array.
+            for full in (True, False):
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
+
+                if full:
+                    s = slice(None, None, None)
+                else:
+                    # The slice must be aligned.
+                    s = slice(6, 11, None)
+
+                # This gets us an "aligned" array.
+                target = pba_test[s].copy()
+                target[:] = True
+
+                pba_test[s] = target
+                pba_array[s] = np.array(target)
+                testing.assert_array_equal(pba_test, pba_array)
+
+    def test_setitem_long(self):
+        long_arrays = self._make_long_arrays()
+
+        for pba in long_arrays:
+            # Test setting a single index to True or False.
+            pba_test = pba.copy()
+            pba_array = np.array(pba)
+
+            pba_test[20] = True
+            pba_array[20] = True
+            testing.assert_array_equal(pba_test, pba_array)
+
+            pba_test[20] = False
+            pba_array[20] = False
+
+            testing.assert_array_equal(pba_test, pba_array)
+
+            # Test setting a list/array of indexes to True or False.
+            pba_test = pba.copy()
+            pba_array = np.array(pba)
+
+            pba_test[[1, 2, 4, 10, 20, 29]] = True
+            pba_array[[1, 2, 4, 10, 20, 29]] = True
+            testing.assert_array_equal(pba_test, pba_array)
+
+            pba_test[np.array([1, 2, 4, 10, 20, 29])] = False
+            pba_array[np.array([1, 2, 4, 10, 20, 29])] = False
+            testing.assert_array_equal(pba_test, pba_array)
+
+            # Test setting a list/array of indices to an array.
+            pba_test = pba.copy()
+            pba_array = np.array(pba)
+
+            pba_test[[1, 2, 4, 10, 20, 29]] = np.array([True, True, False, False, False, True])
+            pba_array[[1, 2, 4, 10, 20, 29]] = np.array([True, True, False, False, False, True])
+            testing.assert_array_equal(pba_test, pba_array)
+
+            # Test setting slices: setting to True/False
+            for mode in ("full", "aligned", "unaligned"):
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
+
+                if mode == "full":
+                    s = slice(None, None, None)
+                elif mode == "aligned":
+                    s = slice(8, 16, None)
+                else:
+                    s = slice(1, 30, None)
+
+                pba_test[s] = True
+                pba_array[s] = True
+                testing.assert_array_equal(pba_test, pba_array)
+
+                pba_test[s] = False
+                pba_array[s] = False
+                testing.assert_array_equal(pba_test, pba_array)
+
+            # Test setting slices: setting to a numpy array.
+            for mode in ("full", "aligned", "unaligned"):
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
+
+                if mode == "full":
+                    s = slice(None, None, None)
+                elif mode == "aligned":
+                    s = slice(8, 16, None)
+                else:
+                    s = slice(1, 30, None)
+
+                target = np.ones(len(pba_test[s]), dtype=np.bool_)
+                pba_test[s] = target
+                pba_array[s] = target
+                testing.assert_array_equal(pba_test, pba_array)
+
+            # Test setting slices: setting to packed boolean array.
+            for mode in ("full", "aligned", "unaligned"):
+
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
+
+                if mode == "full":
+                    s = slice(None, None, None)
+                elif mode == "aligned":
+                    s = slice(8, 16, None)
+                else:
+                    s = slice(1, 30, None)
+
+                # This gets us an "aligned" array.  Otherwise I think
+                # we need to unpack prior to setting.
+                target = pba_test[s].copy()
+                target[:] = True
+
+                pba_test[s] = target
+                pba_array[s] = np.array(target)
+                testing.assert_array_equal(pba_test, pba_array)
+
+    def test_getitem_short(self):
+        short_arrays = self._make_short_arrays()
+
+        for pba in short_arrays:
+            # Test getting a single index.
+            arr = np.array(pba)
+            for i in range(len(pba)):
+                self.assertEqual(pba[i], arr[i])
+
+            # Test getting slices.
+            # The full slice.
+            testing.assert_array_equal(np.array(pba[:]), arr[:])
+            testing.assert_array_equal(np.array(pba[0: len(pba)]), arr[0: len(pba)])
+
+            # Start at 0, end at less than the last:
+            testing.assert_array_equal(np.array(pba[: len(pba) - 2]), arr[: len(pba) - 2])
+            testing.assert_array_equal(np.array(pba[0: len(pba) - 2]), arr[0: len(pba) - 2])
+
+            # Start at 1, end at end:
+            testing.assert_array_equal(np.array(pba[1:]), arr[1:])
+            testing.assert_array_equal(np.array(pba[1: len(pba)]), arr[1: len(pba)])
+
+            # Start at 1, end at less than the last:
+            testing.assert_array_equal(np.array(pba[1: len(pba) - 2]), arr[1: len(pba) - 2])
+            testing.assert_array_equal(np.array(pba[1: -2]), arr[1: -2])
+
+            # And get an array of indices:
+            inds = np.arange(len(pba))
+            testing.assert_array_equal(pba[inds], arr[inds])
+            testing.assert_array_equal(pba[list(inds)], arr[list(inds)])
+
+            # And an empty array of indices.
+            inds = np.array([], dtype=np.int64)
+            testing.assert_array_equal(pba[inds], arr[inds])
+
+        with self.assertRaises(IndexError):
+            pba = short_arrays[0].copy()
+            pba[[5.0]]
+
+        with self.assertRaises(IndexError):
+            pba = short_arrays[0].copy()
+            pba[5.0]
+
+        with self.assertRaises(NotImplementedError):
+            pba = short_arrays[0].copy()
+            pba[::2]
+
+        with self.assertRaises(IndexError):
+            pba = short_arrays[0].copy()
+            pba[-1]
+
+        with self.assertRaises(IndexError):
+            pba = short_arrays[0].copy()
+            pba[len(pba)]
+
+    def test_getitem_middle(self):
+        middle_arrays = self._make_middle_arrays()
+
+        for pba in middle_arrays:
+            # Test getting a single index.
+            arr = np.array(pba)
+            for i in range(len(pba)):
+                self.assertEqual(pba[i], arr[i])
+
+            # Test getting slices.
+            # The full slice.
+            testing.assert_array_equal(np.array(pba[:]), arr[:])
+            testing.assert_array_equal(np.array(pba[0: len(pba)]), arr[0: len(pba)])
+
+            # Start at 0, end at less than the last:
+            testing.assert_array_equal(np.array(pba[: len(pba) - 2]), arr[: len(pba) - 2])
+            testing.assert_array_equal(np.array(pba[0: len(pba) - 2]), arr[0: len(pba) - 2])
+
+            # Start at 1, end at end:
+            testing.assert_array_equal(np.array(pba[1:]), arr[1:])
+            testing.assert_array_equal(np.array(pba[1: len(pba)]), arr[1: len(pba)])
+
+            # Start at 1, end at less than the last:
+            testing.assert_array_equal(np.array(pba[1: len(pba) - 2]), arr[1: len(pba) - 2])
+            testing.assert_array_equal(np.array(pba[1: -2]), arr[1: -2])
+
+            # Start at 8, end at end:
+            testing.assert_array_equal(np.array(pba[8:]), arr[8:])
+            testing.assert_array_equal(np.array(pba[8: len(pba)]), arr[8: len(pba)])
+
+            # Start at 9, end at end:
+            testing.assert_array_equal(np.array(pba[9:]), arr[9:])
+            testing.assert_array_equal(np.array(pba[9: len(pba)]), arr[9: len(pba)])
+
+            # And get an array of indices:
+            inds = np.arange(len(pba))
+            testing.assert_array_equal(pba[inds], arr[inds])
+            testing.assert_array_equal(pba[list(inds)], arr[list(inds)])
+
+    def test_getitem_long(self):
+        long_arrays = self._make_long_arrays()
+
+        for pba in long_arrays:
+            # Test getting a single index.
+            arr = np.array(pba)
+            for i in range(len(pba)):
+                self.assertEqual(pba[i], arr[i])
+
+            # Test getting slices.
+            # The full slice.
+            testing.assert_array_equal(np.array(pba[:]), arr[:])
+            testing.assert_array_equal(np.array(pba[0: len(pba)]), arr[0: len(pba)])
+
+            # Start at 0, end at less than the last:
+            testing.assert_array_equal(np.array(pba[: len(pba) - 2]), arr[: len(pba) - 2])
+            testing.assert_array_equal(np.array(pba[0: len(pba) - 2]), arr[0: len(pba) - 2])
+
+            # Start at 1, end at end:
+            testing.assert_array_equal(np.array(pba[1:]), arr[1:])
+            testing.assert_array_equal(np.array(pba[1: len(pba)]), arr[1: len(pba)])
+
+            # Start at 1, end at less than the last:
+            testing.assert_array_equal(np.array(pba[1: len(pba) - 2]), arr[1: len(pba) - 2])
+            testing.assert_array_equal(np.array(pba[1: -2]), arr[1: -2])
+
+            # Start at 16, end at end:
+            testing.assert_array_equal(np.array(pba[16:]), arr[16:])
+            testing.assert_array_equal(np.array(pba[16: len(pba)]), arr[16: len(pba)])
+
+            # Start at 16, end at 24 (aligned, less than end):
+            testing.assert_array_equal(np.array(pba[16: 24]), arr[16: 24])
+
+            # Start at 17, end at end:
+            testing.assert_array_equal(np.array(pba[17:]), arr[17:])
+            testing.assert_array_equal(np.array(pba[17: len(pba)]), arr[17: len(pba)])
+
+            # And get an array of indices:
+            inds = np.arange(len(pba))
+            testing.assert_array_equal(pba[inds], arr[inds])
+            testing.assert_array_equal(pba[list(inds)], arr[list(inds)])
 
     def test_and(self):
-        m = _PackedBoolArray(size=128)
-        m[8: 24] = True
+        # This test checks the and operation with "already sliced"
+        # test arrays.
+        for mode in ("short", "middle", "long"):
+            if mode == "short":
+                pba_arrays = self._make_short_arrays()
+            elif mode == "middle":
+                pba_arrays = self._make_middle_arrays()
+            elif mode == "long":
+                pba_arrays = self._make_long_arrays()
 
-        # Test __and__ (boolean)
-        m2 = m & True
-        testing.assert_array_equal(np.array(m2), np.array(m) & True)
-        m2 = m & False
-        testing.assert_array_equal(np.array(m2), np.array(m) & False)
+            for pba in pba_arrays:
+                # Test with constants.
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
 
-        # Test __and__ (_PackedBoolArray)
-        m2 = _PackedBoolArray(size=128)
-        m2[8: 32] = True
-        m3 = m & m2
-        testing.assert_array_equal(np.array(m3), np.array(m) & np.array(m2))
+                pba_test2 = pba_test & True
+                pba_array2 = pba_array & True
+                testing.assert_array_equal(pba_test2, pba_array2)
 
-        # Illegal __and__ operations.
+                pba_test2 = pba_test & False
+                pba_array2 = pba_array & False
+                testing.assert_array_equal(pba_test2, pba_array2)
+
+                pba_test &= True
+                pba_array &= True
+                testing.assert_array_equal(pba_test, pba_array)
+
+                # Test with _PackedBoolArray.
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
+
+                other = pba_test.copy()
+                other[:] = True
+                other[1] = False
+
+                pba_test2 = pba_test & other
+                pba_array2 = pba_array & np.array(other)
+                testing.assert_array_equal(pba_test2, pba_array2)
+
+                pba_test &= other
+                pba_array &= np.array(other)
+                testing.assert_array_equal(pba_test, pba_array)
+
+        pba = self._make_short_arrays()[0]
         with self.assertRaises(ValueError):
-            m3 = m & _PackedBoolArray(size=64)
+            pba & _PackedBoolArray(size=len(pba) - 1)
+
+        with self.assertRaises(ValueError):
+            pba & _PackedBoolArray(size=len(pba), start_index=1)
 
         with self.assertRaises(NotImplementedError):
-            m3 = m & 1
+            pba & 7
 
-        # Test __iand__ (boolean)
-        m2 = m.copy()
-        m2 &= True
-        testing.assert_array_equal(np.array(m2), np.array(m) & True)
-        m2 = m.copy()
-        m2 &= False
-        testing.assert_array_equal(np.array(m2), np.array(m) & False)
+    def test_and_sliced(self):
+        # This test checks the and operation while slicing
+        # the test arrays.
+        for mode in ("short", "middle", "long"):
+            if mode == "short":
+                pba_arrays = self._make_short_arrays()
+            elif mode == "middle":
+                pba_arrays = self._make_middle_arrays()
+            elif mode == "long":
+                pba_arrays = self._make_long_arrays()
 
-        # Test __iand__ (_PackedBoolArray)
-        m2 = _PackedBoolArray(size=128)
-        m2[8: 32] = True
-        m3 = m.copy()
-        m3 &= m2
-        testing.assert_array_equal(np.array(m3), np.array(m) & np.array(m2))
+            for pba in pba_arrays:
+                # Test with constants.
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
 
-        # Illegal __iand__ operations.
-        with self.assertRaises(ValueError):
-            m3 = m.copy()
-            m3 &= _PackedBoolArray(size=64)
+                pba_test2 = pba_test[1: -2] & True
+                pba_array2 = pba_array[1: -2] & True
+                testing.assert_array_equal(pba_test2, pba_array2)
 
-        with self.assertRaises(NotImplementedError):
-            m3 = m.copy()
-            m3 &= 1
+                pba_test2 = pba_test[1: -2] & False
+                pba_array2 = pba_array[1: -2] & False
+                testing.assert_array_equal(pba_test2, pba_array2)
+
+                pba_test[1: -2] &= True
+                pba_array[1: -2] &= True
+                testing.assert_array_equal(pba_test, pba_array)
+
+                # Test with _PackedBoolArray.
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
+
+                other = pba_test.copy()
+                other[:] = True
+                other[1] = False
+
+                pba_test2 = pba_test[1: -2] & other[1: -2]
+                pba_array2 = pba_array[1: -2] & np.array(other)[1: -2]
+                testing.assert_array_equal(pba_test2, pba_array2)
+
+                pba_test[1: -2] &= other[1: -2]
+                pba_array[1: -2] &= np.array(other)[1: -2]
+                testing.assert_array_equal(pba_test, pba_array)
 
     def test_or(self):
-        m = _PackedBoolArray(size=128)
-        m[8: 24] = True
+        # This test checks the or operation with "already sliced"
+        # test arrays.
+        for mode in ("short", "middle", "long"):
+            if mode == "short":
+                pba_arrays = self._make_short_arrays()
+            elif mode == "middle":
+                pba_arrays = self._make_middle_arrays()
+            elif mode == "long":
+                pba_arrays = self._make_long_arrays()
 
-        # Test __or__ (boolean)
-        m2 = m | True
-        testing.assert_array_equal(np.array(m2), np.array(m) | True)
-        m2 = m | False
-        testing.assert_array_equal(np.array(m2), np.array(m) | False)
+            for pba in pba_arrays:
+                # Test with constants.
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
 
-        # Test __or__ (_PackedBoolArray)
-        m2 = _PackedBoolArray(size=128)
-        m2[8: 32] = True
-        m3 = m | m2
-        testing.assert_array_equal(np.array(m3), np.array(m) | np.array(m2))
+                pba_test2 = pba_test | True
+                pba_array2 = pba_array | True
+                testing.assert_array_equal(pba_test2, pba_array2)
 
-        # Illegal __or__ operations.
+                pba_test2 = pba_test | False
+                pba_array2 = pba_array | False
+                testing.assert_array_equal(pba_test2, pba_array2)
+
+                pba_test |= True
+                pba_array |= True
+                testing.assert_array_equal(pba_test, pba_array)
+
+                # Test with _PackedBoolArray.
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
+
+                other = pba_test.copy()
+                other[:] = True
+                other[1] = False
+
+                pba_test2 = pba_test | other
+                pba_array2 = pba_array | np.array(other)
+                testing.assert_array_equal(pba_test2, pba_array2)
+
+                pba_test |= other
+                pba_array |= np.array(other)
+                testing.assert_array_equal(pba_test, pba_array)
+
+        pba = self._make_short_arrays()[0]
         with self.assertRaises(ValueError):
-            m3 = m | _PackedBoolArray(size=64)
+            pba | _PackedBoolArray(size=len(pba) - 1)
+
+        with self.assertRaises(ValueError):
+            pba | _PackedBoolArray(size=len(pba), start_index=1)
 
         with self.assertRaises(NotImplementedError):
-            m3 = m | 1
+            pba | 7
 
-        # Test __ior__ (boolean)
-        m2 = m.copy()
-        m2 |= True
-        testing.assert_array_equal(np.array(m2), np.array(m) | True)
-        m2 = m.copy()
-        m2 |= False
-        testing.assert_array_equal(np.array(m2), np.array(m) | False)
+    def test_or_sliced(self):
+        # This test checks the or operation while slicing
+        # the test arrays.
+        for mode in ("short", "middle", "long"):
+            if mode == "short":
+                pba_arrays = self._make_short_arrays()
+            elif mode == "middle":
+                pba_arrays = self._make_middle_arrays()
+            elif mode == "long":
+                pba_arrays = self._make_long_arrays()
 
-        # Test __ior__ (_PackedBoolArray)
-        m2 = _PackedBoolArray(size=128)
-        m2[8: 32] = True
-        m3 = m.copy()
-        m3 |= m2
-        testing.assert_array_equal(np.array(m3), np.array(m) | np.array(m2))
+            for pba in pba_arrays:
+                # Test with constants.
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
 
-        # Illegal __ior__ operations.
-        with self.assertRaises(ValueError):
-            m3 = m.copy()
-            m3 |= _PackedBoolArray(size=64)
+                pba_test2 = pba_test[1: -2] | True
+                pba_array2 = pba_array[1: -2] | True
+                testing.assert_array_equal(pba_test2, pba_array2)
 
-        with self.assertRaises(NotImplementedError):
-            m3 = m.copy()
-            m3 |= 1
+                pba_test2 = pba_test[1: -2] | False
+                pba_array2 = pba_array[1: -2] | False
+                testing.assert_array_equal(pba_test2, pba_array2)
+
+                pba_test[1: -2] |= True
+                pba_array[1: -2] |= True
+                testing.assert_array_equal(pba_test, pba_array)
+
+                # Test with _PackedBoolArray.
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
+
+                other = pba_test.copy()
+                other[:] = True
+                other[1] = False
+
+                pba_test2 = pba_test[1: -2] | other[1: -2]
+                pba_array2 = pba_array[1: -2] | np.array(other)[1: -2]
+                testing.assert_array_equal(pba_test2, pba_array2)
+
+                pba_test[1: -2] |= other[1: -2]
+                pba_array[1: -2] |= np.array(other)[1: -2]
+                testing.assert_array_equal(pba_test, pba_array)
 
     def test_xor(self):
-        m = _PackedBoolArray(size=128)
-        m[8: 24] = True
+        # This test checks the xor operation with "already sliced"
+        # test arrays.
+        for mode in ("short", "middle", "long"):
+            if mode == "short":
+                pba_arrays = self._make_short_arrays()
+            elif mode == "middle":
+                pba_arrays = self._make_middle_arrays()
+            elif mode == "long":
+                pba_arrays = self._make_long_arrays()
 
-        # Test __xor__ (boolean)
-        m2 = m ^ True
-        testing.assert_array_equal(np.array(m2), np.array(m) ^ True)
-        m2 = m ^ False
-        testing.assert_array_equal(np.array(m2), np.array(m) ^ False)
+            for pba in pba_arrays:
+                # Test with constants.
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
 
-        # Test __xor__ (_PackedBoolArray)
-        m2 = _PackedBoolArray(size=128)
-        m2[8: 32] = True
-        m3 = m ^ m2
-        testing.assert_array_equal(np.array(m3), np.array(m) ^ np.array(m2))
+                pba_test2 = pba_test ^ True
+                pba_array2 = pba_array ^ True
+                testing.assert_array_equal(pba_test2, pba_array2)
 
-        # Illegal __xor__ operations.
+                pba_test2 = pba_test ^ False
+                pba_array2 = pba_array ^ False
+                testing.assert_array_equal(pba_test2, pba_array2)
+
+                pba_test ^= True
+                pba_array ^= True
+                testing.assert_array_equal(pba_test, pba_array)
+
+                # Test with _PackedBoolArray.
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
+
+                other = pba_test.copy()
+                other[:] = True
+                other[1] = False
+
+                pba_test2 = pba_test ^ other
+                pba_array2 = pba_array ^ np.array(other)
+                testing.assert_array_equal(pba_test2, pba_array2)
+
+                pba_test ^= other
+                pba_array ^= np.array(other)
+                testing.assert_array_equal(pba_test, pba_array)
+
+        pba = self._make_short_arrays()[0]
         with self.assertRaises(ValueError):
-            m3 = m ^ _PackedBoolArray(size=64)
+            pba ^ _PackedBoolArray(size=len(pba) - 1)
+
+        with self.assertRaises(ValueError):
+            pba ^ _PackedBoolArray(size=len(pba), start_index=1)
 
         with self.assertRaises(NotImplementedError):
-            m3 = m ^ 1
+            pba ^ 7
 
-        # Test __ixor__ (boolean)
-        m2 = m.copy()
-        m2 ^= True
-        testing.assert_array_equal(np.array(m2), np.array(m) ^ True)
-        m2 = m.copy()
-        m2 ^= False
-        testing.assert_array_equal(np.array(m2), np.array(m) ^ False)
+    def test_xor_sliced(self):
+        # This test checks the xor operation while slicing
+        # the test arrays.
+        for mode in ("short", "middle", "long"):
+            if mode == "short":
+                pba_arrays = self._make_short_arrays()
+            elif mode == "middle":
+                pba_arrays = self._make_middle_arrays()
+            elif mode == "long":
+                pba_arrays = self._make_long_arrays()
 
-        # Test __ixor__ (_PackedBoolArray)
-        m2 = _PackedBoolArray(size=128)
-        m2[8: 32] = True
-        m3 = m.copy()
-        m3 ^= m2
-        testing.assert_array_equal(np.array(m3), np.array(m) ^ np.array(m2))
+            for pba in pba_arrays:
+                # Test with constants.
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
 
-        # Illegal __ixor__ operations.
-        with self.assertRaises(ValueError):
-            m3 = m.copy()
-            m3 ^= _PackedBoolArray(size=64)
+                pba_test2 = pba_test[1: -2] ^ True
+                pba_array2 = pba_array[1: -2] ^ True
+                testing.assert_array_equal(pba_test2, pba_array2)
 
-        with self.assertRaises(NotImplementedError):
-            m3 = m.copy()
-            m3 ^= 1
+                pba_test2 = pba_test[1: -2] ^ False
+                pba_array2 = pba_array[1: -2] ^ False
+                testing.assert_array_equal(pba_test2, pba_array2)
+
+                pba_test[1: -2] ^= True
+                pba_array[1: -2] ^= True
+                testing.assert_array_equal(pba_test, pba_array)
+
+                # Test with _PackedBoolArray.
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
+
+                other = pba_test.copy()
+                other[:] = True
+                other[1] = False
+
+                pba_test2 = pba_test[1: -2] ^ other[1: -2]
+                pba_array2 = pba_array[1: -2] ^ np.array(other)[1: -2]
+                testing.assert_array_equal(pba_test2, pba_array2)
+
+                pba_test[1: -2] ^= other[1: -2]
+                pba_array[1: -2] ^= np.array(other)[1: -2]
+                testing.assert_array_equal(pba_test, pba_array)
 
     def test_invert(self):
-        m = _PackedBoolArray(size=128)
-        m[8: 24] = True
+        # This test checks the and operation with "already sliced"
+        # test arrays.
+        for mode in ("short", "middle", "long"):
+            if mode == "short":
+                pba_arrays = self._make_short_arrays()
+            elif mode == "middle":
+                pba_arrays = self._make_middle_arrays()
+            elif mode == "long":
+                pba_arrays = self._make_long_arrays()
 
-        # Test __invert__
-        m2 = ~m
-        testing.assert_array_equal(np.array(m2), ~np.array(m))
+            for pba in pba_arrays:
+                # Test with constants.
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
+
+                pba_test2 = ~pba_test
+                pba_array2 = ~pba_array
+                testing.assert_array_equal(pba_test2, pba_array2)
+
+                pba_test.invert()
+                pba_array = np.invert(pba_array)
+                testing.assert_array_equal(pba_test, pba_array)
+
+    def test_invert_slice(self):
+        # This test checks the invert operation while slicing
+        # the test arrays.
+        for mode in ("short", "middle", "long"):
+            if mode == "short":
+                pba_arrays = self._make_short_arrays()
+            elif mode == "middle":
+                pba_arrays = self._make_middle_arrays()
+            elif mode == "long":
+                pba_arrays = self._make_long_arrays()
+
+            for pba in pba_arrays:
+                # Test with constants.
+                pba_test = pba.copy()
+                pba_array = np.array(pba)
+
+                pba_test[1: -2] = ~pba_test[1: -2]
+                pba_array[1: -2] = ~pba_array[1: -2]
+                testing.assert_array_equal(pba_test, pba_array)
+
+                pba_test[1: -2].invert()
+                pba_array[1: -2] = np.invert(pba_array[1: -2])
+                testing.assert_array_equal(pba_test, pba_array)
 
 
 class HealSparseBitPackedTestCase(unittest.TestCase):
