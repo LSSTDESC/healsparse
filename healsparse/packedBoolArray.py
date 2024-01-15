@@ -7,6 +7,10 @@ from .utils import is_integer_value
 class _PackedBoolArray:
     """Bit-packed map to be used as a healsparse sparse_map.
 
+    Either size or data_buffer may be specified but not both.
+    The start_index may be specified with size or with data_buffer.
+    The stop_index may only be specified with data_buffer.
+
     Parameters
     ----------
     size : `int`, optional
@@ -16,24 +20,30 @@ class _PackedBoolArray:
         if given.  This will not be a copy, so changes here will
         reflect in the source.
     start_index : `int`, optional
-         Index at which the array starts (used for unaligned slices).
+         Index at which the array starts (used for unaligned slices/arrays).
     stop_index : `int`, optional
          Index at which the array ends (used for unaligned slices and
          arrays which are not divisible by 8).
     """
-    def __init__(self, size=0, data_buffer=None, start_index=None, stop_index=None):
+    def __init__(self, size=None, data_buffer=None, start_index=None, stop_index=None):
+        if size is not None and data_buffer is not None:
+            raise ValueError("May only specify one of size or data_buffer.")
+
+        if start_index is None:
+            self._start_index = 0
+        else:
+            if start_index < 0 or start_index > 7:
+                raise ValueError("start_index must be between 0 and 7.")
+            self._start_index = start_index
+
         if data_buffer is not None:
             if not isinstance(data_buffer, np.ndarray) or data_buffer.dtype != np.uint8:
                 raise ValueError("data_buffer must be a numpy array of type uint8")
 
-            self._data = data_buffer
+            if size is not None:
+                raise ValueError("size may not be specified with data_buffer.")
 
-            if start_index is None:
-                self._start_index = 0
-            else:
-                if start_index < 0 or start_index > 7:
-                    raise ValueError("start_index must be between 0 and 7.")
-                self._start_index = start_index
+            self._data = data_buffer
 
             if stop_index is None:
                 self._stop_index = len(data_buffer)*8
@@ -43,17 +53,22 @@ class _PackedBoolArray:
                     raise ValueError("stop_index must be within 8 of the intrinsic size.")
                 self._stop_index = stop_index
         else:
-            if (size % 8) == 0:
+            if size is None:
+                size = 0
+
+            if stop_index is not None:
+                raise ValueError("stop_index may not be specified without data_buffer.")
+
+            if ((size + self._start_index) % 8) == 0:
                 # This is aligned.
-                data_len = size // 8
+                data_len = (size + self._start_index) // 8
             else:
                 # Unaligned; we need an extra data bin.
-                data_len = size // 8 + 1
+                data_len = (size + self._start_index) // 8 + 1
 
             self._data = np.zeros(data_len, dtype=np.uint8)
 
-            self._start_index = 0
-            self._stop_index = size
+            self._stop_index = size + self._start_index
 
         # Reported dtype is numpy bool.
         self._dtype = np.dtype("bool")
@@ -122,27 +137,36 @@ class _PackedBoolArray:
         refcheck : `bool`, optional
             If False, reference count will not be checked.
         """
-        if self._start_index != 0:
-            raise NotImplementedError("Cannot resize a _PackedBoolArray with an offset start.")
+        if newsize < self.size:
+            raise ValueError("resize can only be used to enlarge the data buffer.")
+        elif newsize == self.size:
+            # Nothing to do.
+            return
 
-        newsize_data = newsize // 8
-        if (newsize % 8) != 0:
+        newsize_data = (newsize + self._start_index) // 8
+        if (newsize + self._start_index) %8 != 0:
             newsize_data += 1
 
-        # FIXME This is not correct...
-        self._stop_index = newsize
+        self._stop_index = newsize + self._start_index
 
         self._data.resize(newsize_data, refcheck=refcheck)
 
     def sum(self, shape=None, axis=None):
-        if self._start_index != 0 or self._stop_index != self.size:
-            # This will require special casing the first and last elements.
-            raise NotImplementedError("Cannot yet do a sum of an offset _PackedBoolArray")
-
         if shape is None:
-            # FIXME about masking first/last.
-            return np.sum(self._bit_count(self._data), dtype=np.int64)
+            summand = np.int64(0)
+            # This is a straight sum, can be done on any alignment.
+            first_unpacked, mid_data, last_unpacked = self._extract_first_middle_last(mask_extra=True)
+            if first_unpacked[0] is not None:
+                summand += np.sum(first_unpacked[0], dtype=np.int64)
+            if last_unpacked[0] is not None:
+                summand += np.sum(last_unpacked[0], dtype=np.int64)
+            if mid_data is not None:
+                summand += np.sum(self._bit_count(mid_data), dtype=np.int64)
+
+            return summand
         else:
+            if self._start_index != 0 or (self._stop_index % 8) != 0:
+                raise ValueError("Reshaped summation can only be done on aligned _PackedBoolArrays.")
             if not isinstance(shape, (list, tuple)):
                 raise ValueError("Shape must be a list or tuple.")
             if axis is not None and axis >= len(shape):
@@ -153,6 +177,8 @@ class _PackedBoolArray:
                 raise ValueError("Shape mismatch with array size.")
             if shape[-1] % 8 != 0:
                 raise ValueError("Final shape index must be a multiple of 8.")
+            if axis == 0:
+                raise NotImplementedError("axis=0 is not supported for summation.")
 
             new_shape = list(shape)
             new_shape[-1] //= 8
@@ -190,7 +216,10 @@ class _PackedBoolArray:
         return self.__str__()
 
     def __str__(self):
-        return f"_PackedBoolArray(size={self.size})"
+        st = f"_PackedBoolArray(size={self.size}"
+        if self._start_index > 0:
+            st += f", start_index={self._start_index}"
+        return st + ")"
 
     def __len__(self):
         return self.size
@@ -201,10 +230,12 @@ class _PackedBoolArray:
             # Record the current start index.
             start_index = self._start_index
             stop_index = self._stop_index
+            key_start = 0
 
             if key.start is not None:
                 if key.start < 0 or key.start > self.size:
                     raise ValueError("Slice start out of range.")
+                key_start = key.start
 
                 # We need to know both how to slice the data buffer and
                 # recompute the start index relative to the slice.
@@ -228,8 +259,15 @@ class _PackedBoolArray:
 
                 # We need to know how to slice the data buffer and
                 # recompute the stop index relative to the slice.
-                data_stop = (_stop + self._start_index) // 8 + 1
-                stop_index = (data_stop - data_start - 1)*8 + (_stop + self._start_index) % 8
+                size = _stop - key_start
+                if ((size + start_index) % 8) == 0:
+                    # This is aligned.
+                    offset_value = 0
+                else:
+                    offset_value = 1
+
+                data_stop = (_stop + self._start_index) // 8 + offset_value
+                stop_index = (data_stop - data_start - offset_value)*8 + (_stop + self._start_index) % 8
             else:
                 # Stop at the end of the data buffer, and use
                 # the original stop index (though this may have
@@ -276,10 +314,10 @@ class _PackedBoolArray:
             # Check the value.
             if isinstance(value, (bool, np.bool_)):
                 if first_unpacked[0] is not None:
-                    first_unpacked[0][slice(first_unpacked[1], first_unpacked[2], None)] = value
+                    first_unpacked[0][first_unpacked[1]: first_unpacked[2]] = value
                     temp_pba._data[0] = np.packbits(first_unpacked[0], bitorder="little")[0]
                 if last_unpacked[0] is not None:
-                    last_unpacked[0][slice(last_unpacked[1], last_unpacked[2], None)] = value
+                    last_unpacked[0][last_unpacked[1]: last_unpacked[2]] = value
                     temp_pba._data[-1] = np.packbits(last_unpacked[0], bitorder="little")[0]
                 if mid_data is not None:
                     mid_data[:] = self._uint8_truefalse[bool(value)]
@@ -305,12 +343,12 @@ class _PackedBoolArray:
                     _value._extract_first_middle_last(mask_extra=False)
 
                 if first_unpacked[0] is not None:
-                    first_unpacked[0][slice(first_unpacked[1], first_unpacked[2], None)] = \
-                        value_first_unpacked[0][slice(first_unpacked[1], first_unpacked[2], None)]
+                    first_unpacked[0][first_unpacked[1]: first_unpacked[2]] = \
+                        value_first_unpacked[0][first_unpacked[1]: first_unpacked[2]]
                     temp_pba._data[0] = np.packbits(first_unpacked[0], bitorder="little")[0]
                 if last_unpacked[0] is not None:
-                    last_unpacked[0][slice(last_unpacked[1], last_unpacked[2], None)] = \
-                        value_last_unpacked[0][slice(last_unpacked[1], last_unpacked[2], None)]
+                    last_unpacked[0][last_unpacked[1]: last_unpacked[2]] = \
+                        value_last_unpacked[0][last_unpacked[1]: last_unpacked[2]]
                     temp_pba._data[-1] = np.packbits(last_unpacked[0], bitorder="little")[0]
                 if mid_data is not None:
                     mid_data[:] = value_mid_data[:]
@@ -342,6 +380,70 @@ class _PackedBoolArray:
     def __array__(self):
         array = np.unpackbits(self._data, bitorder="little").astype(np.bool_)
         return array[self._start_index: self._stop_index]
+
+    def __iand__(self, other):
+        if isinstance(other, (bool, np.bool_)):
+            self._operation_helper_bool("and", other)
+        elif isinstance(other, _PackedBoolArray):
+            if len(other) != len(self):
+                raise ValueError("RHS _PackedBoolArray must have the same size.")
+            if other._start_index != self._start_index or other._stop_index != other._stop_index:
+                raise ValueError("RHS _PackedBoolArray must have matched alignment.")
+            self._operation_helper_pba("and", other)
+        else:
+            raise NotImplementedError("and function only supports bool and _PackedBoolArray")
+        return self
+
+    def __and__(self, other):
+        new = self.copy()
+        new &= other
+        return new
+
+    def __ior__(self, other):
+        if isinstance(other, (bool, np.bool_)):
+            self._operation_helper_bool("or", other)
+        elif isinstance(other, _PackedBoolArray):
+            if len(other) != len(self):
+                raise ValueError("RHS _PackedBoolArray must have the same size.")
+            if other._start_index != self._start_index or other._stop_index != other._stop_index:
+                raise ValueError("RHS _PackedBoolArray must have matched alignment.")
+            self._operation_helper_pba("or", other)
+        else:
+            raise NotImplementedError("or function only supports bool and _PackedBoolArray")
+        return self
+
+    def __or__(self, other):
+        new = self.copy()
+        new |= other
+        return new
+
+    def __ixor__(self, other):
+        if isinstance(other, (bool, np.bool_)):
+            self._operation_helper_bool("xor", other)
+        elif isinstance(other, _PackedBoolArray):
+            if len(other) != len(self):
+                raise ValueError("RHS _PackedBoolArray must have the same size.")
+            if other._start_index != self._start_index or other._stop_index != other._stop_index:
+                raise ValueError("RHS _PackedBoolArray must have matched alignment.")
+            self._operation_helper_pba("xor", other)
+        else:
+            raise NotImplementedError("xor function only supports bool and _PackedBoolArray")
+        return self
+
+    def __xor__(self, other):
+        new = self.copy()
+        new ^= other
+        return new
+
+    def __invert__(self):
+        new = self.copy()
+        new.invert()
+        return new
+
+    def invert(self):
+        self._operation_helper_bool("invert", True)
+
+        return self
 
     def _extract_first_middle_last(self, mask_extra=False):
         """Extract the first/middle/last parts of the data buffer.
@@ -430,6 +532,97 @@ class _PackedBoolArray:
         # Should not get here.
         raise RuntimeError("Programmer mistake")
 
+    def _operation_helper_bool(self, operation, other):
+        """Helper function for performing an operation with a boolean.
+
+        Operates on self._data in-place.
+
+        Parameters
+        ----------
+        operation : `str`
+            Must be one of ``and``, ``or``, ``xor``, or ``invert``.
+        other : `bool`
+            Boolean value.
+        """
+        first_unpacked, mid_data, last_unpacked = self._extract_first_middle_last(mask_extra=False)
+
+        if first_unpacked[0] is not None:
+            if operation == "and":
+                first_unpacked[0][first_unpacked[1]: first_unpacked[2]] &= other
+            elif operation == "or":
+                first_unpacked[0][first_unpacked[1]: first_unpacked[2]] |= other
+            elif operation == "xor":
+                first_unpacked[0][first_unpacked[1]: first_unpacked[2]] ^= other
+            elif operation == "invert":
+                first_unpacked[0][first_unpacked[1]: first_unpacked[2]] = \
+                    ~first_unpacked[0][first_unpacked[1]: first_unpacked[2]]
+            self._data[0] = np.packbits(first_unpacked[0], bitorder="little")[0]
+        if last_unpacked[0] is not None:
+            if operation == "and":
+                last_unpacked[0][last_unpacked[1]: last_unpacked[2]] &= other
+            elif operation == "or":
+                last_unpacked[0][last_unpacked[1]: last_unpacked[2]] |= other
+            elif operation == "xor":
+                last_unpacked[0][last_unpacked[1]: last_unpacked[2]] ^= other
+            elif operation == "invert":
+                last_unpacked[0][last_unpacked[1]: last_unpacked[2]] = \
+                    ~last_unpacked[0][last_unpacked[1]: last_unpacked[2]]
+            self._data[-1] = np.packbits(last_unpacked[0], bitorder="little")[0]
+        if mid_data is not None:
+            if operation == "and":
+                mid_data[:] &= self._uint8_truefalse[bool(other)]
+            elif operation == "or":
+                mid_data[:] |= self._uint8_truefalse[bool(other)]
+            elif operation == "xor":
+                mid_data[:] ^= self._uint8_truefalse[bool(other)]
+            elif operation == "invert":
+                mid_data[:] = ~mid_data[:]
+
+    def _operation_helper_pba(self, operation, other):
+        """Helper function for performing an operation with a _PackedBoolArray.
+
+        Operates on self._data in-place.
+
+        Parameters
+        ----------
+        operation : `str`
+            Must be one of ``and``, ``or``, or ``xor``.
+        other : `_PackedBoolArray`
+            _PackedBoolArray; must be aligned.
+        """
+        first_unpacked, mid_data, last_unpacked = self._extract_first_middle_last(mask_extra=False)
+        o_first_unpacked, o_mid_data, o_last_unpacked = other._extract_first_middle_last(mask_extra=False)
+
+        if first_unpacked[0] is not None:
+            if operation == "and":
+                first_unpacked[0][first_unpacked[1]: first_unpacked[2]] &= \
+                    o_first_unpacked[0][first_unpacked[1]: first_unpacked[2]]
+            elif operation == "or":
+                first_unpacked[0][first_unpacked[1]: first_unpacked[2]] |= \
+                    o_first_unpacked[0][first_unpacked[1]: first_unpacked[2]]
+            elif operation == "xor":
+                first_unpacked[0][first_unpacked[1]: first_unpacked[2]] ^= \
+                    o_first_unpacked[0][first_unpacked[1]: first_unpacked[2]]
+            self._data[0] = np.packbits(first_unpacked[0], bitorder="little")[0]
+        if last_unpacked[0] is not None:
+            if operation == "and":
+                last_unpacked[0][last_unpacked[1]: last_unpacked[2]] &= \
+                    o_last_unpacked[0][last_unpacked[1]: last_unpacked[2]]
+            elif operation == "or":
+                last_unpacked[0][last_unpacked[1]: last_unpacked[2]] |= \
+                    o_last_unpacked[0][last_unpacked[1]: last_unpacked[2]]
+            elif operation == "xor":
+                last_unpacked[0][last_unpacked[1]: last_unpacked[2]] ^= \
+                    o_last_unpacked[0][last_unpacked[1]: last_unpacked[2]]
+            self._data[-1] = np.packbits(last_unpacked[0], bitorder="little")[0]
+        if mid_data is not None:
+            if operation == "and":
+                mid_data[:] &= o_mid_data[:]
+            elif operation == "or":
+                mid_data[:] |= o_mid_data[:]
+            elif operation == "xor":
+                mid_data[:] ^= o_mid_data[:]
+
     def _set_bits_at_locs(self, locs):
         if locs.min() < 0 or locs.max() > self.size:
             raise ValueError("Location indices out of range.")
@@ -461,6 +654,12 @@ class _PackedBoolArray:
         _locs = locs + self._start_index
 
         return self._data[_locs // 8] & (1 << (_locs % 8).astype(np.uint8)) != 0
+
+    def _bit_count(self, arr):
+        arr = arr - ((arr >> 1) & self._s55)
+        arr = (arr & self._s33) + ((arr >> 2) & self._s33)
+        arr = (arr + (arr >> 4)) & self._s0F
+        return arr * self._s01
 
 
 class _PackedBoolArray0:
@@ -649,7 +848,10 @@ class _PackedBoolArray0:
         return self.__str__()
 
     def __str__(self):
-        return f"_PackedBoolArray(size={self.size})"
+        st = f"_PackedBoolArray(size={self.size}"
+        if self._start_index > 0:
+            st += f", start_index={self._start_index}"
+        return st + ")"
 
     def __len__(self):
         return self.size
