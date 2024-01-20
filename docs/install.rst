@@ -9,7 +9,7 @@ Installation of `healpy <https://github.com/healpy/healpy>`_ is required for rea
 
 .. code-block:: bash
 
-  conda install -c conda-forge hpgeom
+  conda install -c conda-forge healsparse
 
 or
 
