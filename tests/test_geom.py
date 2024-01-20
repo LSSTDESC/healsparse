@@ -585,13 +585,11 @@ class GeomTestCase(unittest.TestCase):
             if mode == "float":
                 dtype = np.float64
                 value = 100.0
-                sentinel = 0.0
             elif mode == "integer":
                 dtype = np.int32
                 value = 10
-                sentinel = 0
 
-            m = healsparse.HealSparseMap.make_empty(32, 2048, dtype, sentinel=sentinel)
+            m = healsparse.HealSparseMap.make_empty(32, 2048, dtype)
 
             small_circle = healsparse.geom.Circle(
                 ra=20.0,
