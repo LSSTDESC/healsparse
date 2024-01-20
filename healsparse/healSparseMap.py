@@ -479,8 +479,10 @@ class HealSparseMap(object):
 
         Parameters
         ----------
-        pixels : `np.ndarray`
-            Integer array of sparse_map pixel values
+        pixels : `np.ndarray` (M,) or (M, 2)
+            Integer array of sparse_map pixel values.  If this is a 2D array
+            of shape (M, 2), this is interpreted as pixel ranges where each
+            row is [start, end).
         values : `np.ndarray` or `None`
             Value or Array of values.  Must be same type as sparse_map.
             If None, then the pixels will be set to the sentinel map value.
@@ -590,7 +592,6 @@ class HealSparseMap(object):
                 if len(np.unique(pixels)) < len(pixels):
                     raise ValueError("List of pixels must be unique if operation='replace'")
 
-        # FIXME: Check for pixel ranges, call the special function.
         if pixels.ndim == 2 and pixels.shape[1] == 2:
             # These are pixel ranges.
             if not is_single_value:
