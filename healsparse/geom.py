@@ -1,6 +1,5 @@
 import numpy as np
 import hpgeom as hpg
-from .healSparseMap import HealSparseMap
 from .utils import is_integer_value
 import numbers
 
@@ -16,21 +15,19 @@ def realize_geom(geom, smap, type='or'):
     smap : `HealSparseMap`
         The map in which to realize the objects.
     type : `str`
-        Way to combine the list of geometric objects.  Default
-        is to "or" them.
+        Way to combine the list of geometric objects.
+        Currently only supports ``or``.
     """
-
-    if type != 'or':
-        raise ValueError('type of composition must be or')
+    if type not in ['or']:
+        raise ValueError('Type of composition must be ``or``')
 
     if not smap.is_integer_map:
-        raise ValueError('can only or geometry objects into an integer map')
+        raise ValueError(f'Can only {type} geometry objects into an integer map')
 
     if not isinstance(geom, (list, tuple)):
         geom = [geom]
 
-    # split the geom objects up by value
-    gdict = {}
+    # Check all the values before starting.
     for g in geom:
         value = g.value
         if isinstance(value, (tuple, list, np.ndarray)):
@@ -44,35 +41,9 @@ def realize_geom(geom, smap, type='or'):
             _check_int(value)
             _check_int_size(value, smap.dtype)
 
-        if value not in gdict:
-            gdict[value] = [g]
-        else:
-            gdict[value].append(g)
-
-    # deal with each value separately and add to
-    # the map
-    for value, glist in gdict.items():
-        for i, g in enumerate(glist):
-            tpixels = g.get_pixels(nside=smap.nside_sparse)
-            if i == 0:
-                pixels = tpixels
-            else:
-                oldsize = pixels.size
-                newsize = oldsize + tpixels.size
-                # need refcheck=False because it will fail when running
-                # the python profiler; I infer that the profiler holds
-                # a reference to the objects
-                pixels.resize(newsize, refcheck=False)
-                pixels[oldsize:] = tpixels
-
-        pixels = np.unique(pixels)
-
-        if smap.is_wide_mask_map:
-            smap.set_bits_pix(pixels, value)
-        else:
-            values = smap.get_values_pix(pixels)
-            values |= value
-            smap.update_values_pix(pixels, values)
+    # Now generate the map.
+    for g in geom:
+        smap |= g
 
 
 def _check_int(x):
@@ -150,6 +121,7 @@ class GeomBase(object):
         -------
         hsmap : `healsparse.HealSparseMap`
         """
+        from .healSparseMap import HealSparseMap
 
         x = np.zeros(1, dtype=dtype)
         if is_integer_value(x[0]):
@@ -198,6 +170,7 @@ class GeomBase(object):
         -------
         hsmap : `healsparse.HealSparseMap`
         """
+        from .healSparseMap import HealSparseMap
 
         if not isinstance(sparseMap, HealSparseMap):
             raise RuntimeError("Input sparseMap must be a HealSparseMap")
