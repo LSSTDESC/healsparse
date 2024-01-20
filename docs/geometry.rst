@@ -4,9 +4,12 @@
 HealSparse Geometry
 ===================
 
-:code:`HealSparse` has a basic geometry library that allows you to generate maps from circles and convex polygons, as supported by :code:`healpy`.  Each geometric object is associated with a single value.  On construction, geometry objects only contain information about the shape, and they are only rendered onto a `HEALPix` grid when requested.
+:code:`HealSparse` has a basic geometry library that allows you to generate maps from circles, convex polygons, and ellipses as supported by :code:`hpgeom`.  Each geometric object is associated with a single value.  On construction, geometry objects only contain information about the shape, and they are only rendered onto a `HEALPix` grid when requested.
 
-There are two methods to realize geometry objects.  The first is that each object can be used to generate a :code:`HealSparseMap` map, and the second, for integer-valued objects is the :code:`realize_geom()` method which can be used to combine multiple objects by :code:`or`-ing the integer values together.
+There are a few methods to realize geometry objects.
+The easiest is to combine a geometric object with a :code:`HealSparseMap` map, with the ``or``, ``and``, or ``add`` operation.
+One can generate a :code:`HealSparseMap` from the geometric object.
+Finally, for integer-value objects one can use the :code:`realize_geom()` method to combine multiple objects by :cod:`or`-ing the integer values together.
 
 
 HealSparse Geometry Shapes
@@ -44,6 +47,30 @@ The three shapes supported are :code:`Circle`, :code:`Ellipse`, and :code:`Polyg
     poly = healsparse.Polygon(ra=[200.0, 200.2, 200.3, 200.2, 200.1],
                               dec=[0.0, 0.1, 0.2, 0.25, 0.13],
                               value=8)
+
+
+Combining Geometric Objects with Maps
+-------------------------------------
+
+Given a map, it is very simple to combine geometric objects to build up complex shapes/masks/etc.
+Behind the scenes, large geometric objects are rendered with :code:`hpgeom` pixel ranges which leads to greater memory efficiency.
+
+.. code-block :: python
+
+    import healsparse
+    import numpy as np
+
+    # Create an empty map.
+    m = healsparse.HealSparseMap.make_empty(32, 4096, np.uint16)
+
+    # Set a large circle to a value using the ``or`` operation
+    m |= healsparse.Circle(ra=200.0, dec=20.0, radius=5.0, value=1)
+
+    # Remove a small circle from the center using the ``and`` operation
+    m &= healsparse.Circle(ra=200.0, dec=20.0, radius=1.0, value=0)
+
+    # And add in another circle.
+    m += healsparse.Circle(ra=202.0, dec=21.0, radius=0.5, value=10)
 
 
 Making a Map

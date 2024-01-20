@@ -308,3 +308,5 @@ For example, we can take render our map as a collection of hexagonal cells using
     plt.hexbin(ra, dec, C=hsp_map[vpix])
     plt.colorbar()
     plt.show()
+
+For more sophisticated visualizations and projections of HealSparse maps, please see `SkyProj <https://skyproj.readthedocs.io/en/latest/>`_.
