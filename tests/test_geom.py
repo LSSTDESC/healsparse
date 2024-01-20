@@ -375,7 +375,7 @@ class GeomTestCase(unittest.TestCase):
         testing.assert_array_equal(smap.valid_pixels, smap2.valid_pixels)
         testing.assert_array_equal(smap2.get_values_pix(smap2.valid_pixels), 2.0)
 
-    def test_realize_geom_values(self):
+    def test_realize_geom_or(self):
         """
         test "or"ing two geom objects
         """
@@ -424,6 +424,222 @@ class GeomTestCase(unittest.TestCase):
             testing.assert_array_equal(in1_vals, value1)
             testing.assert_array_equal(in2_vals, value2)
             testing.assert_array_equal(both_vals, (value1 | value2))
+
+    def test_map_or_geom(self):
+        # Make sure we have a big and small region.
+        # Need to test boolean, boolean packed, and integer maps.
+
+        for mode in ["boolean", "boolean_packed", "integer"]:
+            if mode == "boolean":
+                dtype = np.bool_
+                bit_packed = False
+                value = True
+            elif mode == "boolean_packed":
+                dtype = np.bool_
+                bit_packed = True
+                value = True
+            elif mode == "integer":
+                dtype = np.uint16
+                bit_packed = False
+                value = 2
+
+            m = healsparse.HealSparseMap.make_empty(32, 2048, dtype, bit_packed=bit_packed)
+
+            small_circle = healsparse.geom.Circle(
+                ra=20.0,
+                dec=30.0,
+                radius=0.25,
+                value=value,
+            )
+
+            pixels1 = small_circle.get_pixels(nside=m.nside_sparse)
+            self.assertLess(len(pixels1), healsparse.utils.PIXEL_RANGE_THRESHOLD)
+
+            m2 = m | small_circle
+            m |= small_circle
+
+            np.testing.assert_array_equal(m2.valid_pixels, pixels1)
+            np.testing.assert_array_equal(m.valid_pixels, pixels1)
+
+            np.testing.assert_array_equal(m[m.valid_pixels], value)
+            np.testing.assert_array_equal(m2[m2.valid_pixels], value)
+
+            large_circle = healsparse.geom.Circle(
+                ra=21.0,
+                dec=29.0,
+                radius=6.0,
+                value=value,
+            )
+
+            pixels2 = large_circle.get_pixels(nside=m.nside_sparse)
+            self.assertGreater(len(pixels2), healsparse.utils.PIXEL_RANGE_THRESHOLD)
+
+            m3 = m2 | large_circle
+            m |= large_circle
+
+            pixels1or2 = np.union1d(pixels1, pixels2)
+
+            # Need to sort!
+            np.testing.assert_array_equal(np.sort(m.valid_pixels), pixels1or2)
+            np.testing.assert_array_equal(np.sort(m3.valid_pixels), pixels1or2)
+
+            np.testing.assert_array_equal(m[m.valid_pixels], value)
+            np.testing.assert_array_equal(m3[m3.valid_pixels], value)
+
+    def test_map_and_geom(self):
+        # Make sure we have a big and small region.
+        # Need to test boolean, boolean packed, and integer maps.
+
+        for mode in ["boolean", "boolean_packed", "integer"]:
+            if mode == "boolean":
+                dtype = np.bool_
+                bit_packed = False
+                value1 = True
+                value2 = False
+            elif mode == "boolean_packed":
+                dtype = np.bool_
+                bit_packed = True
+                value1 = True
+                value2 = False
+            elif mode == "integer":
+                dtype = np.uint16
+                bit_packed = False
+                value1 = 6
+                value2 = 2
+
+            m = healsparse.HealSparseMap.make_empty(32, 2048, dtype, bit_packed=bit_packed)
+
+            # First we set a very large circle to the first pixel value.
+            very_large_circle = healsparse.geom.Circle(
+                ra=21.0,
+                dec=29.0,
+                radius=10.0,
+                value=value1,
+            )
+            m |= very_large_circle
+
+            pixels1 = very_large_circle.get_pixels(nside=m.nside_sparse)
+
+            # Next we and a large circle with the second pixel value.
+            large_circle = healsparse.geom.Circle(
+                ra=21.0,
+                dec=29.0,
+                radius=6.0,
+                value=value2,
+            )
+
+            pixels2 = large_circle.get_pixels(nside=m.nside_sparse)
+            self.assertGreater(len(pixels2), healsparse.utils.PIXEL_RANGE_THRESHOLD)
+
+            m2 = m & large_circle
+            m &= large_circle
+
+            # This should be an annulus (boolean) or a very large circle (int).
+
+            # pixels in pixels1 and not pixels2:
+            pixels1not2 = np.setdiff1d(pixels1, pixels2, assume_unique=True)
+
+            if mode == "integer":
+                np.testing.assert_array_equal(np.sort(m.valid_pixels), pixels1)
+                np.testing.assert_array_equal(np.sort(m2.valid_pixels), pixels1)
+            else:
+                np.testing.assert_array_equal(np.sort(m.valid_pixels), pixels1not2)
+                np.testing.assert_array_equal(np.sort(m2.valid_pixels), pixels1not2)
+
+            np.testing.assert_array_equal(m[pixels1not2], value1)
+            np.testing.assert_array_equal(m2[pixels1not2], value1)
+            np.testing.assert_array_equal(m[pixels2], value1 & value2)
+            np.testing.assert_array_equal(m2[pixels2], value1 & value2)
+
+            small_circle = healsparse.geom.Circle(
+                ra=30.0,
+                dec=30.0,
+                radius=0.25,
+                value=value2,
+            )
+
+            pixels3 = small_circle.get_pixels(nside=m.nside_sparse)
+            self.assertLess(len(pixels3), healsparse.utils.PIXEL_RANGE_THRESHOLD)
+
+            m3 = m2 & small_circle
+            m &= small_circle
+
+            # For the boolean, it's going to be pixels that are in 1 but not 2 or 3.
+            pixels1not2or3 = np.setdiff1d(pixels1, np.union1d(pixels2, pixels3), assume_unique=True)
+
+            if mode == "integer":
+                np.testing.assert_array_equal(np.sort(m.valid_pixels), pixels1)
+                np.testing.assert_array_equal(np.sort(m3.valid_pixels), pixels1)
+            else:
+                np.testing.assert_array_equal(np.sort(m.valid_pixels), pixels1not2or3)
+                np.testing.assert_array_equal(np.sort(m3.valid_pixels), pixels1not2or3)
+
+            np.testing.assert_array_equal(m[pixels1not2or3], value1)
+            np.testing.assert_array_equal(m3[pixels1not2or3], value1)
+            np.testing.assert_array_equal(m[pixels3], value1 & value2)
+            np.testing.assert_array_equal(m3[pixels3], value1 & value2)
+
+    def test_map_add_geom(self):
+        # Make sure we have a big and small region.
+        for mode in ["integer", "float"]:
+            if mode == "float":
+                dtype = np.float64
+                value = 100.0
+                sentinel = 0.0
+            elif mode == "integer":
+                dtype = np.int32
+                value = 10
+                sentinel = 0
+
+            m = healsparse.HealSparseMap.make_empty(32, 2048, dtype, sentinel=sentinel)
+
+            small_circle = healsparse.geom.Circle(
+                ra=20.0,
+                dec=30.0,
+                radius=0.25,
+                value=value,
+            )
+
+            pixels1 = small_circle.get_pixels(nside=m.nside_sparse)
+            self.assertLess(len(pixels1), healsparse.utils.PIXEL_RANGE_THRESHOLD)
+
+            m2 = m + small_circle
+            m += small_circle
+
+            np.testing.assert_array_equal(m2.valid_pixels, pixels1)
+            np.testing.assert_array_equal(m.valid_pixels, pixels1)
+
+            np.testing.assert_array_equal(m[m.valid_pixels], value)
+            np.testing.assert_array_equal(m2[m2.valid_pixels], value)
+
+            large_circle = healsparse.geom.Circle(
+                ra=21.0,
+                dec=29.0,
+                radius=6.0,
+                value=value,
+            )
+
+            pixels2 = large_circle.get_pixels(nside=m.nside_sparse)
+            self.assertGreater(len(pixels2), healsparse.utils.PIXEL_RANGE_THRESHOLD)
+
+            m3 = m2 + large_circle
+            m += large_circle
+
+            pixels1or2 = np.union1d(pixels1, pixels2)
+
+            # Need to sort!
+            np.testing.assert_array_equal(np.sort(m.valid_pixels), pixels1or2)
+            np.testing.assert_array_equal(np.sort(m3.valid_pixels), pixels1or2)
+
+            pixels1not2 = np.setdiff1d(pixels1, pixels2)
+
+            np.testing.assert_array_equal(m[pixels1not2], value)
+            np.testing.assert_array_equal(m3[pixels1not2], value)
+
+            pixels1and2 = np.intersect1d(pixels1, pixels2)
+
+            np.testing.assert_array_equal(m[pixels1and2], 2*value)
+            np.testing.assert_array_equal(m3[pixels1and2], 2*value)
 
     def test_repr(self):
         """
