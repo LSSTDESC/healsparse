@@ -8,6 +8,7 @@ from .utils import WIDE_NBIT, WIDE_MASK, PIXEL_RANGE_THRESHOLD
 from .utils import is_integer_value, _compute_bitshift
 from .io_map import _read_map, _write_map, _write_moc
 from .packedBoolArray import _PackedBoolArray
+from .geom import GeomBase
 import warnings
 
 
@@ -2077,7 +2078,16 @@ class HealSparseMap(object):
 
         Cannot be used with recarray maps.
         """
-        return self._apply_operation(other, np.add)
+        if issubclass(type(other), GeomBase):
+            new_map = self.copy()
+            new_map.update_values_pix(
+                other.get_pixel_ranges(nside=self.nside_sparse),
+                other.value,
+                operation="add",
+            )
+            return new_map
+        else:
+            return self._apply_operation(other, np.add)
 
     def __iadd__(self, other):
         """
@@ -2085,8 +2095,15 @@ class HealSparseMap(object):
 
         Cannot be used with recarray maps.
         """
-
-        return self._apply_operation(other, np.add, in_place=True)
+        if issubclass(type(other), GeomBase):
+            self.update_values_pix(
+                other.get_pixel_ranges(nside=self.nside_sparse),
+                other.value,
+                operation="add",
+            )
+            return self
+        else:
+            return self._apply_operation(other, np.add, in_place=True)
 
     def __sub__(self, other):
         """
@@ -2166,7 +2183,19 @@ class HealSparseMap(object):
 
         Cannot be used with recarray maps.
         """
-        if self.dtype == np.bool_:
+        if issubclass(type(other), GeomBase):
+            new_map = self.copy()
+            if self._is_wide_mask:
+                value = _bitvals_to_packed_array(other.value, self._wide_mask_maxbits)
+            else:
+                value = other.value
+            new_map.update_values_pix(
+                other.get_pixel_ranges(nside=self.nside_sparse),
+                value,
+                operation="and",
+            )
+            return new_map
+        elif self.dtype == np.bool_:
             return self._apply_boolean_map_operation(other, "and")
         else:
             return self._apply_operation(other, np.bitwise_and, int_only=True)
@@ -2177,7 +2206,18 @@ class HealSparseMap(object):
 
         Cannot be used with recarray maps.
         """
-        if self.dtype == np.bool_:
+        if issubclass(type(other), GeomBase):
+            if self._is_wide_mask:
+                value = _bitvals_to_packed_array(other.value, self._wide_mask_maxbits)
+            else:
+                value = other.value
+            self.update_values_pix(
+                other.get_pixel_ranges(nside=self.nside_sparse),
+                value,
+                operation="and",
+            )
+            return self
+        elif self.dtype == np.bool_:
             return self._apply_boolean_map_operation(other, "and", in_place=True)
         else:
             return self._apply_operation(other, np.bitwise_and, int_only=True, in_place=True)
@@ -2210,7 +2250,19 @@ class HealSparseMap(object):
 
         Cannot be used with recarray maps.
         """
-        if self.dtype == np.bool_:
+        if issubclass(type(other), GeomBase):
+            new_map = self.copy()
+            if self._is_wide_mask:
+                value = _bitvals_to_packed_array(other.value, self._wide_mask_maxbits)
+            else:
+                value = other.value
+            new_map.update_values_pix(
+                other.get_pixel_ranges(nside=self.nside_sparse),
+                value,
+                operation="or",
+            )
+            return new_map
+        elif self.dtype == np.bool_:
             return self._apply_boolean_map_operation(other, "or")
         else:
             return self._apply_operation(other, np.bitwise_or, int_only=True)
@@ -2221,7 +2273,18 @@ class HealSparseMap(object):
 
         Cannot be used with recarray maps.
         """
-        if self.dtype == np.bool_:
+        if issubclass(type(other), GeomBase):
+            if self._is_wide_mask:
+                value = _bitvals_to_packed_array(other.value, self._wide_mask_maxbits)
+            else:
+                value = other.value
+            self.update_values_pix(
+                other.get_pixel_ranges(nside=self.nside_sparse),
+                value,
+                operation="or",
+            )
+            return self
+        elif self.dtype == np.bool_:
             return self._apply_boolean_map_operation(other, "or", in_place=True)
         else:
             return self._apply_operation(other, np.bitwise_or, int_only=True, in_place=True)
