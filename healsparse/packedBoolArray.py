@@ -192,7 +192,8 @@ class _PackedBoolArray:
     @property
     def data_array(self):
         if self._start_index != 0 or self._stop_index != self.size:
-            raise NotImplementedError("Cannot yet get data array from offset array")
+            raise NotImplementedError("_PackedBoolArray does not support extracting the "
+                                      "data_array from an unaligned _PackedBoolArray.")
 
         return self._data
 
@@ -203,6 +204,10 @@ class _PackedBoolArray:
         -------
         copy : `_PackedBoolArray`
         """
+        # Prior to copying the array, we mask any extra padding bits
+        # on either side of the data array. This requires unpacking
+        # the first and/or last parts of the data buffer and then
+        # repackaging the masked tails.
         first_unpacked, mid_data, last_unpacked = self._extract_first_middle_last(mask_extra=True)
         new_buffer = self._data.copy()
         if first_unpacked[0] is not None:
@@ -538,9 +543,6 @@ class _PackedBoolArray:
                         mid_data,
                         (last_unpacked, 0, self._stop_index % 8),
                     )
-
-        # Should not get here.
-        raise RuntimeError("Programmer mistake")
 
     def _operation_helper_bool(self, operation, other):
         """Helper function for performing an operation with a boolean.
