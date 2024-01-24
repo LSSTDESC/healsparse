@@ -10,6 +10,8 @@ class UpdateValuesPixelRangesTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 256
 
+        orig_threshold = healsparse.healSparseMap.PIXEL_RANGE_THRESHOLD
+
         # Monkey-patch PIXEL_RANGE_THRESHOLD for testing.
         healsparse.healSparseMap.PIXEL_RANGE_THRESHOLD = 0
 
@@ -71,9 +73,13 @@ class UpdateValuesPixelRangesTestCase(unittest.TestCase):
             # None value: narrow range, no overlap.
             _none_checker(m1, m2, 200000, 200010, cov_mask)
 
+        healsparse.healSparseMap.PIXEL_RANGE_THRESHOLD = orig_threshold
+
     def test_update_values_pixel_ranges_empty(self):
         nside_coverage = 32
         nside_map = 256
+
+        orig_threshold = healsparse.healSparseMap.PIXEL_RANGE_THRESHOLD
 
         # Monkey-patch PIXEL_RANGE_THRESHOLD for testing.
         healsparse.healSparseMap.PIXEL_RANGE_THRESHOLD = 0
@@ -86,9 +92,13 @@ class UpdateValuesPixelRangesTestCase(unittest.TestCase):
 
         self.assertEqual(m1.n_valid, 0)
 
+        healsparse.healSparseMap.PIXEL_RANGE_THRESHOLD = orig_threshold
+
     def test_update_values_pixel_ranges_or(self):
         nside_coverage = 32
         nside_map = 256
+
+        orig_threshold = healsparse.healSparseMap.PIXEL_RANGE_THRESHOLD
 
         # Monkey-patch PIXEL_RANGE_THRESHOLD for testing.
         healsparse.healSparseMap.PIXEL_RANGE_THRESHOLD = 0
@@ -128,9 +138,13 @@ class UpdateValuesPixelRangesTestCase(unittest.TestCase):
             testing.assert_array_equal(m1.valid_pixels, m2.valid_pixels)
             testing.assert_array_equal(m1[m1.valid_pixels], m2[m2.valid_pixels])
 
+        healsparse.healSparseMap.PIXEL_RANGE_THRESHOLD = orig_threshold
+
     def test_update_values_pixel_ranges_and(self):
         nside_coverage = 32
         nside_map = 256
+
+        orig_threshold = healsparse.healSparseMap.PIXEL_RANGE_THRESHOLD
 
         # Monkey-patch PIXEL_RANGE_THRESHOLD for testing.
         healsparse.healSparseMap.PIXEL_RANGE_THRESHOLD = 0
@@ -170,9 +184,13 @@ class UpdateValuesPixelRangesTestCase(unittest.TestCase):
             testing.assert_array_equal(m1.valid_pixels, m2.valid_pixels)
             testing.assert_array_equal(m1[m1.valid_pixels], m2[m2.valid_pixels])
 
+        healsparse.healSparseMap.PIXEL_RANGE_THRESHOLD = orig_threshold
+
     def test_update_values_pixel_ranges_add(self):
         nside_coverage = 32
         nside_map = 256
+
+        orig_threshold = healsparse.healSparseMap.PIXEL_RANGE_THRESHOLD
 
         # Monkey-patch PIXEL_RANGE_THRESHOLD for testing.
         healsparse.healSparseMap.PIXEL_RANGE_THRESHOLD = 0
@@ -206,9 +224,13 @@ class UpdateValuesPixelRangesTestCase(unittest.TestCase):
             testing.assert_array_equal(m1.valid_pixels, m2.valid_pixels)
             testing.assert_array_equal(m1[m1.valid_pixels], m2[m2.valid_pixels])
 
+        healsparse.healSparseMap.PIXEL_RANGE_THRESHOLD = orig_threshold
+
     def test_set_bits_pix_pixel_ranges(self):
         nside_coverage = 32
         nside_map = 256
+
+        orig_threshold = healsparse.healSparseMap.PIXEL_RANGE_THRESHOLD
 
         # Monkey-patch PIXEL_RANGE_THRESHOLD for testing.
         healsparse.healSparseMap.PIXEL_RANGE_THRESHOLD = 0
@@ -231,6 +253,8 @@ class UpdateValuesPixelRangesTestCase(unittest.TestCase):
 
         testing.assert_array_equal(m1.valid_pixels, m2.valid_pixels)
         testing.assert_array_equal(m1[m1.valid_pixels], m2[m2.valid_pixels])
+
+        healsparse.healSparseMap.PIXEL_RANGE_THRESHOLD = orig_threshold
 
 
 if __name__ == '__main__':
