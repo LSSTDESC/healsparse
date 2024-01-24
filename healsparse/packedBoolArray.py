@@ -20,10 +20,12 @@ class _PackedBoolArray:
         if given.  This will not be a copy, so changes here will
         reflect in the source.
     start_index : `int`, optional
-         Index at which the array starts (used for unaligned slices/arrays).
+        Index at which the array starts (used for unaligned slices/arrays).
     stop_index : `int`, optional
-         Index at which the array ends (used for unaligned slices and
-         arrays which are not divisible by 8).
+        Exclusive index for the end of the array (following Python
+        conventions where start is inclusive and stop is exclusive
+        ([start: stop]). Used for unaligned slices and arrays with
+        length not divisible by 8.
     """
     def __init__(self, size=None, data_buffer=None, start_index=None, stop_index=None):
         if size is not None and data_buffer is not None:
