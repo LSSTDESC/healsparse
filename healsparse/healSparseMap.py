@@ -3,10 +3,12 @@ import hpgeom as hpg
 import numbers
 
 from .healSparseCoverage import HealSparseCoverage
-from .utils import reduce_array, check_sentinel, _get_field_and_bitval, WIDE_NBIT, WIDE_MASK
+from .utils import reduce_array, check_sentinel, _bitvals_to_packed_array
+from .utils import WIDE_NBIT, WIDE_MASK, PIXEL_RANGE_THRESHOLD
 from .utils import is_integer_value, _compute_bitshift
 from .io_map import _read_map, _write_map, _write_moc
 from .packedBoolArray import _PackedBoolArray
+from .geom import GeomBase
 import warnings
 
 
@@ -477,8 +479,10 @@ class HealSparseMap(object):
 
         Parameters
         ----------
-        pixels : `np.ndarray`
-            Integer array of sparse_map pixel values
+        pixels : `np.ndarray` (M,) or (M, 2)
+            Integer array of sparse_map pixel values.  If this is a 2D array
+            of shape (M, 2), this is interpreted as pixel ranges where each
+            row is [start, end).
         values : `np.ndarray` or `None`
             Value or Array of values.  Must be same type as sparse_map.
             If None, then the pixels will be set to the sentinel map value.
@@ -519,9 +523,10 @@ class HealSparseMap(object):
             no_append = True
 
         if operation != 'replace':
-            if self._is_bit_packed:
-                raise NotImplementedError("bit_packed maps only support ``replace``.")
-            if operation in ['or', 'and']:
+            if self.dtype == np.bool_:
+                if operation not in ['or', 'and']:
+                    raise NotImplementedError("Booleam maps Can only use replace/and/or operations.")
+            elif operation in ['or', 'and']:
                 if not self.is_integer_map or self._sentinel != 0:
                     raise ValueError("Can only use and/or with integer map with 0 sentinel")
             elif operation == 'add':
@@ -529,12 +534,6 @@ class HealSparseMap(object):
                     raise ValueError("Cannot use 'add' operation with a recarray map.")
             else:
                 raise ValueError("Only 'replace', 'add', 'or', and 'and' are supported operations")
-
-        if operation == 'replace':
-            # Check for unique pixel positions
-            if hasattr(pixels, "__len__"):
-                if len(np.unique(pixels)) < len(pixels):
-                    raise ValueError("List of pixels must be unique if operation='replace'")
 
         # If _not_ recarray, we can use a single int/float
         is_single_value = False
@@ -579,11 +578,6 @@ class HealSparseMap(object):
             # Nothing to do
             return
 
-        if not nest:
-            _pix = hpg.ring_to_nest(self._nside_sparse, pixels)
-        else:
-            _pix = pixels
-
         # Check numpy data type for everything but wide_mask single value
         if not self._is_wide_mask or (self._is_wide_mask and not is_single_value):
             if self._is_rec_array:
@@ -591,6 +585,31 @@ class HealSparseMap(object):
                     raise ValueError("Data-type mismatch between sparse_map and values")
             elif self._sparse_map.dtype.type != _values.dtype.type:
                 raise ValueError("Data-type mismatch between sparse_map and values")
+
+        if operation == 'replace':
+            # Check for unique pixel positions
+            if hasattr(pixels, "__len__"):
+                if len(np.unique(pixels)) < len(pixels):
+                    raise ValueError("List of pixels must be unique if operation='replace'")
+
+        if pixels.ndim == 2 and pixels.shape[1] == 2:
+            # These are pixel ranges.
+            if not is_single_value:
+                raise ValueError("Can only use a single value with pixel ranges (N, 2) input.")
+            if not nest:
+                raise ValueError("Can only use pixel ranges with nest ordering.")
+
+            # At the risk of premature optimization, we only call the special function
+            # if the number of pixels is above some threshold.
+            pixels_to_set = np.sum(pixels[:, 1] - pixels[:, 0])
+            if pixels_to_set > PIXEL_RANGE_THRESHOLD:
+                return self._update_values_pixel_ranges(pixels, _values[0], operation, no_append)
+            else:
+                _pix = hpg.pixel_ranges_to_pixels(pixels)
+        elif not nest:
+            _pix = hpg.ring_to_nest(self._nside_sparse, pixels)
+        else:
+            _pix = pixels
 
         # Check array lengths
         if not is_single_value and len(_values) != pixels.size:
@@ -609,32 +628,33 @@ class HealSparseMap(object):
         in_cov = cov_mask[ipnest_cov]
         out_cov = ~cov_mask[ipnest_cov]
 
+        # This little internal function is used by several modes below
+        # and it is much clearer to pull it out.
+        def _do_operation_on_sparse_map(operation, sparse_map, indices, values):
+            if operation == "replace":
+                sparse_map[indices] = values
+            elif operation == "add":
+                # Put in a check to reset uncovered pixels to 0
+                if self._sentinel != 0:
+                    sparse_map[indices[sparse_map[indices] == self._sentinel]] = 0
+                np.add.at(sparse_map, indices, values)
+            elif operation == "or":
+                if self._is_bit_packed:
+                    sparse_map[indices] |= values
+                else:
+                    np.bitwise_or.at(sparse_map, indices, values)
+            elif operation == "and":
+                if self._is_bit_packed:
+                    sparse_map[indices] &= values
+                else:
+                    np.bitwise_and.at(sparse_map, indices, values)
+
         # Replace values for those pixels in the coverage map
         _indices = _pix[in_cov] + self._cov_map[ipnest_cov[in_cov]]
         if is_single_value:
-            if operation == 'replace':
-                self._sparse_map[_indices] = _values[0]
-            elif operation == 'add':
-                # Put in a check to reset uncovered pixels to 0
-                if self._sentinel != 0:
-                    self._sparse_map[_indices[self._sparse_map[_indices] == self._sentinel]] = 0
-                np.add.at(self._sparse_map, _indices, _values[0])
-            elif operation == 'or':
-                np.bitwise_or.at(self._sparse_map, _indices, _values[0])
-            elif operation == 'and':
-                np.bitwise_and.at(self._sparse_map, _indices, _values[0])
+            _do_operation_on_sparse_map(operation, self._sparse_map, _indices, _values[0])
         else:
-            if operation == 'replace':
-                self._sparse_map[_indices] = _values[in_cov]
-            elif operation == 'add':
-                # Put in a check to reset uncovered pixels to 0
-                if self._sentinel != 0:
-                    self._sparse_map[_indices[self._sparse_map[_indices] == self._sentinel]] = 0
-                np.add.at(self._sparse_map, _indices, _values[in_cov])
-            elif operation == 'or':
-                np.bitwise_or.at(self._sparse_map, _indices, _values[in_cov])
-            elif operation == 'and':
-                np.bitwise_and.at(self._sparse_map, _indices, _values[in_cov])
+            _do_operation_on_sparse_map(operation, self._sparse_map, _indices, _values[in_cov])
 
         # Update the coverage map for the rest of the pixels (if necessary)
         if out_cov.sum() > 0 and not no_append:
@@ -651,29 +671,113 @@ class HealSparseMap(object):
 
             _indices = _pix[out_cov] + self._cov_map[ipnest_cov[out_cov]] - oldsize
             if is_single_value:
-                if operation == 'replace':
-                    self._sparse_map[oldsize:][_indices] = _values[0]
-                elif operation == 'add':
-                    # Put in a check to reset uncovered pixels to 0
-                    if self._sentinel != 0:
-                        self._sparse_map[oldsize:][_indices[self._sparse_map[_indices] == self._sentinel]] = 0
-                    np.add.at(self._sparse_map[oldsize:], _indices, _values[0])
-                elif operation == 'or':
-                    np.bitwise_or.at(self._sparse_map[oldsize:], _indices, _values[0])
-                elif operation == 'and':
-                    np.bitwise_and.at(self._sparse_map[oldsize:], _indices, _values[0])
+                _do_operation_on_sparse_map(operation, self._sparse_map[oldsize:], _indices, _values[0])
             else:
-                if operation == 'replace':
-                    self._sparse_map[oldsize:][_indices] = _values[out_cov]
-                elif operation == 'add':
-                    # Put in a check to reset uncovered pixels to 0
-                    if self._sentinel != 0:
-                        self._sparse_map[oldsize:][_indices[self._sparse_map[_indices] == self._sentinel]] = 0
-                    np.add.at(self._sparse_map[oldsize:], _indices, _values[out_cov])
-                elif operation == 'or':
-                    np.bitwise_or.at(self._sparse_map[oldsize:], _indices, _values[out_cov])
-                elif operation == 'and':
-                    np.bitwise_and.at(self._sparse_map[oldsize:], _indices, _values[out_cov])
+                _do_operation_on_sparse_map(operation, self._sparse_map[oldsize:], _indices, _values[out_cov])
+
+    def _update_values_pixel_ranges(self, pixel_ranges, value, operation, no_append):
+        """
+        Update a set of pixel ranges with a given (single) value.
+
+        All inputs should be validated prior to calling this internal routine.
+
+        Parameters
+        ----------
+        pixel_ranges : `np.ndarray` (M, 2)
+            2D array of pixel ranges.
+        value : `int` or `float` or `bool`
+            Single value to set.
+        operation : `str`
+            Operation to apply.  Must be ``replace``, ``and``, ``or`` or ``add``.
+        no_append : `bool`
+            If True, no coverage pixels will be appended.
+        """
+        # Compute the coverage pixels.
+        cov_pix_ranges = np.right_shift(pixel_ranges, self._cov_map.bit_shift)
+        # After the bit shift these pixel ranges are inclusive, not exclusive.
+        cov_pix_to_set = hpg.pixel_ranges_to_pixels(cov_pix_ranges, inclusive=True)
+        cov_pix_to_set = np.unique(cov_pix_to_set)
+
+        cov_mask = self.coverage_mask
+
+        new_cov_pixels = cov_pix_to_set[~cov_mask[cov_pix_to_set]]
+
+        if not no_append and len(new_cov_pixels) > 0:
+            # Reserve more storage for new coverage pixels.
+            self._reserve_cov_pix(new_cov_pixels)
+
+        # Check which of these ranges cover more than one pixel?
+        delta_pix = pixel_ranges[:, 1] - pixel_ranges[:, 0]
+        delta_covpix = cov_pix_ranges[:, 1] - cov_pix_ranges[:, 0]
+
+        covpix_start_values = (self._cov_map[cov_pix_ranges.ravel()] +
+                               self._cov_map.nfine_per_cov*cov_pix_ranges.ravel()
+                               ).reshape(cov_pix_ranges.shape)
+
+        covpix_offset_values = self._cov_map[self._cov_map.cov_pixels_from_index(
+            covpix_start_values.ravel()
+        )].reshape(cov_pix_ranges.shape)
+
+        def _do_operation_on_sparse_map_range(operation, sparse_map, start, stop, value):
+            # Note that start: stop will not have overlapping pixels, so we do
+            # not need to use ufunc.at() to perform operations.
+            if operation == "replace":
+                sparse_map[start: stop] = value
+            elif operation == "add":
+                # Put in a check to reset uncovered pixels to 0
+                if self._sentinel != 0:
+                    sparse_map[start: stop][sparse_map[start: stop] == self._sentinel] = 0
+                sparse_map[start: stop] += value
+            elif operation == "or":
+                sparse_map[start: stop] |= value
+            elif operation == "and":
+                sparse_map[start: stop] &= value
+
+        # Loop over ranges.
+        for i in range(pixel_ranges.shape[0]):
+            if delta_covpix[i] > 0:
+                # This range overlaps multiple coverage pixels.
+                if no_append and not cov_mask[cov_pix_ranges[i, 0]]:
+                    # Nothing to set here.
+                    pass
+                else:
+                    # The first coverage pixel will be partly covered.
+                    start = pixel_ranges[i, 0] + covpix_offset_values[i, 0]
+                    stop = (
+                        self._cov_map[cov_pix_ranges[i, 0]] +
+                        self._cov_map.nfine_per_cov*(cov_pix_ranges[i, 0] + 1)
+                    )
+                    _do_operation_on_sparse_map_range(operation, self._sparse_map, start, stop, value)
+
+                # The middle coverage pixels will be fully covered.
+                for cov_pix_full in range(cov_pix_ranges[i, 0] + 1, cov_pix_ranges[i, 1]):
+                    if no_append and not cov_mask[cov_pix_full]:
+                        # Nothing to set here.
+                        continue
+                    start = (self._cov_map[cov_pix_full] + self._cov_map.nfine_per_cov*cov_pix_full)
+                    stop = start + self._cov_map.nfine_per_cov
+                    _do_operation_on_sparse_map_range(operation, self._sparse_map, start, stop, value)
+
+                if no_append and not cov_mask[cov_pix_ranges[i, 1]]:
+                    # Nothing to set here.
+                    pass
+                else:
+                    # The final coverage pixel will be partly covered.
+                    start = (self._cov_map[cov_pix_ranges[i, 1]] +
+                             self._cov_map.nfine_per_cov*(cov_pix_ranges[i, 1])
+                             )
+                    stop = pixel_ranges[i, 1] + covpix_offset_values[i, 1]
+                    _do_operation_on_sparse_map_range(operation, self._sparse_map, start, stop, value)
+            else:
+                if no_append and not cov_mask[cov_pix_ranges[i, 0]]:
+                    # Nothing to set here.
+                    continue
+
+                # This range is fully contained in a coverage pixel.
+                start = pixel_ranges[i, 0] + covpix_offset_values[i, 0]
+                stop = start + delta_pix[i]
+
+                _do_operation_on_sparse_map_range(operation, self._sparse_map, start, stop, value)
 
     def set_bits_pix(self, pixels, bits, nest=True):
         """
@@ -693,10 +797,7 @@ class HealSparseMap(object):
             raise ValueError("Bit position %d too large (>= %d)" % (np.max(bits),
                                                                     self._wide_mask_maxbits))
 
-        value = self._sparse_map[0].copy()
-        for bit in bits:
-            field, bitval = _get_field_and_bitval(bit)
-            value[field] |= bitval
+        value = _bitvals_to_packed_array(bits, self._wide_mask_maxbits)
 
         self.update_values_pix(pixels, value, nest=nest, operation='or')
 
@@ -718,10 +819,7 @@ class HealSparseMap(object):
             raise ValueError("Bit position %d too large (>= %d)" % (np.max(bits),
                                                                     self._wide_mask_maxbits))
 
-        value = self._sparse_map[0].copy()
-        for bit in bits:
-            field, bitval = _get_field_and_bitval(bit)
-            value[field] |= bitval
+        value = _bitvals_to_packed_array(bits, self._wide_mask_maxbits)
 
         # A bit reset is performed with &= ~(bit1 | bit2)
         self.update_values_pix(pixels, ~value, nest=nest, operation='and')
@@ -865,15 +963,9 @@ class HealSparseMap(object):
            set
         """
         values = self.get_values_pix(np.atleast_1d(pixels), nest=nest)
-        bit_flags = None
-        for bit in bits:
-            field, bitval = _get_field_and_bitval(bit)
-            if bit_flags is None:
-                bit_flags = ((values[:, field] & bitval) > 0)
-            else:
-                bit_flags |= ((values[:, field] & bitval) > 0)
 
-        return bit_flags
+        bit_value = _bitvals_to_packed_array(bits, self._wide_mask_maxbits)
+        return np.any((values & bit_value) > 0, axis=1)
 
     @property
     def sentinel(self):
@@ -1633,16 +1725,10 @@ class HealSparseMap(object):
                 if mask_bit_arr is None:
                     bad_pixels, = np.where(mask_map.get_values_pix(valid_pixels).sum(axis=1) > 0)
                 else:
-                    # loop over mask_bit_arr
                     mask_values = mask_map.get_values_pix(valid_pixels)
-                    bad_pixel_flag = None
-                    for bit in mask_bit_arr:
-                        field, bitval = _get_field_and_bitval(bit)
-                        if bad_pixel_flag is None:
-                            bad_pixel_flag = ((mask_values[:, field] & bitval) > 0)
-                        else:
-                            bad_pixel_flag |= ((mask_values[:, field] & bitval) > 0)
-                    bad_pixels, = np.where(bad_pixel_flag)
+
+                    bit_value = _bitvals_to_packed_array(mask_bit_arr, mask_map._wide_mask_maxbits)
+                    bad_pixels, = np.where(np.any((mask_values & bit_value) > 0, axis=1))
             else:
                 bad_pixels, = np.where(mask_map.get_values_pix(valid_pixels) > 0)
         else:
@@ -1993,7 +2079,16 @@ class HealSparseMap(object):
 
         Cannot be used with recarray maps.
         """
-        return self._apply_operation(other, np.add)
+        if issubclass(type(other), GeomBase):
+            new_map = self.copy()
+            new_map.update_values_pix(
+                other.get_pixel_ranges(nside=self.nside_sparse),
+                other.value,
+                operation="add",
+            )
+            return new_map
+        else:
+            return self._apply_operation(other, np.add)
 
     def __iadd__(self, other):
         """
@@ -2001,8 +2096,15 @@ class HealSparseMap(object):
 
         Cannot be used with recarray maps.
         """
-
-        return self._apply_operation(other, np.add, in_place=True)
+        if issubclass(type(other), GeomBase):
+            self.update_values_pix(
+                other.get_pixel_ranges(nside=self.nside_sparse),
+                other.value,
+                operation="add",
+            )
+            return self
+        else:
+            return self._apply_operation(other, np.add, in_place=True)
 
     def __sub__(self, other):
         """
@@ -2082,7 +2184,19 @@ class HealSparseMap(object):
 
         Cannot be used with recarray maps.
         """
-        if self.dtype == np.bool_:
+        if issubclass(type(other), GeomBase):
+            new_map = self.copy()
+            if self._is_wide_mask:
+                value = _bitvals_to_packed_array(other.value, self._wide_mask_maxbits)
+            else:
+                value = other.value
+            new_map.update_values_pix(
+                other.get_pixel_ranges(nside=self.nside_sparse),
+                value,
+                operation="and",
+            )
+            return new_map
+        elif self.dtype == np.bool_:
             return self._apply_boolean_map_operation(other, "and")
         else:
             return self._apply_operation(other, np.bitwise_and, int_only=True)
@@ -2093,7 +2207,18 @@ class HealSparseMap(object):
 
         Cannot be used with recarray maps.
         """
-        if self.dtype == np.bool_:
+        if issubclass(type(other), GeomBase):
+            if self._is_wide_mask:
+                value = _bitvals_to_packed_array(other.value, self._wide_mask_maxbits)
+            else:
+                value = other.value
+            self.update_values_pix(
+                other.get_pixel_ranges(nside=self.nside_sparse),
+                value,
+                operation="and",
+            )
+            return self
+        elif self.dtype == np.bool_:
             return self._apply_boolean_map_operation(other, "and", in_place=True)
         else:
             return self._apply_operation(other, np.bitwise_and, int_only=True, in_place=True)
@@ -2126,7 +2251,19 @@ class HealSparseMap(object):
 
         Cannot be used with recarray maps.
         """
-        if self.dtype == np.bool_:
+        if issubclass(type(other), GeomBase):
+            new_map = self.copy()
+            if self._is_wide_mask:
+                value = _bitvals_to_packed_array(other.value, self._wide_mask_maxbits)
+            else:
+                value = other.value
+            new_map.update_values_pix(
+                other.get_pixel_ranges(nside=self.nside_sparse),
+                value,
+                operation="or",
+            )
+            return new_map
+        elif self.dtype == np.bool_:
             return self._apply_boolean_map_operation(other, "or")
         else:
             return self._apply_operation(other, np.bitwise_or, int_only=True)
@@ -2137,7 +2274,18 @@ class HealSparseMap(object):
 
         Cannot be used with recarray maps.
         """
-        if self.dtype == np.bool_:
+        if issubclass(type(other), GeomBase):
+            if self._is_wide_mask:
+                value = _bitvals_to_packed_array(other.value, self._wide_mask_maxbits)
+            else:
+                value = other.value
+            self.update_values_pix(
+                other.get_pixel_ranges(nside=self.nside_sparse),
+                value,
+                operation="or",
+            )
+            return self
+        elif self.dtype == np.bool_:
             return self._apply_boolean_map_operation(other, "or", in_place=True)
         else:
             return self._apply_operation(other, np.bitwise_or, int_only=True, in_place=True)
@@ -2245,10 +2393,7 @@ class HealSparseMap(object):
         if self._is_wide_mask:
             valid_sparse_pixels = (self._sparse_map != self._sentinel).sum(axis=1, dtype=np.bool_)
 
-            other_value = np.zeros(self._wide_mask_width, self._sparse_map.dtype)
-            for bit in other:
-                field, bitval = _get_field_and_bitval(bit)
-                other_value[field] |= bitval
+            other_value = _bitvals_to_packed_array(other, self._wide_mask_maxbits)
         else:
             valid_sparse_pixels = (self._sparse_map != self._sentinel)
 

@@ -241,7 +241,7 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map,
 
     integer_map = sparse_map.dtype.fields is None and is_integer_value(sparse_map.dtype.type(0))
     if integer_map:
-        compression = "RICE"
+        compression = "RICE_1"
     else:
         compression = "GZIP_2"
 

@@ -1,5 +1,5 @@
 numpy>=1.16.0
-hpgeom
+hpgeom>=1.2.0
 astropy
 setuptools_scm
 setuptools_scm_git_archive

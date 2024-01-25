@@ -504,7 +504,7 @@ class WideMasksTestCase(unittest.TestCase):
             testing.assert_equal(xor_map_union.get_values_pix(all_pixels)[:, i],
                                  test_xor_union)
 
-    def test_wide_mask_polygon(self):
+    def test_wide_mask_polygon_or(self):
         """
         Make a wide mask with a polygon
         """
