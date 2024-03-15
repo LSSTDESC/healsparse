@@ -73,11 +73,8 @@ class _PackedBoolArray:
         # Reported dtype is numpy bool.
         self._dtype = np.dtype("bool")
 
-        # Set up constants for bit counting
-        self._s55 = np.uint8(0x55)
-        self._s33 = np.uint8(0x33)
-        self._s0F = np.uint8(0x0F)
-        self._s01 = np.uint8(0x01)
+        # We will need a lookup table for bit counting.
+        self.LUT = None
 
         self._uint8_truefalse = {
             True: ~np.uint8(0),
@@ -677,7 +674,15 @@ class _PackedBoolArray:
         return self._data[_locs // 8] & (1 << (_locs % 8).astype(np.uint8)) != 0
 
     def _bit_count(self, arr):
-        arr = arr - ((arr >> 1) & self._s55)
-        arr = (arr & self._s33) + ((arr >> 2) & self._s33)
-        arr = (arr + (arr >> 4)) & self._s0F
-        return arr * self._s01
+        if self.LUT is None:
+            _s55 = np.uint8(0x55)
+            _s33 = np.uint8(0x33)
+            _s0F = np.uint8(0x0F)
+            _s01 = np.uint8(0x01)
+            self.LUT = np.arange(2**8, dtype=np.uint8)
+            self.LUT = self.LUT - ((self.LUT >> 1) & _s55)
+            self.LUT = (self.LUT & _s33) + ((self.LUT >> 2) & _s33)
+            self.LUT = (self.LUT + (self.LUT >> 4)) & _s0F
+            self.LUT *= _s01
+
+        return self.LUT[arr]
