@@ -208,9 +208,9 @@ class _PackedBoolArray:
         first_unpacked, mid_data, last_unpacked = self._extract_first_middle_last(mask_extra=True)
         new_buffer = self._data.copy()
         if first_unpacked[0] is not None:
-            new_buffer[0] = np.packbits(first_unpacked[0], bitorder="little")
+            new_buffer[0] = np.packbits(first_unpacked[0], bitorder="little")[0]
         if last_unpacked[0] is not None:
-            new_buffer[-1] = np.packbits(last_unpacked[0], bitorder="little")
+            new_buffer[-1] = np.packbits(last_unpacked[0], bitorder="little")[0]
 
         return _PackedBoolArray(
             data_buffer=new_buffer,
