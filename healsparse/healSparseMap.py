@@ -2562,6 +2562,14 @@ class HealSparseMap(object):
         else:
             descr += ', ' + self._sparse_map.dtype.name
 
-        descr += ', %d valid pixels' % (self.n_valid)
+        add_n_valid = True
+        if self._is_bit_packed and self._n_valid is None:
+            # Only plot the number of valid pixels if we have
+            # previously computed it. This is to keep the memory
+            # from blowing up until we optimize this operation.
+            add_n_valid = False
+
+        if add_n_valid:
+            descr += ', %d valid pixels' % (self.n_valid)
 
         return descr
