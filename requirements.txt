@@ -1,4 +1,4 @@
-numpy>=1.16.0
+oldest-supported-numpy
 hpgeom>=1.2.0
 astropy
 setuptools_scm
