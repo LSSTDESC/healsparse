@@ -102,12 +102,12 @@ static PyObject *sum_bits_uint8(PyObject *dummy, PyObject *args, PyObject *kwarg
         innersizeptr = NpyIter_GetInnerLoopSizePtr(iter);
 
         do {
-            uint8_t *data = (uint8_t *) *dataptr;
+            char *data = *dataptr;
             npy_intp stride = *strideptr;
             npy_intp count = *innersizeptr;
 
             while (count--) {
-                sum += (int64_t) _count_bits_uint8(*data);
+                sum += (int64_t) _count_bits_uint8((uint8_t) *data);
                 data += stride;
             }
 
@@ -144,13 +144,13 @@ static PyObject *sum_bits_uint8(PyObject *dummy, PyObject *args, PyObject *kwarg
 
         int64_t *sum_data = (int64_t *)PyArray_DATA((PyArrayObject *)sum_arr);
         do {
-            uint8_t *data = (uint8_t *) *dataptr;
+            char *data = *dataptr;
 
             get_multi_index(iter, multi_index);
             if (axis == 0) {
-                sum_data[multi_index[1]] += (int64_t) _count_bits_uint8(*data);
+                sum_data[multi_index[1]] += (int64_t) _count_bits_uint8((uint8_t) *data);
             } else {
-                sum_data[multi_index[0]] += (int64_t) _count_bits_uint8(*data);
+                sum_data[multi_index[0]] += (int64_t) _count_bits_uint8((uint8_t) *data);
             }
         } while(iternext(iter));
 
