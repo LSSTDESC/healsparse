@@ -36,7 +36,7 @@ PyDoc_STRVAR(sum_bits_uint8_doc,
              "\n"
              "Returns\n"
              "-------\n"
-             "bit_sum : `int` or `np.ndarray`\n"
+             "bit_sum : `np.int64` or `np.ndarray`\n"
              "    Sum total of bits, or reduced by an axis.\n"
              "\n"
              "Raises\n"
