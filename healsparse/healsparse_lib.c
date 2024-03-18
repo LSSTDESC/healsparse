@@ -3,15 +3,23 @@
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 
 #include <numpy/arrayobject.h>
-#include "numpy/ufuncobject.h"
 
 uint8_t _count_bits_uint8(uint8_t value) {
-    value = value - ((value >> 1) & 0x55);
-    value = (value & 0x33) + ((value >> 2) & 0x33);
-    value = (value + (value >> 4)) & 0x0F;
-    value *= 0x01;
+    static int has_lut = 0;
+    static uint64_t lut[256];
 
-    return value;
+    if (!has_lut) {
+        // Make a lookup table.
+        for (int i=0; i<256; i++) {
+            lut[i] = i - ((i >> 1) & 0x55);
+            lut[i] = (lut[i] & 0x33) + ((lut[i] >> 2) & 0x33);
+            lut[i] = (lut[i] + (lut[i] >> 4)) & 0x0F;
+            lut[i] *= 0x01;
+        }
+        has_lut = 1;
+    }
+
+    return lut[value];
 }
 
 PyDoc_STRVAR(sum_bits_uint8_doc,
@@ -134,7 +142,6 @@ static PyObject *sum_bits_uint8(PyObject *dummy, PyObject *args, PyObject *kwarg
 
         dataptr = NpyIter_GetDataPtrArray(iter);
 
-        int counter = 0;
         int64_t *sum_data = (int64_t *)PyArray_DATA((PyArrayObject *)sum_arr);
         do {
             uint8_t *data = (uint8_t *) *dataptr;
