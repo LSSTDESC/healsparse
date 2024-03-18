@@ -67,8 +67,17 @@ static PyObject *sum_bits_uint8(PyObject *dummy, PyObject *args, PyObject *kwarg
         goto cleanup;
     }
 
+    int ndim = PyArray_NDIM((PyArrayObject *)array_arr);
+
+    // This only works with flattened or 2D data.
+    if (ndim > 2) {
+        PyErr_SetString(PyExc_ValueError,
+                        "arr must be at most 2 dimensions if reducing by an axis.");
+        goto fail;
+    }
+
     // One path if it's flattened.
-    if (PyArray_NDIM((PyArrayObject *)array_arr) == 1) {
+    if (ndim == 1) {
         NpyIter_IterNextFunc *iternext;
         char** dataptr;
         npy_intp *strideptr, *innersizeptr;
@@ -76,12 +85,9 @@ static PyObject *sum_bits_uint8(PyObject *dummy, PyObject *args, PyObject *kwarg
         iter = NpyIter_New((PyArrayObject *)array_arr,
                            NPY_ITER_READONLY | NPY_ITER_EXTERNAL_LOOP,
                            NPY_KEEPORDER, NPY_NO_CASTING, NULL);
-        if (iter == NULL) {
-            goto fail;
-        }
+        if (iter == NULL) goto fail;
         iternext = NpyIter_GetIterNext(iter, NULL);
         if (iternext == NULL) goto fail;
-        dataptr = NpyIter_GetDataPtrArray(iter);
 
         dataptr = NpyIter_GetDataPtrArray(iter);
         strideptr = NpyIter_GetInnerStrideArray(iter);
@@ -93,7 +99,7 @@ static PyObject *sum_bits_uint8(PyObject *dummy, PyObject *args, PyObject *kwarg
             npy_intp count = *innersizeptr;
 
             while (count--) {
-                sum += _count_bits_uint8(*data);
+                sum += (int64_t) _count_bits_uint8(*data);
                 data += stride;
             }
 
@@ -101,23 +107,45 @@ static PyObject *sum_bits_uint8(PyObject *dummy, PyObject *args, PyObject *kwarg
 
     } else {
         // We have a different code path when collapsing an axis.
+        NpyIter_IterNextFunc *iternext;
+        char **dataptr;
+        NpyIter_GetMultiIndexFunc *get_multi_index;
+        npy_intp multi_index[NPY_MAXDIMS];
 
-        // The input array is array_arr (uint8_t).
-        // The output array is sum_arr (int64_t)... but we need to do that by hand?
-        /*
-          PyArrayObject *op[2];
-          npy_uint32 op_flags[2];
-          PyArray_Descr *op_dtypes[2];
-          NpyIter_IterNextFunc *iternext;
-          char **dataptrarray;
+        npy_intp *dims = PyArray_DIMS((PyArrayObject *)array_arr);
+        npy_intp new_dims[NPY_MAXDIMS];
+        int j = 0;
+        for (int i = 0; i < ndim; i++) {
+            if (i != axis) {
+                new_dims[j++] = dims[i];
+            }
+        }
+        sum_arr = PyArray_ZEROS(ndim - 1, new_dims, NPY_INT64, 0);
 
-          op[0] = (PyArrayObject *)array_arr;
-          op_flags[0] = NPY_ITER_READONLY;
-          op_dtypes[0] = NULL;
-          op[1] = NULL;
-          op_flags[1] = NPY_ITER_WRITEONLY | NPY_ITER_ALLOCATE;
-          op_dtypes[1] = PyArray_Desc
-        */
+        iter = NpyIter_New((PyArrayObject *)array_arr,
+                           NPY_ITER_READONLY | NPY_ITER_MULTI_INDEX,
+                           NPY_KEEPORDER, NPY_NO_CASTING, NULL);
+        if (iter == NULL) goto fail;
+
+        iternext = NpyIter_GetIterNext(iter, NULL);
+        if (iternext == NULL) goto fail;
+        get_multi_index = NpyIter_GetGetMultiIndex(iter, NULL);
+        if (get_multi_index == NULL) goto fail;
+
+        dataptr = NpyIter_GetDataPtrArray(iter);
+
+        int counter = 0;
+        int64_t *sum_data = (int64_t *)PyArray_DATA((PyArrayObject *)sum_arr);
+        do {
+            uint8_t *data = (uint8_t *) *dataptr;
+
+            get_multi_index(iter, multi_index);
+            if (axis == 0) {
+                sum_data[multi_index[1]] += (int64_t) _count_bits_uint8(*data);
+            } else {
+                sum_data[multi_index[0]] += (int64_t) _count_bits_uint8(*data);
+            }
+        } while(iternext(iter));
 
         goto cleanup;
     }
