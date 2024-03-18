@@ -6,7 +6,7 @@
 
 uint8_t _count_bits_uint8(uint8_t value) {
     static int has_lut = 0;
-    static uint64_t lut[256];
+    static uint8_t lut[256];
 
     if (!has_lut) {
         // Make a lookup table.
