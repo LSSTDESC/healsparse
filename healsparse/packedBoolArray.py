@@ -2,6 +2,7 @@ import numpy as np
 import numbers
 
 from .utils import is_integer_value
+from ._healsparse_lib import sum_bits_uint8
 
 
 class _PackedBoolArray:
@@ -72,9 +73,6 @@ class _PackedBoolArray:
 
         # Reported dtype is numpy bool.
         self._dtype = np.dtype("bool")
-
-        # We will need a lookup table for bit counting.
-        self.LUT = None
 
         self._uint8_truefalse = {
             True: ~np.uint8(0),
@@ -162,7 +160,7 @@ class _PackedBoolArray:
             if last_unpacked[0] is not None:
                 summand += np.sum(last_unpacked[0], dtype=np.int64)
             if mid_data is not None:
-                summand += np.sum(self._bit_count(mid_data), dtype=np.int64)
+                summand += sum_bits_uint8(mid_data)
 
             return summand
         else:
@@ -183,8 +181,9 @@ class _PackedBoolArray:
 
             new_shape = list(shape)
             new_shape[-1] //= 8
-            temp = self._bit_count(self._data)
-            return np.sum(temp.reshape(new_shape), axis=axis, dtype=np.int64)
+            # temp = self._bit_count(self._data)
+            # return np.sum(temp.reshape(new_shape), axis=axis, dtype=np.int64)
+            return sum_bits_uint8(self._data.reshape(new_shape), axis=axis)
 
     @property
     def data_array(self):
@@ -672,17 +671,3 @@ class _PackedBoolArray:
         _locs = locs + self._start_index
 
         return self._data[_locs // 8] & (1 << (_locs % 8).astype(np.uint8)) != 0
-
-    def _bit_count(self, arr):
-        if self.LUT is None:
-            _s55 = np.uint8(0x55)
-            _s33 = np.uint8(0x33)
-            _s0F = np.uint8(0x0F)
-            _s01 = np.uint8(0x01)
-            self.LUT = np.arange(2**8, dtype=np.uint8)
-            self.LUT = self.LUT - ((self.LUT >> 1) & _s55)
-            self.LUT = (self.LUT & _s33) + ((self.LUT >> 2) & _s33)
-            self.LUT = (self.LUT + (self.LUT >> 4)) & _s0F
-            self.LUT *= _s01
-
-        return self.LUT[arr]
