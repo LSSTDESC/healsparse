@@ -230,7 +230,12 @@ static PyObject *count_notequal(PyObject *dummy, PyObject *args, PyObject *kwarg
     }
 
     // This will flatten the array if no axis is specified.
-    array_arr = PyArray_CheckAxis((PyArrayObject *)array_obj, &axis, 0);
+    // array_arr = PyArray_CheckAxis((PyArrayObject *)array_obj, &axis, 0);
+    // if (array_arr == NULL) goto fail;
+    // Need to do the conversion, argh.
+    // Probably something to do with byte order? No, that's not it.
+    // But I think we need to do the OTF... and check if it (A) doubles memory (b) leaks memory.
+    array_arr = PyArray_FROM_OF(array_obj, NPY_ARRAY_ENSUREARRAY);
     if (array_arr == NULL) goto fail;
 
     // Do an intitial check if the array is empty.
@@ -262,6 +267,8 @@ static PyObject *count_notequal(PyObject *dummy, PyObject *args, PyObject *kwarg
     }
 
     char *value_data = (char *)PyArray_DATA((PyArrayObject *)value_arr);
+    //double *value_double = (double *)PyArray_DATA((PyArrayObject *)value_arr);
+    //printf("value = %.20lf or %.20lf %.20lf\n", * (double *) value_data, (double) *value_data, *value_double);
 
     // One path if it's flattened.
     if (ndim == 1) {
@@ -285,14 +292,19 @@ static PyObject *count_notequal(PyObject *dummy, PyObject *args, PyObject *kwarg
             npy_intp stride = *strideptr;
             npy_intp count = *innersizeptr;
 
+            double *data2 = (double *) *dataptr;
+
             while (count--) {
                 switch (arr_type) {
-                case NPY_FLOAT64:
-                    if (* (npy_double *) data != * (npy_double *) value_data)
+                case NPY_FLOAT32:
+                    printf("count = %d, data = %.20lf, value = %.20lf\n", count, * (npy_float *) data, * (npy_float *) value_data);
+
+                    if (* (npy_float *) data != * (npy_float *) value_data)
                         sum += 1;
                     break;
-                case NPY_FLOAT32:
-                    if (* (npy_float *) data != * (npy_float *) value_data)
+                case NPY_FLOAT64:
+                    printf("count = %d, data = %.20lf, value = %.20lf\n", count, * (npy_double *) data, * (npy_double *) value_data);
+                    if (* (npy_double *) data != * (npy_double *) value_data)
                         sum += 1;
                     break;
                 case NPY_INT64:

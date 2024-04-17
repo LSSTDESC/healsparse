@@ -11,6 +11,8 @@ from .packedBoolArray import _PackedBoolArray
 from .geom import GeomBase
 import warnings
 
+from ._healsparse_lib import count_notequal
+
 
 class HealSparseMap(object):
     """
@@ -1011,7 +1013,7 @@ class HealSparseMap(object):
                 sp_map_t = self._sparse_map[self._primary].reshape(shape_new)
             else:
                 sp_map_t = self._sparse_map.reshape(shape_new)
-            counts = np.sum((sp_map_t != self._sentinel), axis=1).astype(np.float64)
+            counts = count_notequal(sp_map_t, self._sentinel, axis=1).astype(np.float64)
 
         cov_map[cov_mask] = counts[1:]/self._cov_map.nfine_per_cov
         return cov_map
@@ -1081,7 +1083,7 @@ class HealSparseMap(object):
                 sp_map_t = self._sparse_map[self._primary].reshape(shape_new)
             else:
                 sp_map_t = self._sparse_map.reshape(shape_new)
-            fracdet = np.sum(sp_map_t != self._sentinel, axis=1).astype(np.float64)
+            fracdet = count_notequal(sp_map_t, self._sentinel, axis=1).astype(np.float64)
 
         fracdet /= nfine_per_frac
 
@@ -1394,13 +1396,17 @@ class HealSparseMap(object):
         # integer indices.
         if self._is_rec_array:
             n_valid = np.sum(self._sparse_map[self._primary] != self._sentinel)
+            n_valid2 = count_notequal(self._sparse_map[self._primary], self._sentinel)
+            if (n_valid != n_valid2):
+                import IPython
+                IPython.embed()
         elif self._is_wide_mask:
             n_valid = np.sum(np.any(self._sparse_map != self._sentinel, axis=1))
         elif self._is_bit_packed:
             # TODO: This will need to be updated if we allow True sentinel.
             n_valid = self._sparse_map.sum()
         else:
-            n_valid = np.sum(self._sparse_map != self._sentinel)
+            n_valid = count_notequal(self._sparse_map, self._sentinel)
 
         self._n_valid = n_valid
         return n_valid

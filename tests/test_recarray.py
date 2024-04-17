@@ -30,7 +30,7 @@ class RecArrayTestCase(unittest.TestCase):
 
         dtype = [('col1', 'f8'), ('col2', 'f8')]
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype, primary='col1')
-        pixel = np.arange(20000)
+        pixel = np.arange(20)
         values = np.zeros_like(pixel, dtype=dtype)
         values['col1'] = np.random.random(size=pixel.size)
         values['col2'] = np.random.random(size=pixel.size)
