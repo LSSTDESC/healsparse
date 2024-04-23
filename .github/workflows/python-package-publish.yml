@@ -25,7 +25,7 @@ jobs:
       - name: Build and install
         run: |
           python -m pip install --upgrade pip setuptools
-          python -m pip install .[parquet,healpy,test]
+          python -m pip install .[parquet,test,test_with_healpy]
       - name: Run tests
         run: |
           cd tests

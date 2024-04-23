@@ -90,20 +90,23 @@ def _read_map_fits(healsparse_class, filename, nside_coverage=None, pixels=None,
                 _pix = data['PIXEL']
             healsparse_map[_pix] = data[signal_column]
         elif hdr['INDXSCHM'].rstrip() == 'IMPLICIT':
-            try:
-                import healpy as hp
-            except ImportError:
-                raise RuntimeError("Cannot read full sky HEALPix maps without healpy.")
-            # This is an implicit (full) healpix map
-            # Figure out the datatype
             with HealSparseFits(filename) as fits:
-                row = fits.read_ext_data(1, row_range=[0, 1])
-                dtype = row[0][0][0].dtype.type
+                data = fits.read_ext_data(1)
+                if "T" in data.dtype.names:
+                    field_name = "T"
+                elif "TEMPERATURE" in data.dtype.names:
+                    field_name = "TEMPERATURE"
+                else:
+                    raise RuntimeError("Healpix file does not comply with standards.")
 
-            # Read in the map using healpy
-            healpix_map = hp.read_map(filename, nest=True, dtype=dtype)
+            # Ravel the data into one contiguous array.
+            data = data[field_name].ravel()
+
+            if hdr["ORDERING"] == "RING":
+                data = hpg.reorder(data, ring_to_nest=True)
+
             # Convert to healsparse format
-            healsparse_map = healsparse_class(healpix_map=healpix_map,
+            healsparse_map = healsparse_class(healpix_map=data,
                                               nside_coverage=nside_coverage,
                                               nest=True)
         else:
@@ -111,7 +114,7 @@ def _read_map_fits(healsparse_class, filename, nside_coverage=None, pixels=None,
 
         if degrade_nside is not None:
             # Degrade this map.  Note that this could not be done on read
-            # because healpy maps do not have that functionality.
+            # because healpix maps do not have that functionality.
             healsparse_map = healsparse_map.degrade(degrade_nside, reduction=reduction)
 
         if header:
