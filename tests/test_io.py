@@ -6,6 +6,7 @@ from numpy import random
 import tempfile
 import shutil
 import os
+import pathlib
 
 import healsparse
 
@@ -39,46 +40,48 @@ class HealsparseFitsIoTestCase(unittest.TestCase):
 
         sparse_map[30000: 30005] = np.zeros(5, dtype=np.float64)
 
-        # Write it to healsparse format
-        sparse_map.write(os.path.join(self.test_dir, 'healsparse_map.hs'))
+        for mode in ("str", "path"):
+            if mode == "str":
+                readfile = os.path.join(self.test_dir, "healsparse_map.hsp")
+            else:
+                readfile = self.test_dir / pathlib.Path("healsparse_map2.hsp")
 
-        # Read in healsparse format (full map)
-        sparse_map = healsparse.HealSparseMap.read(os.path.join(self.test_dir, 'healsparse_map.hs'))
+            # Write it to healsparse format
+            sparse_map.write(readfile)
 
-        # Check that we can do a basic lookup
-        testing.assert_almost_equal(sparse_map.get_values_pix(ipnest), test_values)
+            # Read in healsparse format (full map)
+            sparse_map = healsparse.HealSparseMap.read(readfile)
 
-        # Check that we can do a basic set
-        sparse_map[30000: 30005] = np.zeros(5, dtype=np.float64)
+            # Check that we can do a basic lookup
+            testing.assert_almost_equal(sparse_map.get_values_pix(ipnest), test_values)
 
-        # Try to read in healsparse format, non-unique pixels
-        self.assertRaises(RuntimeError, healsparse.HealSparseMap.read,
-                          os.path.join(self.test_dir, 'healsparse_map.hs'), pixels=[0, 0])
+            # Check that we can do a basic set
+            sparse_map[30000: 30005] = np.zeros(5, dtype=np.float64)
 
-        # Read in healsparse format (two pixels)
-        sparse_map_small = healsparse.HealSparseMap.read(os.path.join(self.test_dir,
-                                                                      'healsparse_map.hs'),
-                                                         pixels=[0, 1])
+            # Try to read in healsparse format, non-unique pixels
+            self.assertRaises(RuntimeError, healsparse.HealSparseMap.read, readfile, pixels=[0, 0])
 
-        # Test the coverage map only has two pixels
-        cov_mask = sparse_map_small.coverage_mask
-        self.assertEqual(cov_mask.sum(), 2)
+            # Read in healsparse format (two pixels)
+            sparse_map_small = healsparse.HealSparseMap.read(readfile, pixels=[0, 1])
 
-        # Test lookup of values in those two pixels
-        ipnestCov = np.right_shift(ipnest, sparse_map_small._cov_map.bit_shift)
-        outside_small, = np.where(ipnestCov > 1)
-        test_values2 = test_values.copy()
-        test_values2[outside_small] = hpg.UNSEEN
+            # Test the coverage map only has two pixels
+            cov_mask = sparse_map_small.coverage_mask
+            self.assertEqual(cov_mask.sum(), 2)
 
-        testing.assert_almost_equal(sparse_map_small.get_values_pix(ipnest), test_values2)
+            # Test lookup of values in those two pixels
+            ipnestCov = np.right_shift(ipnest, sparse_map_small._cov_map.bit_shift)
+            outside_small, = np.where(ipnestCov > 1)
+            test_values2 = test_values.copy()
+            test_values2[outside_small] = hpg.UNSEEN
 
-        # Read in healsparse format (all pixels)
-        sparse_map_full = healsparse.HealSparseMap.read(
-            os.path.join(self.test_dir,
-                         'healsparse_map.hs'),
-            pixels=np.arange(hpg.nside_to_npixel(nside_coverage))
-        )
-        testing.assert_almost_equal(sparse_map_full.get_values_pix(ipnest), test_values)
+            testing.assert_almost_equal(sparse_map_small.get_values_pix(ipnest), test_values2)
+
+            # Read in healsparse format (all pixels)
+            sparse_map_full = healsparse.HealSparseMap.read(
+                readfile,
+                pixels=np.arange(hpg.nside_to_npixel(nside_coverage)),
+            )
+            testing.assert_almost_equal(sparse_map_full.get_values_pix(ipnest), test_values)
 
     def test_fits_read_outoforder(self):
         """

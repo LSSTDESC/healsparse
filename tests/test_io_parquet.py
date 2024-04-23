@@ -7,6 +7,7 @@ import tempfile
 import shutil
 import os
 import pytest
+import pathlib
 
 import healsparse
 
@@ -45,41 +46,45 @@ class ParquetIoTestCase(unittest.TestCase):
         u, = np.where(full_map > hpg.UNSEEN)
         sparse_map[u] = full_map[u]
 
-        fname = os.path.join(self.test_dir, 'healsparse_map.hsparquet')
+        for mode in ("str", "path"):
+            if mode == "str":
+                readfile = os.path.join(self.test_dir, "healsparse_map.hsparquet")
+            else:
+                readfile = self.test_dir / pathlib.Path("healsparse_map2.hsparquet")
 
-        # Write it in healsparse parquet format
-        sparse_map.write(fname, format='parquet')
+                # Write it in healsparse parquet format
+                sparse_map.write(readfile, format="parquet")
 
-        # Read in healsparse format (full map)
-        sparse_map = healsparse.HealSparseMap.read(fname)
-        # Check that we can do a basic lookup
-        testing.assert_almost_equal(sparse_map.get_values_pix(ipnest), test_values)
+                # Read in healsparse format (full map)
+                sparse_map = healsparse.HealSparseMap.read(readfile)
+                # Check that we can do a basic lookup
+                testing.assert_almost_equal(sparse_map.get_values_pix(ipnest), test_values)
 
-        # Try to read in healsparse format, non-unique pixels
-        self.assertRaises(RuntimeError, healsparse.HealSparseMap.read,
-                          fname, pixels=[0, 0])
+                # Try to read in healsparse format, non-unique pixels
+                self.assertRaises(RuntimeError, healsparse.HealSparseMap.read,
+                                  readfile, pixels=[0, 0])
 
-        # Read in healsparse (two pixels)
-        sparse_map_small = healsparse.HealSparseMap.read(fname, pixels=[0, 1])
+                # Read in healsparse (two pixels)
+                sparse_map_small = healsparse.HealSparseMap.read(readfile, pixels=[0, 1])
 
-        # Test the coverage map only has two pixels
-        cov_mask = sparse_map_small.coverage_mask
-        self.assertEqual(cov_mask.sum(), 2)
+                # Test the coverage map only has two pixels
+                cov_mask = sparse_map_small.coverage_mask
+                self.assertEqual(cov_mask.sum(), 2)
 
-        # Test lookup of values in those two pixels
-        ipnestCov = np.right_shift(ipnest, sparse_map_small._cov_map.bit_shift)
-        outside_small, = np.where(ipnestCov > 1)
-        test_values2 = test_values.copy()
-        test_values2[outside_small] = hpg.UNSEEN
+                # Test lookup of values in those two pixels
+                ipnestCov = np.right_shift(ipnest, sparse_map_small._cov_map.bit_shift)
+                outside_small, = np.where(ipnestCov > 1)
+                test_values2 = test_values.copy()
+                test_values2[outside_small] = hpg.UNSEEN
 
-        testing.assert_almost_equal(sparse_map_small.get_values_pix(ipnest), test_values2)
+                testing.assert_almost_equal(sparse_map_small.get_values_pix(ipnest), test_values2)
 
-        # Read in healsparse format (all pixels)
-        sparse_map_full = healsparse.HealSparseMap.read(
-            fname,
-            pixels=np.arange(hpg.nside_to_npixel(nside_coverage))
-        )
-        testing.assert_almost_equal(sparse_map_full.get_values_pix(ipnest), test_values)
+                # Read in healsparse format (all pixels)
+                sparse_map_full = healsparse.HealSparseMap.read(
+                    readfile,
+                    pixels=np.arange(hpg.nside_to_npixel(nside_coverage)),
+                )
+                testing.assert_almost_equal(sparse_map_full.get_values_pix(ipnest), test_values)
 
     def test_parquet_read_outoforder(self):
         """

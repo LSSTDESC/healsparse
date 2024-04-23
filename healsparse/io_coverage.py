@@ -1,4 +1,5 @@
 import os
+import pathlib
 
 from .fits_shim import HealSparseFits
 from .io_coverage_fits import _read_coverage_fits
@@ -29,6 +30,9 @@ def _read_coverage(coverage_class, filename_or_fits, use_threads=False):
     """
     is_fits = False
     is_parquet_file = False
+
+    if isinstance(filename_or_fits, pathlib.PurePath):
+        filename_or_fits = os.fspath(filename_or_fits)
 
     if isinstance(filename_or_fits, str):
         try:
