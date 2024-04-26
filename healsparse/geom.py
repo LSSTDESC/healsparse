@@ -88,6 +88,11 @@ class GeomBase(object):
         ----------
         nside : `int`
             HEALPix nside for the pixels.
+
+        Raises
+        ------
+        ValueError : If shape has nside_render set, this is raised if
+            nside < nside_render.
         """
         raise NotImplementedError('Implement get_pixels')
 
@@ -99,6 +104,11 @@ class GeomBase(object):
         ----------
         nside : `int`
             HEALPix nside for the pixels.
+
+        Raises
+        ------
+        ValueError : If shape has nside_render set, this is raised if
+            nside < nside_render.
         """
         raise NotImplementedError("Implement get_pixel_ranges")
 
@@ -199,12 +209,17 @@ class Circle(GeomBase):
         Radius in degrees (scalar-only).
     value : number
         Value for pixels in the map (scalar or list of bits for `wide_mask`)
+    nside_render : `int`, optional
+        If this is set, the shape will always be rendered at this
+        nside and then these pixels will be 'upgraded' to the resolution
+        of the map.
     """
-    def __init__(self, *, ra, dec, radius, value):
+    def __init__(self, *, ra, dec, radius, value, nside_render=None):
         self._ra = ra
         self._dec = dec
         self._radius = radius
         self._value = value
+        self._nside_render = nside_render
         sc_ra = np.isscalar(self._ra)
         sc_dec = np.isscalar(self._dec)
         sc_radius = np.isscalar(self._radius)
@@ -233,8 +248,15 @@ class Circle(GeomBase):
         return self._radius
 
     def get_pixels(self, *, nside):
-        return hpg.query_circle(
-            nside,
+        if self._nside_render is not None:
+            if nside < self._nside_render:
+                raise ValueError(f"Cannot render a Circle with {self._nside_render} into nside={nside}")
+            nside_render = self._nside_render
+        else:
+            nside_render = nside
+
+        pixels = hpg.query_circle(
+            nside_render,
             self._ra,
             self._dec,
             self._radius,
@@ -242,9 +264,21 @@ class Circle(GeomBase):
             inclusive=False,
         )
 
+        if self._nside_render is not None:
+            return hpg.upgrade_pixels(nside_render, pixels, nside)
+        else:
+            return pixels
+
     def get_pixel_ranges(self, *, nside):
-        return hpg.query_circle(
-            nside,
+        if self._nside_render is not None:
+            if nside < self._nside_render:
+                raise ValueError(f"Cannot render a Circle with {self._nside_render} into nside={nside}")
+            nside_render = self._nside_render
+        else:
+            nside_render = nside
+
+        pixel_ranges = hpg.query_circle(
+            nside_render,
             self._ra,
             self._dec,
             self._radius,
@@ -253,9 +287,14 @@ class Circle(GeomBase):
             return_pixel_ranges=True,
         )
 
+        if self._nside_render is not None:
+            return hpg.upgrade_pixel_ranges(nside_render, pixel_ranges, nside)
+        else:
+            return pixel_ranges
+
     def __repr__(self):
-        s = 'Circle(ra=%.16g, dec=%.16g, radius=%.16g, value=%s)'
-        return s % (self._ra, self._dec, self._radius, repr(self._value))
+        s = 'Circle(ra=%.16g, dec=%.16g, radius=%.16g, value=%s, nside_render=%s)'
+        return s % (self._ra, self._dec, self._radius, repr(self._value), repr(self._nside_render))
 
 
 class Polygon(GeomBase):
@@ -273,7 +312,7 @@ class Polygon(GeomBase):
     value : number
         Value for pixels in the map
     """
-    def __init__(self, *, ra, dec, value):
+    def __init__(self, *, ra, dec, value, nside_render=None):
         ra = np.array(ra, ndmin=1)
         dec = np.array(dec, ndmin=1)
 
@@ -285,6 +324,7 @@ class Polygon(GeomBase):
         self._dec = dec
         self._vertices = hpg.angle_to_vector(ra, dec, lonlat=True)
         self._value = value
+        self._nside_render = nside_render
 
         self._is_integer = is_integer_value(value)
 
@@ -310,17 +350,36 @@ class Polygon(GeomBase):
         return self._vertices
 
     def get_pixels(self, *, nside):
-        return hpg.query_polygon(
-            nside,
+        if self._nside_render is not None:
+            if nside < self._nside_render:
+                raise ValueError(f"Cannot render a Polygon with {self._nside_render} into nside={nside}")
+            nside_render = self._nside_render
+        else:
+            nside_render = nside
+
+        pixels = hpg.query_polygon(
+            nside_render,
             self._ra,
             self._dec,
             nest=True,
             inclusive=False,
         )
 
+        if self._nside_render is not None:
+            return hpg.upgrade_pixels(nside_render, pixels, nside)
+        else:
+            return pixels
+
     def get_pixel_ranges(self, *, nside):
-        return hpg.query_polygon(
-            nside,
+        if self._nside_render is not None:
+            if nside < self._nside_render:
+                raise ValueError(f"Cannot render a Polygon with {self._nside_render} into nside={nside}")
+            nside_render = self._nside_render
+        else:
+            nside_render = nside
+
+        pixel_ranges = hpg.query_polygon(
+            nside_render,
             self._ra,
             self._dec,
             nest=True,
@@ -328,12 +387,17 @@ class Polygon(GeomBase):
             return_pixel_ranges=True,
         )
 
+        if self._nside_render is not None:
+            return hpg.upgrade_pixel_ranges(nside_render, pixel_ranges, nside)
+        else:
+            return pixel_ranges
+
     def __repr__(self):
         ras = repr(self._ra)
         decs = repr(self._dec)
 
-        s = 'Polygon(ra=%s, dec=%s, value=%s)'
-        return s % (ras, decs, repr(self._value))
+        s = 'Polygon(ra=%s, dec=%s, value=%s, nside_render=%s)'
+        return s % (ras, decs, repr(self._value), repr(self._nside_render))
 
 
 class Ellipse(GeomBase):
@@ -355,13 +419,14 @@ class Ellipse(GeomBase):
     value : number
         Value for pixels in the map (scalar or list of bits for `wide_mask`).
     """
-    def __init__(self, *, ra, dec, semi_major, semi_minor, alpha, value):
+    def __init__(self, *, ra, dec, semi_major, semi_minor, alpha, value, nside_render=None):
         self._ra = ra
         self._dec = dec
         self._semi_major = semi_major
         self._semi_minor = semi_minor
         self._alpha = alpha
         self._value = value
+        self._nside_render = nside_render
         sc_ra = np.isscalar(self._ra)
         sc_dec = np.isscalar(self._dec)
         sc_semi_major = np.isscalar(self._semi_major)
@@ -408,8 +473,15 @@ class Ellipse(GeomBase):
         return self._alpha
 
     def get_pixels(self, *, nside):
-        return hpg.query_ellipse(
-            nside,
+        if self._nside_render is not None:
+            if nside < self._nside_render:
+                raise ValueError(f"Cannot render a Ellipse with {self._nside_render} into nside={nside}")
+            nside_render = self._nside_render
+        else:
+            nside_render = nside
+
+        pixels = hpg.query_ellipse(
+            nside_render,
             self._ra,
             self._dec,
             self._semi_major,
@@ -419,9 +491,21 @@ class Ellipse(GeomBase):
             inclusive=False,
         )
 
+        if self._nside_render is not None:
+            return hpg.upgrade_pixels(nside_render, pixels, nside)
+        else:
+            return pixels
+
     def get_pixel_ranges(self, *, nside):
-        return hpg.query_ellipse(
-            nside,
+        if self._nside_render is not None:
+            if nside < self._nside_render:
+                raise ValueError(f"Cannot render a Ellipse with {self._nside_render} into nside={nside}")
+            nside_render = self._nside_render
+        else:
+            nside_render = nside
+
+        pixel_ranges = hpg.query_ellipse(
+            nside_render,
             self._ra,
             self._dec,
             self._semi_major,
@@ -432,6 +516,13 @@ class Ellipse(GeomBase):
             return_pixel_ranges=True,
         )
 
+        if self._nside_render is not None:
+            return hpg.upgrade_pixel_ranges(nside_render, pixel_ranges, nside)
+        else:
+            return pixel_ranges
+
     def __repr__(self):
-        s = 'Ellipse(ra=%.16g, dec=%16g, semi_major=%16g, semi_minor=%16g, alpha=%16g, value=%s)'
-        return s % (self._ra, self._dec, self._semi_major, self._semi_minor, self._alpha, repr(self._value))
+        s = ("Ellipse(ra=%.16g, dec=%16g, semi_major=%16g, semi_minor=%16g, alpha=%16g, value=%s, "
+             "nside_render=%s)")
+        return s % (self._ra, self._dec, self._semi_major, self._semi_minor, self._alpha, repr(self._value),
+                    repr(self._nside_render))
