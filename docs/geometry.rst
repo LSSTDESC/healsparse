@@ -12,6 +12,7 @@ In addition to information about the shape itself, a geometric object may option
 This indicates that the shape should always be rendered at this given resolution, no matter the resolution of the map that it is being combined with.
 (Note that you can only render at a resolution that is less than or equal to the map resolution, or else a :code:`ValueError` is raised.)
 This functionality may be useful if one is building a map that may be used with multiple resolutions, and one wants to ensure that a higher and lower resolution maps have exactly the same outline for these shapes.
+If no :code:`nside_render` is set with the object it will always be rendered at the same resolution as the corresponding map or via the :code:`nside` parameter of :code:`get_pixels()` and :code:`get_pixel_ranges()`.
 
 There are a few methods to realize geometry objects.
 The easiest is to combine a geometric object with a :code:`HealSparseMap` map, with the ``or``, ``and``, or ``add`` operation.
