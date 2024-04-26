@@ -526,3 +526,112 @@ class Ellipse(GeomBase):
              "nside_render=%s)")
         return s % (self._ra, self._dec, self._semi_major, self._semi_minor, self._alpha, repr(self._value),
                     repr(self._nside_render))
+
+
+class Box(GeomBase):
+    """
+    A geometric shape that has sides of constant lon/lat.
+
+    This shape is in contrast with a Polygon which will have great
+    circle boundaries. See hpgeom.query_box() for details.
+
+    Parameters
+    ----------
+    ra1, ra2 : `float`
+        RA in degrees. All points within [ra1, ra2] will be selected.
+        If ra1 > ra2 then the box will wrap around 360 degrees. If
+        ra1 == 0.0 and ra2 == 360.0 then the box will contain points at
+        all right ascensions.
+    dec1, dec2 : `float`
+        Declination in degrees. All points within [dec1, dec2] will be
+        selected.  If dec1 or dec2 is 90.0 or -90.0 then the box will
+        be an arc of a circle with the center at the north/south pole.
+    value : number
+        Value for pixels in the map (scalar or list of bits for `wide_mask`)
+    nside_render : `int`, optional
+        If this is set, the shape will always be rendered at this
+        nside and then these pixels will be 'upgraded' to the resolution
+        of the map.
+    """
+    def __init__(self, *, ra1, ra2, dec1, dec2, value, nside_render=None):
+        self._ra1 = ra1
+        self._ra2 = ra2
+        self._dec1 = dec1
+        self._dec2 = dec2
+        self._value = value
+        self._nside_render = nside_render
+
+        sc_ra1 = np.isscalar(self._ra1)
+        sc_ra2 = np.isscalar(self._ra2)
+        sc_dec1 = np.isscalar(self._dec1)
+        sc_dec2 = np.isscalar(self._dec2)
+
+        if not sc_ra1 or not sc_ra2 or not sc_dec1 or not sc_dec2:
+            raise ValueError("Box only accepts scalar inputs for ra1, ra2, dec1, and dec2")
+
+    @property
+    def ra1(self):
+        return self._ra1
+
+    @property
+    def ra2(self):
+        return self._ra2
+
+    @property
+    def dec1(self):
+        return self._dec1
+
+    @property
+    def dec2(self):
+        return self._dec2
+
+    def get_pixels(self, *, nside):
+        if self._nside_render is not None:
+            if nside < self._nside_render:
+                raise ValueError(f"Cannot render a Circle with {self._nside_render} into nside={nside}")
+            nside_render = self._nside_render
+        else:
+            nside_render = nside
+
+        pixels = hpg.query_box(
+            nside_render,
+            self._ra1,
+            self._ra2,
+            self._dec1,
+            self._dec2,
+            nest=True,
+            inclusive=False,
+        )
+
+        if self._nside_render is not None:
+            return hpg.upgrade_pixels(nside_render, pixels, nside)
+        else:
+            return pixels
+
+    def get_pixel_ranges(self, *, nside):
+        if self._nside_render is not None:
+            if nside < self._nside_render:
+                raise ValueError(f"Cannot render a Circle with {self._nside_render} into nside={nside}")
+            nside_render = self._nside_render
+        else:
+            nside_render = nside
+
+        pixel_ranges = hpg.query_box(
+            nside_render,
+            self._ra1,
+            self._ra2,
+            self._dec1,
+            self._dec2,
+            nest=True,
+            inclusive=False,
+            return_pixel_ranges=True,
+        )
+
+        if self._nside_render is not None:
+            return hpg.upgrade_pixel_ranges(nside_render, pixel_ranges, nside)
+        else:
+            return pixel_ranges
+
+    def __repr__(self):
+        s = "Box(ra1=%.16g, ra2=%.16g, dec1=%.16g, dec2=%.16g, value=%s, nside_render=%s"
+        return s % (self._ra1, self._ra2, self._dec1, self._dec2, repr(self._value), repr(self._nside_render))
