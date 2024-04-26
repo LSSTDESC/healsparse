@@ -94,7 +94,19 @@ class GeomBase(object):
         ValueError : If shape has nside_render set, this is raised if
             nside < nside_render.
         """
-        raise NotImplementedError('Implement get_pixels')
+        if self._nside_render is not None:
+            if nside < self._nside_render:
+                raise ValueError(f"Cannot render a Circle with {self._nside_render} into nside={nside}")
+            _nside = self._nside_render
+        else:
+            _nside = nside
+
+        pixels = self._render(nside_render=_nside, return_pixel_ranges=False)
+
+        if self._nside_render is not None:
+            return hpg.upgrade_pixels(_nside, pixels, nside)
+        else:
+            return pixels
 
     def get_pixel_ranges(self, *, nside):
         """
@@ -110,7 +122,35 @@ class GeomBase(object):
         ValueError : If shape has nside_render set, this is raised if
             nside < nside_render.
         """
-        raise NotImplementedError("Implement get_pixel_ranges")
+        if self._nside_render is not None:
+            if nside < self._nside_render:
+                raise ValueError(f"Cannot render a Circle with {self._nside_render} into nside={nside}")
+            _nside = self._nside_render
+        else:
+            _nside = nside
+
+        pixel_ranges = self._render(nside_render=_nside, return_pixel_ranges=True)
+
+        if self._nside_render is not None:
+            return hpg.upgrade_pixel_ranges(_nside, pixel_ranges, nside)
+        else:
+            return pixel_ranges
+
+    def _render(self, *, nside_render, return_pixel_ranges):
+        """Internal method to render to pixels/ranges for this shape.
+
+        Parameters
+        ----------
+        nside_render : `int`
+            Rendering resolution.
+        return_pixel_ranges : `bool`
+            Return pixel ranges instead of pixels?
+
+        Returns
+        -------
+        pixels or pixel_ranges : `np.ndarray`
+        """
+        raise NotImplementedError("The _render method must be overridden.")
 
     def get_map(self, *, nside_coverage, nside_sparse, dtype, wide_mask_maxbits=None):
         """
@@ -249,50 +289,16 @@ class Circle(GeomBase):
         """
         return self._radius
 
-    def get_pixels(self, *, nside):
-        if self._nside_render is not None:
-            if nside < self._nside_render:
-                raise ValueError(f"Cannot render a Circle with {self._nside_render} into nside={nside}")
-            nside_render = self._nside_render
-        else:
-            nside_render = nside
-
-        pixels = hpg.query_circle(
+    def _render(self, *, nside_render, return_pixel_ranges):
+        return hpg.query_circle(
             nside_render,
             self._ra,
             self._dec,
             self._radius,
             nest=True,
             inclusive=False,
+            return_pixel_ranges=return_pixel_ranges,
         )
-
-        if self._nside_render is not None:
-            return hpg.upgrade_pixels(nside_render, pixels, nside)
-        else:
-            return pixels
-
-    def get_pixel_ranges(self, *, nside):
-        if self._nside_render is not None:
-            if nside < self._nside_render:
-                raise ValueError(f"Cannot render a Circle with {self._nside_render} into nside={nside}")
-            nside_render = self._nside_render
-        else:
-            nside_render = nside
-
-        pixel_ranges = hpg.query_circle(
-            nside_render,
-            self._ra,
-            self._dec,
-            self._radius,
-            nest=True,
-            inclusive=False,
-            return_pixel_ranges=True,
-        )
-
-        if self._nside_render is not None:
-            return hpg.upgrade_pixel_ranges(nside_render, pixel_ranges, nside)
-        else:
-            return pixel_ranges
 
     def __repr__(self):
         s = 'Circle(ra=%.16g, dec=%.16g, radius=%.16g, value=%s, nside_render=%s)'
@@ -351,48 +357,15 @@ class Polygon(GeomBase):
         """
         return self._vertices
 
-    def get_pixels(self, *, nside):
-        if self._nside_render is not None:
-            if nside < self._nside_render:
-                raise ValueError(f"Cannot render a Polygon with {self._nside_render} into nside={nside}")
-            nside_render = self._nside_render
-        else:
-            nside_render = nside
-
-        pixels = hpg.query_polygon(
+    def _render(self, *, nside_render, return_pixel_ranges):
+        return hpg.query_polygon(
             nside_render,
             self._ra,
             self._dec,
             nest=True,
             inclusive=False,
+            return_pixel_ranges=return_pixel_ranges,
         )
-
-        if self._nside_render is not None:
-            return hpg.upgrade_pixels(nside_render, pixels, nside)
-        else:
-            return pixels
-
-    def get_pixel_ranges(self, *, nside):
-        if self._nside_render is not None:
-            if nside < self._nside_render:
-                raise ValueError(f"Cannot render a Polygon with {self._nside_render} into nside={nside}")
-            nside_render = self._nside_render
-        else:
-            nside_render = nside
-
-        pixel_ranges = hpg.query_polygon(
-            nside_render,
-            self._ra,
-            self._dec,
-            nest=True,
-            inclusive=False,
-            return_pixel_ranges=True,
-        )
-
-        if self._nside_render is not None:
-            return hpg.upgrade_pixel_ranges(nside_render, pixel_ranges, nside)
-        else:
-            return pixel_ranges
 
     def __repr__(self):
         ras = repr(self._ra)
@@ -474,15 +447,8 @@ class Ellipse(GeomBase):
         """
         return self._alpha
 
-    def get_pixels(self, *, nside):
-        if self._nside_render is not None:
-            if nside < self._nside_render:
-                raise ValueError(f"Cannot render a Ellipse with {self._nside_render} into nside={nside}")
-            nside_render = self._nside_render
-        else:
-            nside_render = nside
-
-        pixels = hpg.query_ellipse(
+    def _render(self, *, nside_render, return_pixel_ranges):
+        return hpg.query_ellipse(
             nside_render,
             self._ra,
             self._dec,
@@ -491,37 +457,8 @@ class Ellipse(GeomBase):
             self._alpha,
             nest=True,
             inclusive=False,
+            return_pixel_ranges=return_pixel_ranges,
         )
-
-        if self._nside_render is not None:
-            return hpg.upgrade_pixels(nside_render, pixels, nside)
-        else:
-            return pixels
-
-    def get_pixel_ranges(self, *, nside):
-        if self._nside_render is not None:
-            if nside < self._nside_render:
-                raise ValueError(f"Cannot render a Ellipse with {self._nside_render} into nside={nside}")
-            nside_render = self._nside_render
-        else:
-            nside_render = nside
-
-        pixel_ranges = hpg.query_ellipse(
-            nside_render,
-            self._ra,
-            self._dec,
-            self._semi_major,
-            self._semi_minor,
-            self._alpha,
-            nest=True,
-            inclusive=False,
-            return_pixel_ranges=True,
-        )
-
-        if self._nside_render is not None:
-            return hpg.upgrade_pixel_ranges(nside_render, pixel_ranges, nside)
-        else:
-            return pixel_ranges
 
     def __repr__(self):
         s = ("Ellipse(ra=%.16g, dec=%16g, semi_major=%16g, semi_minor=%16g, alpha=%16g, value=%s, "
@@ -587,15 +524,8 @@ class Box(GeomBase):
     def dec2(self):
         return self._dec2
 
-    def get_pixels(self, *, nside):
-        if self._nside_render is not None:
-            if nside < self._nside_render:
-                raise ValueError(f"Cannot render a Circle with {self._nside_render} into nside={nside}")
-            nside_render = self._nside_render
-        else:
-            nside_render = nside
-
-        pixels = hpg.query_box(
+    def _render(self, *, nside_render, return_pixel_ranges):
+        return hpg.query_box(
             nside_render,
             self._ra1,
             self._ra2,
@@ -603,36 +533,8 @@ class Box(GeomBase):
             self._dec2,
             nest=True,
             inclusive=False,
+            return_pixel_ranges=return_pixel_ranges,
         )
-
-        if self._nside_render is not None:
-            return hpg.upgrade_pixels(nside_render, pixels, nside)
-        else:
-            return pixels
-
-    def get_pixel_ranges(self, *, nside):
-        if self._nside_render is not None:
-            if nside < self._nside_render:
-                raise ValueError(f"Cannot render a Circle with {self._nside_render} into nside={nside}")
-            nside_render = self._nside_render
-        else:
-            nside_render = nside
-
-        pixel_ranges = hpg.query_box(
-            nside_render,
-            self._ra1,
-            self._ra2,
-            self._dec1,
-            self._dec2,
-            nest=True,
-            inclusive=False,
-            return_pixel_ranges=True,
-        )
-
-        if self._nside_render is not None:
-            return hpg.upgrade_pixel_ranges(nside_render, pixel_ranges, nside)
-        else:
-            return pixel_ranges
 
     def __repr__(self):
         s = "Box(ra1=%.16g, ra2=%.16g, dec1=%.16g, dec2=%.16g, value=%s, nside_render=%s"
