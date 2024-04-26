@@ -5,7 +5,7 @@ import numpy as np
 import hpgeom as hpg
 
 import healsparse
-from healsparse import Circle, Polygon, Ellipse
+from healsparse import Circle, Polygon, Ellipse, Box
 
 
 def atbound(longitude, minval, maxval):
@@ -508,6 +508,80 @@ class GeomTestCase(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             ellipse.get_pixels(nside=2**10)
+
+    def test_box_smoke(self):
+        """Test that we can make a box and a map from it."""
+        ra1, ra2 = 20.0, 21.0
+        dec1, dec2 = 5.0, 6.0
+        nside = 2**17
+        box = Box(
+            ra1=ra1,
+            ra2=ra2,
+            dec1=dec1,
+            dec2=dec2,
+            value=2**4,
+        )
+
+        pixels = box.get_pixels(nside=nside)
+        self.assertGreater(pixels.size, 0)
+
+        smap = box.get_map(nside_coverage=32, nside_sparse=nside, dtype=np.int16)
+        self.assertTrue(isinstance(smap, healsparse.HealSparseMap))
+
+        smap2 = box.get_map_like(smap)
+        self.assertEqual(smap2.nside_coverage, smap.nside_coverage)
+        self.assertEqual(smap2.nside_sparse, smap.nside_sparse)
+        self.assertEqual(smap2.dtype, smap.dtype)
+
+    def test_box_bad_values(self):
+        """Test that we can only make boxes with scalars."""
+        ra1, ra2 = (20.0, 20.5), 21.0
+        dec1, dec2 = 5.0, 6.0
+
+        with self.assertRaises(ValueError):
+            Box(ra1=ra1, ra2=ra2, dec1=dec1, dec2=dec2, value=0)
+
+    def test_box_nside_render(self):
+        """Test using a box with a different rendering nside."""
+        nside = 2**17
+
+        ra1, ra2 = 20.0, 21.0
+        dec1, dec2 = 5.0, 6.0
+
+        nside_render = 2**14
+        box = Box(
+            ra1=ra1,
+            ra2=ra2,
+            dec1=dec1,
+            dec2=dec2,
+            value=2**4,
+            nside_render=nside_render,
+        )
+
+        pixels = box.get_pixels(nside=nside)
+
+        pixels_coarse = hpg.query_box(nside_render, ra1, ra2, dec1, dec2, inclusive=False)
+        pixels_fine = hpg.upgrade_pixels(nside_render, pixels_coarse, nside)
+
+        np.testing.assert_array_equal(pixels, pixels_fine)
+
+        pixel_ranges = box.get_pixel_ranges(nside=nside)
+
+        pixel_ranges_coarse = hpg.query_box(
+            nside_render,
+            ra1,
+            ra2,
+            dec1,
+            dec2,
+            inclusive=False,
+            return_pixel_ranges=True,
+        )
+        pixel_ranges_fine = hpg.upgrade_pixel_ranges(nside_render, pixel_ranges_coarse, nside)
+
+        np.testing.assert_array_equal(pixel_ranges, pixel_ranges_fine)
+
+        with self.assertRaises(ValueError):
+            box.get_pixels(nside=2**10)
 
     def test_realize_geom_or(self):
         """
