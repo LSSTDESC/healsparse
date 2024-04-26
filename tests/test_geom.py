@@ -2,9 +2,10 @@ import unittest
 import numpy.testing as testing
 
 import numpy as np
+import hpgeom as hpg
 
 import healsparse
-from healsparse import Circle, Polygon, Ellipse
+from healsparse import Circle, Polygon, Ellipse, Box
 
 
 def atbound(longitude, minval, maxval):
@@ -201,6 +202,45 @@ class GeomTestCase(unittest.TestCase):
             value=1.0,
         )
 
+    def test_circle_nside_render(self):
+        """Test using a circle with a different rendering nside."""
+        nside = 2**17
+
+        ra, dec = 200.0, 0.0
+        radius = 30.0/3600.0
+        nside_render = 2**14
+        circle = Circle(
+            ra=ra,
+            dec=dec,
+            radius=radius,
+            value=2**4,
+            nside_render=nside_render,
+        )
+
+        pixels = circle.get_pixels(nside=nside)
+
+        pixels_coarse = hpg.query_circle(nside_render, ra, dec, radius, inclusive=False)
+        pixels_fine = hpg.upgrade_pixels(nside_render, pixels_coarse, nside)
+
+        np.testing.assert_array_equal(pixels, pixels_fine)
+
+        pixel_ranges = circle.get_pixel_ranges(nside=nside)
+
+        pixel_ranges_coarse = hpg.query_circle(
+            nside_render,
+            ra,
+            dec,
+            radius,
+            inclusive=False,
+            return_pixel_ranges=True,
+        )
+        pixel_ranges_fine = hpg.upgrade_pixel_ranges(nside_render, pixel_ranges_coarse, nside)
+
+        np.testing.assert_array_equal(pixel_ranges, pixel_ranges_fine)
+
+        with self.assertRaises(ValueError):
+            circle.get_pixels(nside=2**10)
+
     def test_polygon_smoke(self):
         """
         just test we can make a polygon and a map from it
@@ -282,6 +322,57 @@ class GeomTestCase(unittest.TestCase):
         smap2 = poly.get_map(nside_coverage=32, nside_sparse=nside, dtype=np.float32)
         testing.assert_array_equal(smap.valid_pixels, smap2.valid_pixels)
         testing.assert_array_equal(smap2.get_values_pix(smap2.valid_pixels), 2.0)
+
+        # Test booleans
+        poly = Polygon(
+            ra=ra,
+            dec=dec,
+            value=True,
+        )
+        smap3 = poly.get_map(nside_coverage=32, nside_sparse=nside, dtype=np.bool_)
+        testing.assert_array_equal(smap.valid_pixels, smap3.valid_pixels)
+        testing.assert_array_equal(smap3.get_values_pix(smap3.valid_pixels), True)
+
+    def test_polygon_nside_render(self):
+        """Test using a polygon with a different rendering nside."""
+        nside = 2**17
+
+        # make a box
+        ra_range = 200.0, 200.1
+        dec_range = 0.1, 0.2
+
+        ra = [ra_range[0], ra_range[1], ra_range[1], ra_range[0]]
+        dec = [dec_range[0], dec_range[0], dec_range[1], dec_range[1]]
+        nside_render = 2**14
+        poly = Polygon(
+            ra=ra,
+            dec=dec,
+            value=64,
+            nside_render=nside_render,
+        )
+
+        pixels = poly.get_pixels(nside=nside)
+
+        pixels_coarse = hpg.query_polygon(nside_render, ra, dec, inclusive=False)
+        pixels_fine = hpg.upgrade_pixels(nside_render, pixels_coarse, nside)
+
+        np.testing.assert_array_equal(pixels, pixels_fine)
+
+        pixel_ranges = poly.get_pixel_ranges(nside=nside)
+
+        pixel_ranges_coarse = hpg.query_polygon(
+            nside_render,
+            ra,
+            dec,
+            inclusive=False,
+            return_pixel_ranges=True,
+        )
+        pixel_ranges_fine = hpg.upgrade_pixel_ranges(nside_render, pixel_ranges_coarse, nside)
+
+        np.testing.assert_array_equal(pixel_ranges, pixel_ranges_fine)
+
+        with self.assertRaises(ValueError):
+            poly.get_pixels(nside=2**10)
 
     def test_ellipse_smoke(self):
         """
@@ -374,6 +465,133 @@ class GeomTestCase(unittest.TestCase):
         smap2 = ellipse.get_map(nside_coverage=32, nside_sparse=nside, dtype=np.float32)
         testing.assert_array_equal(smap.valid_pixels, smap2.valid_pixels)
         testing.assert_array_equal(smap2.get_values_pix(smap2.valid_pixels), 2.0)
+
+    def test_ellipse_render(self):
+        """Test using an ellipse with a different rendering nside."""
+        nside = 2**17
+
+        ra, dec = 200.0, 0.0
+        semi_major = 30.0/3600.0
+        semi_minor = 15.0/3600.0
+        alpha = 45.0
+        nside_render = 2**14
+        ellipse = Ellipse(
+            ra=ra,
+            dec=dec,
+            semi_major=semi_major,
+            semi_minor=semi_minor,
+            alpha=alpha,
+            value=2**4,
+            nside_render=nside_render,
+        )
+
+        pixels = ellipse.get_pixels(nside=nside)
+
+        pixels_coarse = hpg.query_ellipse(
+            nside_render,
+            ra,
+            dec,
+            semi_major,
+            semi_minor,
+            alpha,
+            inclusive=False,
+        )
+        pixels_fine = hpg.upgrade_pixels(nside_render, pixels_coarse, nside)
+
+        np.testing.assert_array_equal(pixels, pixels_fine)
+
+        pixel_ranges = ellipse.get_pixel_ranges(nside=nside)
+
+        pixel_ranges_coarse = hpg.query_ellipse(
+            nside_render,
+            ra,
+            dec,
+            semi_major,
+            semi_minor,
+            alpha,
+            inclusive=False,
+            return_pixel_ranges=True,
+        )
+        pixel_ranges_fine = hpg.upgrade_pixel_ranges(nside_render, pixel_ranges_coarse, nside)
+
+        np.testing.assert_array_equal(pixel_ranges, pixel_ranges_fine)
+
+        with self.assertRaises(ValueError):
+            ellipse.get_pixels(nside=2**10)
+
+    def test_box_smoke(self):
+        """Test that we can make a box and a map from it."""
+        ra1, ra2 = 20.0, 21.0
+        dec1, dec2 = 5.0, 6.0
+        nside = 2**17
+        box = Box(
+            ra1=ra1,
+            ra2=ra2,
+            dec1=dec1,
+            dec2=dec2,
+            value=2**4,
+        )
+
+        pixels = box.get_pixels(nside=nside)
+        self.assertGreater(pixels.size, 0)
+
+        smap = box.get_map(nside_coverage=32, nside_sparse=nside, dtype=np.int16)
+        self.assertTrue(isinstance(smap, healsparse.HealSparseMap))
+
+        smap2 = box.get_map_like(smap)
+        self.assertEqual(smap2.nside_coverage, smap.nside_coverage)
+        self.assertEqual(smap2.nside_sparse, smap.nside_sparse)
+        self.assertEqual(smap2.dtype, smap.dtype)
+
+    def test_box_bad_values(self):
+        """Test that we can only make boxes with scalars."""
+        ra1, ra2 = (20.0, 20.5), 21.0
+        dec1, dec2 = 5.0, 6.0
+
+        with self.assertRaises(ValueError):
+            Box(ra1=ra1, ra2=ra2, dec1=dec1, dec2=dec2, value=0)
+
+    def test_box_nside_render(self):
+        """Test using a box with a different rendering nside."""
+        nside = 2**17
+
+        ra1, ra2 = 20.0, 21.0
+        dec1, dec2 = 5.0, 6.0
+
+        nside_render = 2**14
+        box = Box(
+            ra1=ra1,
+            ra2=ra2,
+            dec1=dec1,
+            dec2=dec2,
+            value=2**4,
+            nside_render=nside_render,
+        )
+
+        pixels = box.get_pixels(nside=nside)
+
+        pixels_coarse = hpg.query_box(nside_render, ra1, ra2, dec1, dec2, inclusive=False)
+        pixels_fine = hpg.upgrade_pixels(nside_render, pixels_coarse, nside)
+
+        np.testing.assert_array_equal(pixels, pixels_fine)
+
+        pixel_ranges = box.get_pixel_ranges(nside=nside)
+
+        pixel_ranges_coarse = hpg.query_box(
+            nside_render,
+            ra1,
+            ra2,
+            dec1,
+            dec2,
+            inclusive=False,
+            return_pixel_ranges=True,
+        )
+        pixel_ranges_fine = hpg.upgrade_pixel_ranges(nside_render, pixel_ranges_coarse, nside)
+
+        np.testing.assert_array_equal(pixel_ranges, pixel_ranges_fine)
+
+        with self.assertRaises(ValueError):
+            box.get_pixels(nside=2**10)
 
     def test_realize_geom_or(self):
         """

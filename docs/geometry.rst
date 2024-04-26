@@ -4,7 +4,15 @@
 HealSparse Geometry
 ===================
 
-:code:`HealSparse` has a basic geometry library that allows you to generate maps from circles, convex polygons, and ellipses as supported by :code:`hpgeom`.  Each geometric object is associated with a single value.  On construction, geometry objects only contain information about the shape, and they are only rendered onto a `HEALPix` grid when requested.
+:code:`HealSparse` has a basic geometry library that allows you to generate maps from circles, convex polygons, ellipses, and boxes as supported by :code:`hpgeom`.
+Each geometric object is associated with a single value.
+On construction, geometry objects only contain information about the shape, and they are only rendered onto a `HEALPix` grid when requested.
+
+In addition to information about the shape itself, a geometric object may optionally contain a value of :code:`nside_render`.
+This indicates that the shape should always be rendered at this given resolution, no matter the resolution of the map that it is being combined with.
+(Note that you can only render at a resolution that is less than or equal to the map resolution, or else a :code:`ValueError` is raised.)
+This functionality may be useful if one is building a map that may be used with multiple resolutions, and one wants to ensure that a higher and lower resolution maps have exactly the same outline for these shapes.
+If no :code:`nside_render` is set with the object it will always be rendered at the same resolution as the corresponding map or via the :code:`nside` parameter of :code:`get_pixels()` and :code:`get_pixel_ranges()`.
 
 There are a few methods to realize geometry objects.
 The easiest is to combine a geometric object with a :code:`HealSparseMap` map, with the ``or``, ``and``, or ``add`` operation.
@@ -15,7 +23,8 @@ Finally, for integer-value objects one can use the :code:`realize_geom()` method
 HealSparse Geometry Shapes
 --------------------------
 
-The three shapes supported are :code:`Circle`, :code:`Ellipse`, and :code:`Polygon`.  They share a base class, and while the instantiation is different, the operations are the same.
+The four shapes supported are :code:`Circle`, :code:`Ellipse`, :code:`Polygon`, and :code:`Box`.
+They share a base class, and while the instantiation is different, the operations are the same.
 
 **Circle**
 
@@ -49,11 +58,23 @@ The three shapes supported are :code:`Circle`, :code:`Ellipse`, and :code:`Polyg
                               value=8)
 
 
+**Box**
+
+.. code-block :: python
+
+    # All units are decimal degrees
+    # A box differs from a polygon in that the sides will be constant ra/dec rather
+    # than great circles.
+    # See https://hpgeom.readthedocs.io/en/latest .
+    box = healsparse.Box(ra1=20.0, ra2=30.0, dec1=10.0, dec2=5.0, value=True)
+
+
 Combining Geometric Objects with Maps
 -------------------------------------
 
 Given a map, it is very simple to combine geometric objects to build up complex shapes/masks/etc.
 Behind the scenes, large geometric objects are rendered with :code:`hpgeom` pixel ranges which leads to greater memory efficiency.
+Note that these operations can be applied to integer or boolean maps.
 
 .. code-block :: python
 
@@ -89,7 +110,8 @@ To make a map from a geometry object, use the :code:`get_map()` method as such. 
 Using :code:`realize_geom()`
 ----------------------------
 
-You can only use :code:`realize_geom()` to create maps from combinations of polygons if you are using integer maps, and want to :code:`or` them together.  This method is more memory efficient than generating each individual individual map and combining them, as above.
+You can only use :code:`realize_geom()` to create maps from combinations of polygons if you are using integer maps, and want to :code:`or` them together.
+This method is more memory efficient than generating each individual individual map and combining them, as above.
 
 .. code-block :: python
 
