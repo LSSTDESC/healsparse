@@ -176,7 +176,7 @@ class GeomBase(object):
         x = np.zeros(1, dtype=dtype)
         if is_integer_value(x[0]):
             sentinel = 0
-        elif dtype == np.bool_:
+        elif dtype == np.bool_ or dtype == bool:
             sentinel = False
         else:
             sentinel = hpg.UNSEEN
