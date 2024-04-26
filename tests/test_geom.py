@@ -323,6 +323,16 @@ class GeomTestCase(unittest.TestCase):
         testing.assert_array_equal(smap.valid_pixels, smap2.valid_pixels)
         testing.assert_array_equal(smap2.get_values_pix(smap2.valid_pixels), 2.0)
 
+        # Test booleans
+        poly = Polygon(
+            ra=ra,
+            dec=dec,
+            value=True,
+        )
+        smap3 = poly.get_map(nside_coverage=32, nside_sparse=nside, dtype=np.bool_)
+        testing.assert_array_equal(smap.valid_pixels, smap3.valid_pixels)
+        testing.assert_array_equal(smap3.get_values_pix(smap3.valid_pixels), True)
+
     def test_polygon_nside_render(self):
         """Test using a polygon with a different rendering nside."""
         nside = 2**17
