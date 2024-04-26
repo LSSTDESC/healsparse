@@ -8,6 +8,11 @@ HealSparse Geometry
 Each geometric object is associated with a single value.
 On construction, geometry objects only contain information about the shape, and they are only rendered onto a `HEALPix` grid when requested.
 
+In addition to information about the shape itself, a geometric object may optionally contain a value of :code:`nside_render`.
+This indicates that the shape should always be rendered at this given resolution, no matter the resolution of the map that it is being combined with.
+(Note that you can only render at a resolution that is less than or equal to the map resolution, or else a :code:`ValueError` is raised.)
+This functionality may be useful if one is building a map that may be used with multiple resolutions, and one wants to ensure that a higher and lower resolution maps have exactly the same outline for these shapes.
+
 There are a few methods to realize geometry objects.
 The easiest is to combine a geometric object with a :code:`HealSparseMap` map, with the ``or``, ``and``, or ``add`` operation.
 One can generate a :code:`HealSparseMap` from the geometric object.
