@@ -4,7 +4,9 @@
 HealSparse Geometry
 ===================
 
-:code:`HealSparse` has a basic geometry library that allows you to generate maps from circles, convex polygons, and ellipses as supported by :code:`hpgeom`.  Each geometric object is associated with a single value.  On construction, geometry objects only contain information about the shape, and they are only rendered onto a `HEALPix` grid when requested.
+:code:`HealSparse` has a basic geometry library that allows you to generate maps from circles, convex polygons, ellipses, and boxes as supported by :code:`hpgeom`.
+Each geometric object is associated with a single value.
+On construction, geometry objects only contain information about the shape, and they are only rendered onto a `HEALPix` grid when requested.
 
 There are a few methods to realize geometry objects.
 The easiest is to combine a geometric object with a :code:`HealSparseMap` map, with the ``or``, ``and``, or ``add`` operation.
@@ -15,7 +17,8 @@ Finally, for integer-value objects one can use the :code:`realize_geom()` method
 HealSparse Geometry Shapes
 --------------------------
 
-The three shapes supported are :code:`Circle`, :code:`Ellipse`, and :code:`Polygon`.  They share a base class, and while the instantiation is different, the operations are the same.
+The four shapes supported are :code:`Circle`, :code:`Ellipse`, :code:`Polygon`, and :code:`Box`.
+They share a base class, and while the instantiation is different, the operations are the same.
 
 **Circle**
 
@@ -49,11 +52,23 @@ The three shapes supported are :code:`Circle`, :code:`Ellipse`, and :code:`Polyg
                               value=8)
 
 
+**Box**
+
+.. code-block :: python
+
+    # All units are decimal degrees
+    # A box differs from a polygon in that the sides will be constant ra/dec rather
+    # than great circles.
+    # See https://hpgeom.readthedocs.io/en/latest .
+    box = healsparse.Box(ra1=20.0, ra2=30.0, dec1=10.0, dec2=5.0, value=True)
+
+
 Combining Geometric Objects with Maps
 -------------------------------------
 
 Given a map, it is very simple to combine geometric objects to build up complex shapes/masks/etc.
 Behind the scenes, large geometric objects are rendered with :code:`hpgeom` pixel ranges which leads to greater memory efficiency.
+Note that these operations can be applied to integer or boolean maps.
 
 .. code-block :: python
 
@@ -89,7 +104,8 @@ To make a map from a geometry object, use the :code:`get_map()` method as such. 
 Using :code:`realize_geom()`
 ----------------------------
 
-You can only use :code:`realize_geom()` to create maps from combinations of polygons if you are using integer maps, and want to :code:`or` them together.  This method is more memory efficient than generating each individual individual map and combining them, as above.
+You can only use :code:`realize_geom()` to create maps from combinations of polygons if you are using integer maps, and want to :code:`or` them together.
+This method is more memory efficient than generating each individual individual map and combining them, as above.
 
 .. code-block :: python
 
