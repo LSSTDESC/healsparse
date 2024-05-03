@@ -91,9 +91,10 @@ def make_uniform_randoms(sparse_map, n_random, rng=None):
         sparse_map.nside_coverage,
         units="radians",
     )
+    sintheta = np.sin(cov_theta)
 
-    ra_range = np.clip([np.min(cov_phi - extra_boundary),
-                        np.max(cov_phi + extra_boundary)],
+    ra_range = np.clip([np.min(cov_phi - extra_boundary / sintheta),
+                        np.max(cov_phi + extra_boundary / sintheta)],
                        0.0, 2.0 * np.pi)
     dec_range = np.clip([np.min((np.pi/2. - cov_theta) - extra_boundary),
                          np.max((np.pi/2. - cov_theta) + extra_boundary)],
