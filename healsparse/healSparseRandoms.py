@@ -87,7 +87,10 @@ def make_uniform_randoms(sparse_map, n_random, rng=None):
     # Get range of coverage pixels
     cov_theta, cov_phi = hpg.pixel_to_angle(sparse_map.nside_coverage, cov_pix, nest=True, lonlat=False)
 
-    extra_boundary = 2.0 * hpg.nside_to_resolution(sparse_map.nside_coverage)
+    extra_boundary = 2.0 * hpg.nside_to_resolution(
+        sparse_map.nside_coverage,
+        units="radians",
+    )
 
     ra_range = np.clip([np.min(cov_phi - extra_boundary),
                         np.max(cov_phi + extra_boundary)],
