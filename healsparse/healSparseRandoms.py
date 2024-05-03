@@ -93,9 +93,10 @@ def make_uniform_randoms(sparse_map, n_random, rng=None):
     )
     sintheta = np.sin(cov_theta)
 
-    ra_range = np.clip([np.min(cov_phi - extra_boundary / sintheta),
-                        np.max(cov_phi + extra_boundary / sintheta)],
-                       0.0, 2.0 * np.pi)
+    ra_range = np.array([
+        cov_phi - extra_boundary / sintheta,
+        cov_phi + extra_boundary / sintheta,
+    ])
     dec_range = np.clip([np.min((np.pi/2. - cov_theta) - extra_boundary),
                          np.max((np.pi/2. - cov_theta) + extra_boundary)],
                         -np.pi/2., np.pi/2.)
