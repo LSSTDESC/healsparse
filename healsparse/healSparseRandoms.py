@@ -76,7 +76,6 @@ def make_uniform_randoms(sparse_map, n_random, rng=None):
         rng = np.random.RandomState()
 
     # Generate uniform points on a unit sphere
-    r = 1.0
     min_gen = 10000
     max_gen = 1000000
 
@@ -87,11 +86,18 @@ def make_uniform_randoms(sparse_map, n_random, rng=None):
     # Get range of coverage pixels
     cov_theta, cov_phi = hpg.pixel_to_angle(sparse_map.nside_coverage, cov_pix, nest=True, lonlat=False)
 
-    extra_boundary = 2.0 * hpg.nside_to_resolution(sparse_map.nside_coverage)
+    extra_boundary = 2.0 * hpg.nside_to_resolution(
+        sparse_map.nside_coverage,
+        units="radians",
+    )
+    sintheta = np.sin(cov_theta)
 
-    ra_range = np.clip([np.min(cov_phi - extra_boundary),
-                        np.max(cov_phi + extra_boundary)],
-                       0.0, 2.0 * np.pi)
+    ra_range = np.clip(
+        [np.min(cov_phi - extra_boundary / sintheta),
+         np.max(cov_phi + extra_boundary / sintheta)],
+        0.0,
+        2.0 * np.pi,
+    )
     dec_range = np.clip([np.min((np.pi/2. - cov_theta) - extra_boundary),
                          np.max((np.pi/2. - cov_theta) + extra_boundary)],
                         -np.pi/2., np.pi/2.)
@@ -102,8 +108,8 @@ def make_uniform_randoms(sparse_map, n_random, rng=None):
     cov_phi_rot = cov_phi + np.pi
     test, = np.where(cov_phi_rot > 2.0 * np.pi)
     cov_phi_rot[test] -= 2.0 * np.pi
-    ra_range_rot = np.clip([np.min(cov_phi_rot - extra_boundary),
-                            np.max(cov_phi_rot + extra_boundary)],
+    ra_range_rot = np.clip([np.min(cov_phi_rot - extra_boundary / sintheta),
+                            np.max(cov_phi_rot + extra_boundary / sintheta)],
                            0.0, 2.0 * np.pi)
     if ((ra_range_rot[1] - ra_range_rot[0]) < ((ra_range[1] - ra_range[0]) - 0.1)):
         # This is a more efficient range in rotated space
@@ -111,7 +117,7 @@ def make_uniform_randoms(sparse_map, n_random, rng=None):
         rotated = True
 
     # And the spherical coverage
-    z_range = r * np.sin(dec_range)
+    z_range = np.sin(dec_range)
     phi_range = ra_range
 
     ra_rand = np.zeros(n_random)
@@ -128,7 +134,7 @@ def make_uniform_randoms(sparse_map, n_random, rng=None):
 
         z = rng.uniform(low=z_range[0], high=z_range[1], size=n_gen)
         phi = rng.uniform(low=phi_range[0], high=phi_range[1], size=n_gen)
-        theta = np.arcsin(z / r)
+        theta = np.arcsin(z)
 
         ra_rand_temp = np.degrees(phi)
         dec_rand_temp = np.degrees(theta)
