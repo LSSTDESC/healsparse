@@ -50,8 +50,8 @@ def _randcap(rng, nrand, ra, dec, rad, get_radius=False):
     # generate position angle uniformly 0,2*PI
     rand_posangle = rng.uniform(nrand)*2*np.pi
 
-    theta = np.array(dec, dtype='f8', ndmin=1, copy=True)
-    phi = np.array(ra, dtype='f8', ndmin=1, copy=True)
+    theta = np.atleast_1d(np.asarray(dec, dtype='f8').copy())
+    phi = np.atleast_1d(np.asarray(ra, dtype='f8').copy())
     theta += 90
 
     np.deg2rad(theta, theta)
@@ -258,8 +258,8 @@ class GeomTestCase(unittest.TestCase):
 
         smap = poly.get_map(nside_coverage=32, nside_sparse=nside, dtype=np.int16)
 
-        ra = np.array([200.1, 200.15])
-        dec = np.array([0.05, 0.015])
+        ra = np.asarray([200.1, 200.15])
+        dec = np.asarray([0.05, 0.015])
         vals = smap.get_values_pos(ra, dec, lonlat=True)
 
         testing.assert_array_equal(vals, [poly.value, 0])

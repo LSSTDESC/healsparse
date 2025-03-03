@@ -31,7 +31,7 @@ class CatFilesTestCase(unittest.TestCase):
                 primary = None
                 wide_mask_maxbits = None
                 sentinel = hpg.UNSEEN
-                data = np.array([100.0], dtype=dtype)
+                data = np.asarray([100.0], dtype=dtype)
             elif t == 'recarray':
                 dtype = [('a', 'f4'),
                          ('b', 'i4')]
@@ -137,7 +137,7 @@ class CatFilesTestCase(unittest.TestCase):
                 primary = None
                 wide_mask_maxbits = None
                 sentinel = -9999
-                data = np.array([100.0], dtype=dtype)
+                data = np.asarray([100.0], dtype=dtype)
             elif t == 'recarray':
                 dtype = [('a', 'f4'),
                          ('b', 'i4')]
@@ -187,11 +187,11 @@ class CatFilesTestCase(unittest.TestCase):
                                                                     sentinel=sentinel)
             if combined_map.is_integer_map:
                 combined_map[map1.valid_pixels] = map1[map1.valid_pixels]
-                overlap = np.in1d(map2.valid_pixels, combined_map.valid_pixels)
+                overlap = np.isin(map2.valid_pixels, combined_map.valid_pixels)
                 combined_map[map2.valid_pixels[overlap]] = map2[map2.valid_pixels[overlap]] | \
                     combined_map[map2.valid_pixels[overlap]]
                 combined_map[map2.valid_pixels[~overlap]] = map2[map2.valid_pixels[~overlap]]
-                overlap = np.in1d(map3.valid_pixels, combined_map.valid_pixels)
+                overlap = np.isin(map3.valid_pixels, combined_map.valid_pixels)
                 combined_map[map3.valid_pixels[overlap]] = map3[map3.valid_pixels[overlap]] | \
                     combined_map[map3.valid_pixels[overlap]]
                 combined_map[map3.valid_pixels[~overlap]] = map3[map3.valid_pixels[~overlap]]

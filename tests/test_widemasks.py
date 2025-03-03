@@ -521,8 +521,8 @@ class WideMasksTestCase(unittest.TestCase):
         self.assertTrue(smap.is_wide_mask_map)
         self.assertEqual(smap.wide_mask_maxbits, 16)
 
-        ra = np.array([200.1, 200.15])
-        dec = np.array([0.05, 0.015])
+        ra = np.asarray([200.1, 200.15])
+        dec = np.asarray([0.05, 0.015])
 
         vals = smap.get_values_pos(ra, dec, lonlat=True)
         testing.assert_array_equal(vals[:, 0], [2**4, 0])
@@ -632,11 +632,11 @@ class WideMasksTestCase(unittest.TestCase):
         # And mask specific bits that are not set
         masked_map = int_map.apply_mask(mask_map, mask_bit_arr=[16], in_place=False)
         values = mask_map.get_values_pix(mask_map.valid_pixels)
-        masked_pixels, = np.where((values[:, 0] & (2**16)) > 0)
+        masked_pixels, = np.where((values[:, 0] & (2**4)) > 0)
         testing.assert_equal(masked_pixels.size, 0)
 
         still_good, = np.where((int_map.get_values_pix(valid_pixels) > 0) &
-                               ((mask_map.get_values_pix(valid_pixels)[:, 0] & 2**16) == 0))
+                               ((mask_map.get_values_pix(valid_pixels)[:, 0] & 2**4) == 0))
         testing.assert_array_equal(masked_map.get_values_pix(valid_pixels[still_good]), 1)
 
     def test_wide_mask_applied_mask(self):

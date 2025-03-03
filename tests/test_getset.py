@@ -100,11 +100,11 @@ class GetSetTestCase(unittest.TestCase):
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
 
-        indices = np.array([1, 2, 100, 500, 10000])
+        indices = np.asarray([1, 2, 100, 500, 10000])
         testing.assert_array_almost_equal(sparse_map[indices], full_map[indices])
         testing.assert_almost_equal(sparse_map[indices[0]], full_map[indices[0]])
 
-        indices = np.array([1., 2, 100, 500, 10000])
+        indices = np.asarray([1., 2, 100, 500, 10000])
         self.assertRaises(IndexError, sparse_map.__getitem__, indices)
         self.assertRaises(IndexError, sparse_map.__getitem__, indices[0])
 
@@ -249,8 +249,8 @@ class GetSetTestCase(unittest.TestCase):
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
 
         # This needs to be accessed with an array of length 1 or same length.
-        sparse_map[100: 500] = np.array([1.0])
-        full_map[100: 500] = np.array([1.0])
+        sparse_map[100: 500] = np.asarray([1.0])
+        full_map[100: 500] = np.asarray([1.0])
         testing.assert_array_almost_equal(sparse_map.generate_healpix_map(),
                                           full_map)
 
@@ -279,8 +279,8 @@ class GetSetTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map.coverage_mask, covmask_orig)
 
         # Test all
-        sparse_map[:] = np.array([1.0])
-        full_map[:] = np.array([1.0])
+        sparse_map[:] = np.asarray([1.0])
+        full_map[:] = np.asarray([1.0])
         testing.assert_array_almost_equal(sparse_map.generate_healpix_map(),
                                           full_map)
 
@@ -298,9 +298,9 @@ class GetSetTestCase(unittest.TestCase):
 
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
 
-        indices = np.array([1, 2, 100, 500, 10000])
-        sparse_map[indices] = np.array([1.0])
-        full_map[indices] = np.array([1.0])
+        indices = np.asarray([1, 2, 100, 500, 10000])
+        sparse_map[indices] = np.asarray([1.0])
+        full_map[indices] = np.asarray([1.0])
         testing.assert_array_almost_equal(sparse_map.generate_healpix_map(),
                                           full_map)
 
@@ -310,13 +310,13 @@ class GetSetTestCase(unittest.TestCase):
         testing.assert_array_almost_equal(sparse_map.generate_healpix_map(),
                                           full_map)
 
-        indices = np.array([1, 2, 100, 500, 10000]) + 100
+        indices = np.asarray([1, 2, 100, 500, 10000]) + 100
         sparse_map[indices] = np.ones(len(indices))
         full_map[indices] = np.ones(len(indices))
         testing.assert_array_almost_equal(sparse_map.generate_healpix_map(),
                                           full_map)
 
-        indices = np.array([1., 2, 100, 500, 10000])
+        indices = np.asarray([1., 2, 100, 500, 10000])
         self.assertRaises(IndexError, sparse_map.__setitem__, indices, 1.0)
 
     def test_setitem_list(self):
@@ -334,8 +334,8 @@ class GetSetTestCase(unittest.TestCase):
         sparse_map = healsparse.HealSparseMap(healpix_map=full_map, nside_coverage=nside_coverage)
 
         indices = [1, 2, 100, 500, 10000]
-        sparse_map[indices] = np.array([1.0])
-        full_map[indices] = np.array([1.0])
+        sparse_map[indices] = np.asarray([1.0])
+        full_map[indices] = np.asarray([1.0])
         testing.assert_array_almost_equal(sparse_map.generate_healpix_map(),
                                           full_map)
 

@@ -220,7 +220,7 @@ class DegradeMapTestCase(unittest.TestCase):
         sparse_map_or.set_bits_pix(pixel2_all, [4, 12])
 
         # Get the pixel number of the bad pixels
-        pixel2_bad = np.array([0])
+        pixel2_bad = np.asarray([0])
         sparse_map_or.clear_bits_pix(pixel2_bad, [4])  # set low value in the first pixel
 
         # Degrade with or
