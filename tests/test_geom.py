@@ -704,6 +704,41 @@ class GeomTestCase(unittest.TestCase):
             np.testing.assert_array_equal(m[m.valid_pixels], value)
             np.testing.assert_array_equal(m3[m3.valid_pixels], value)
 
+    def test_map_or_geom_covmaplimit(self):
+        # Test with two large circles, north and south.
+        # These test a crash that would happen if the coverage hits the
+        # healpix limit.
+
+        for mode in ["boolean", "boolean_packed", "integer"]:
+            if mode == "boolean":
+                dtype = np.bool_
+                bit_packed = False
+                value = True
+            elif mode == "boolean_packed":
+                dtype = np.bool_
+                bit_packed = True
+                value = True
+            elif mode == "integer":
+                dtype = np.uint16
+                bit_packed = False
+                value = 2
+
+            m = healsparse.HealSparseMap.make_empty(32, 2048, dtype, bit_packed=bit_packed)
+
+            circle_north = healsparse.Circle(ra=315.0, dec=15.0, radius=15.0, value=value)
+            circle_south = healsparse.Circle(ra=315.0, dec=-15.0, radius=15.0, value=value)
+
+            m |= circle_north
+            m |= circle_south
+
+            valid_pixels = np.sort(m.valid_pixels)
+
+            pixels_north = circle_north.get_pixels(nside=m.nside_sparse)
+            pixels_south = circle_south.get_pixels(nside=m.nside_sparse)
+            pixels = np.sort(np.unique(np.concatenate((pixels_north, pixels_south))))
+
+            np.testing.assert_array_equal(valid_pixels, pixels)
+
     def test_map_and_geom(self):
         # Make sure we have a big and small region.
         # Need to test boolean, boolean packed, and integer maps.
