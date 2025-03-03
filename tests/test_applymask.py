@@ -83,7 +83,7 @@ class ApplyMaskTestCase(unittest.TestCase):
         # Pixels that are in the original but are not in the masked pixels should be 1
         testing.assert_array_equal(int_map.get_values_pix(valid_pixels[still_good0]), 1)
 
-    def test_apply_mask_float(self):
+    def test_apply_mask_float32(self):
         """
         Test apply_mask on a float map
         """
@@ -119,8 +119,9 @@ class ApplyMaskTestCase(unittest.TestCase):
         masked_map = float_map.apply_mask(mask_map, in_place=False)
         masked_pixels = mask_map.valid_pixels
 
-        # Masked pixels should be zero
-        testing.assert_almost_equal(masked_map.get_values_pix(masked_pixels), hpg.UNSEEN)
+        # Masked pixels should be UNSEEN
+        delta = masked_map.get_values_pix(masked_pixels) - hpg.UNSEEN
+        testing.assert_array_almost_equal(delta, 0.0)
 
         # Pixels that are in the original but are not in the masked pixels should be 1
         still_good0, = np.where((float_map.get_values_pix(valid_pixels) > hpg.UNSEEN) &
@@ -134,8 +135,9 @@ class ApplyMaskTestCase(unittest.TestCase):
         masked_map = float_map.apply_mask(mask_map, mask_bits=4, in_place=False)
         masked_pixels = mask_map.valid_pixels
 
-        # Masked pixels should be zero
-        testing.assert_almost_equal(masked_map.get_values_pix(masked_pixels), hpg.UNSEEN)
+        # Masked pixels should be UNSEEN
+        delta = masked_map.get_values_pix(masked_pixels) - hpg.UNSEEN
+        testing.assert_array_almost_equal(delta, 0.0)
 
         # Pixels that are in the original but are not in the masked pixels should be 1
         still_good, = np.where((float_map.get_values_pix(valid_pixels) > 0) &
@@ -157,8 +159,9 @@ class ApplyMaskTestCase(unittest.TestCase):
         float_map.apply_mask(mask_map, in_place=True)
         masked_pixels = mask_map.valid_pixels
 
-        # Masked pixels should be zero
-        testing.assert_almost_equal(float_map.get_values_pix(masked_pixels), hpg.UNSEEN)
+        # Masked pixels should be UNSEEN
+        delta = float_map.get_values_pix(masked_pixels) - hpg.UNSEEN
+        testing.assert_array_almost_equal(delta, 0.0)
 
         # Pixels that are in the original but are not in the masked pixels should be 1
         testing.assert_almost_equal(float_map.get_values_pix(valid_pixels[still_good0]), 1.0)

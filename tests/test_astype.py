@@ -62,8 +62,8 @@ class AstypeCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map.valid_pixels, sparse_map_float.valid_pixels)
         testing.assert_array_almost_equal(sparse_map[sparse_map.valid_pixels],
                                           sparse_map_float[sparse_map.valid_pixels])
-        testing.assert_array_equal(sparse_map_float._sparse_map[0: nfine_per_cov],
-                                   hpg.UNSEEN)
+        delta = sparse_map_float._sparse_map[0: nfine_per_cov] - hpg.UNSEEN
+        testing.assert_array_almost_equal(delta, 0.0)
 
         # Convert to a float map with 0 sentinel
         sparse_map_float2 = sparse_map.astype(np.float32, sentinel=0.0)
@@ -132,8 +132,8 @@ class AstypeCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map.valid_pixels, sparse_map_float.valid_pixels)
         testing.assert_array_almost_equal(sparse_map[sparse_map.valid_pixels],
                                           sparse_map_float[sparse_map.valid_pixels])
-        testing.assert_array_equal(sparse_map_float._sparse_map[0: nfine_per_cov],
-                                   hpg.UNSEEN)
+        delta = sparse_map_float._sparse_map[0: nfine_per_cov] - hpg.UNSEEN
+        testing.assert_array_almost_equal(delta, 0.0)
 
         # Convert to a different float map with 0 sentinel
         sparse_map_float2 = sparse_map.astype(np.float32, sentinel=0.0)

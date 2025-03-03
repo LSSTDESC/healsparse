@@ -553,15 +553,15 @@ class HealSparseMap(object):
                     if not self.is_integer_map:
                         raise ValueError("Cannot set non-integer map with an integer")
                     is_single_value = True
-                    _values = np.array([values], dtype=self.dtype)
+                    _values = np.asarray([values], dtype=self.dtype)
                 elif isinstance(values, numbers.Real):
                     if self.is_integer_map:
                         raise ValueError("Cannot set non-floating point map with a floating point.")
                     is_single_value = True
-                    _values = np.array([values], dtype=self.dtype)
+                    _values = np.asarray([values], dtype=self.dtype)
                 elif isinstance(values, (bool, np.bool_)):
                     is_single_value = True
-                    _values = np.array([values], dtype=bool)
+                    _values = np.asarray([values], dtype=bool)
 
         if isinstance(values, np.ndarray) and len(values) == 1:
             is_single_value = True
@@ -695,6 +695,10 @@ class HealSparseMap(object):
         # Compute the coverage pixels.
         cov_pix_ranges = np.right_shift(pixel_ranges, self._cov_map.bit_shift)
         # After the bit shift these pixel ranges are inclusive, not exclusive.
+        # But we also need to protect against an overrun at the high end.
+        if cov_pix_ranges[-1, 1] == len(self.coverage_mask):
+            cov_pix_ranges[-1, 1] = len(self.coverage_mask) - 1
+
         cov_pix_to_set = hpg.pixel_ranges_to_pixels(cov_pix_ranges, inclusive=True)
         cov_pix_to_set = np.unique(cov_pix_to_set)
 
@@ -881,7 +885,7 @@ class HealSparseMap(object):
             if self._is_wide_mask:
                 return np.zeros((0, self._wide_mask_width), dtype=self.dtype)
             else:
-                return np.array([], dtype=self.dtype)
+                return np.asarray([], dtype=self.dtype)
 
         if not nest:
             _pix = hpg.ring_to_nest(self._nside_sparse, pixels)
@@ -1343,7 +1347,7 @@ class HealSparseMap(object):
         elif self._is_bit_packed:
             # This is dangerous because it expands into a full array first; this
             # can blow up memory.
-            valid_pixel_inds, = np.where(np.array(self._sparse_map) != self._sentinel)
+            valid_pixel_inds, = np.where(np.asarray(self._sparse_map) != self._sentinel)
         else:
             valid_pixel_inds, = np.where(self._sparse_map != self._sentinel)
 
@@ -1442,7 +1446,7 @@ class HealSparseMap(object):
         """
         # Check if this is in the coverage mask.
         if not self.coverage_mask[cov_pix]:
-            return np.array([], dtype=np.int64)
+            return np.asarray([], dtype=np.int64)
 
         # This is the start of the coverage pixel slice.
         start = (self._cov_map[cov_pix] +
@@ -1454,7 +1458,7 @@ class HealSparseMap(object):
         elif self._is_wide_mask:
             valid_pixel_inds, = np.where(np.any(self._sparse_map[s, :] != self._sentinel, axis=1))
         elif self._is_bit_packed:
-            valid_pixel_inds, = np.where(np.array(self._sparse_map[s]) != self._sentinel)
+            valid_pixel_inds, = np.where(np.asarray(self._sparse_map[s]) != self._sentinel)
         else:
             valid_pixel_inds, = np.where(self._sparse_map[s] != self._sentinel)
 
@@ -1825,7 +1829,7 @@ class HealSparseMap(object):
         elif isinstance(key, numbers.Integral):
             # Get a single pixel
             # Return a single (non-array) value
-            return self.get_values_pix(np.array([key]))[0]
+            return self.get_values_pix(np.asarray([key]))[0]
         elif isinstance(key, slice):
             # Get a slice of pixels
             start = key.start if key.start is not None else 0
@@ -1855,7 +1859,7 @@ class HealSparseMap(object):
         """
         if isinstance(key, numbers.Integral):
             # Set a single pixel
-            return self.update_values_pix(np.array([key]), value)
+            return self.update_values_pix(np.asarray([key]), value)
         elif isinstance(key, slice):
             # Set a slice of pixels
             start = key.start if key.start is not None else 0
@@ -2521,7 +2525,7 @@ class HealSparseMap(object):
                     rhs = _PackedBoolArray.from_boolean_array(other._sparse_map[start_other: end_other])
                 elif not self._is_bit_packed and other._is_bit_packed:
                     # Expand the RHS to a regular boolean array.
-                    rhs = np.array(other._sparse_map[start_other: end_other])
+                    rhs = np.asarray(other._sparse_map[start_other: end_other])
 
                 if name == "and":
                     lhs &= rhs

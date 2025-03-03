@@ -16,7 +16,7 @@ class SingleCovpixTestCase(unittest.TestCase):
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage,
                                                          nside_sparse,
                                                          np.float32)
-        pixels = np.array([1000, 100000, 10000000])
+        pixels = np.asarray([1000, 100000, 10000000])
         sparse_map[pixels] = 1.0
 
         cov_pixels, = np.where(sparse_map.coverage_mask)
@@ -48,7 +48,7 @@ class SingleCovpixTestCase(unittest.TestCase):
                                                          nside_sparse,
                                                          dtype,
                                                          primary='a')
-        pixels = np.array([1000, 100000, 10000000])
+        pixels = np.asarray([1000, 100000, 10000000])
         value = np.ones(1, dtype=dtype)
         sparse_map[pixels] = value
 
@@ -81,7 +81,7 @@ class SingleCovpixTestCase(unittest.TestCase):
                                                          WIDE_MASK,
                                                          wide_mask_maxbits=15)
 
-        pixels = np.array([1000, 100000, 10000000])
+        pixels = np.asarray([1000, 100000, 10000000])
         sparse_map.set_bits_pix(pixels, [4])
         sparse_map.set_bits_pix(pixels, [13])
 
@@ -112,7 +112,7 @@ class SingleCovpixTestCase(unittest.TestCase):
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage,
                                                          nside_sparse,
                                                          np.float32)
-        pixels = np.array([1000, 100000, 10000000])
+        pixels = np.asarray([1000, 100000, 10000000])
         sparse_map[pixels] = 1.0
 
         sub_map = sparse_map.get_single_covpix_map(40)
@@ -134,7 +134,7 @@ class SingleCovpixTestCase(unittest.TestCase):
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage,
                                                          nside_sparse,
                                                          np.float32)
-        pixels = np.array([1000, 100000, 10000000])
+        pixels = np.asarray([1000, 100000, 10000000])
         sparse_map[pixels] = 1.0
 
         cov_pixels, = np.where(sparse_map.coverage_mask)

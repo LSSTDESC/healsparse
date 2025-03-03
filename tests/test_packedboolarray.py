@@ -94,19 +94,19 @@ class PackedBoolArrayTestCase(unittest.TestCase):
         # Create specifying nothing, should be 0 size.
         pba = _PackedBoolArray()
         self.assertEqual(pba.size, 0)
-        testing.assert_array_equal(np.array(pba), np.zeros(0, dtype=np.bool_))
+        testing.assert_array_equal(np.asarray(pba), np.zeros(0, dtype=np.bool_))
 
         # Specify a few sizes.
         for size in range(128):
             pba = _PackedBoolArray(size=size)
             self.assertEqual(pba.size, size)
-            testing.assert_array_equal(np.array(pba), np.zeros(size, dtype=np.bool_))
+            testing.assert_array_equal(np.asarray(pba), np.zeros(size, dtype=np.bool_))
 
         # Specify a few sizes with an offset.
         for size in range(128):
             pba = _PackedBoolArray(size=size, start_index=2)
             self.assertEqual(pba.size, size)
-            testing.assert_array_equal(np.array(pba), np.zeros(size, dtype=np.bool_))
+            testing.assert_array_equal(np.asarray(pba), np.zeros(size, dtype=np.bool_))
 
         with self.assertRaises(ValueError):
             pba = _PackedBoolArray(size=10, data_buffer=np.zeros(5, dtype=np.uint8))
@@ -135,7 +135,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
             data_buffer = np.zeros(size // 8, dtype=np.uint8)
             pba = _PackedBoolArray(data_buffer=data_buffer)
             self.assertEqual(pba.size, size)
-            testing.assert_array_equal(np.array(pba), np.zeros(size, dtype=np.bool_))
+            testing.assert_array_equal(np.asarray(pba), np.zeros(size, dtype=np.bool_))
 
         # If we want a specific size, we must also specify the stop index.
         for size in range(0, 128, 8):
@@ -147,21 +147,21 @@ class PackedBoolArrayTestCase(unittest.TestCase):
                     stop_index=start_index + size,
                 )
                 self.assertEqual(pba.size, size)
-                testing.assert_array_equal(np.array(pba), np.zeros(size, dtype=np.bool_))
+                testing.assert_array_equal(np.asarray(pba), np.zeros(size, dtype=np.bool_))
 
     def test_create_from_bool_array(self):
         for size in range(128):
             arr = np.ones(size, dtype=np.bool_)
             pba = _PackedBoolArray.from_boolean_array(arr)
             self.assertEqual(pba.size, size)
-            testing.assert_array_equal(np.array(pba), arr)
+            testing.assert_array_equal(np.asarray(pba), arr)
 
         for size in range(128):
             for start_index in range(0, 8):
                 arr = np.ones(size, dtype=np.bool_)
                 pba = _PackedBoolArray.from_boolean_array(arr, start_index=start_index)
                 self.assertEqual(pba.size, size)
-                testing.assert_array_equal(np.array(pba), arr)
+                testing.assert_array_equal(np.asarray(pba), arr)
 
         with self.assertRaises(NotImplementedError):
             pba = _PackedBoolArray.from_boolean_array(7)
@@ -179,7 +179,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
             self.assertEqual(pba.size, newsize)
             comp_array = np.zeros(newsize, dtype=np.bool_)
             comp_array[[0, 4, 6]] = True
-            testing.assert_array_equal(np.array(pba), comp_array)
+            testing.assert_array_equal(np.asarray(pba), comp_array)
 
         for newsize in range(16, 128):
             for start_index in range(8):
@@ -191,7 +191,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
                 self.assertEqual(pba.size, newsize)
                 comp_array = np.zeros(newsize, dtype=np.bool_)
                 comp_array[[0, 4, 6]] = True
-                testing.assert_array_equal(np.array(pba), comp_array)
+                testing.assert_array_equal(np.asarray(pba), comp_array)
 
         with self.assertRaises(ValueError):
             pba = _PackedBoolArray(size=10)
@@ -208,9 +208,9 @@ class PackedBoolArrayTestCase(unittest.TestCase):
 
             for pba in pba_arrays:
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
-                testing.assert_array_equal(np.array(pba_test), pba_array)
+                testing.assert_array_equal(np.asarray(pba_test), pba_array)
                 self.assertEqual(pba_test._start_index, pba._start_index)
                 self.assertEqual(pba_test._stop_index, pba._stop_index)
 
@@ -234,7 +234,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
                 pba_arrays = self._make_long_arrays()
 
             for pba in pba_arrays:
-                self.assertEqual(pba.sum(), np.array(pba).sum())
+                self.assertEqual(pba.sum(), np.asarray(pba).sum())
 
         # Do sums over aligned arrays, with and without reshaping.
         for mode in ("short", "middle", "long"):
@@ -248,13 +248,13 @@ class PackedBoolArrayTestCase(unittest.TestCase):
             shape = (pba.size // 8, 8)
             testing.assert_array_equal(
                 pba.sum(shape=shape),
-                np.array(pba).reshape(shape).sum(),
+                np.asarray(pba).reshape(shape).sum(),
             )
 
             shape = (pba.size // 8, 8)
             testing.assert_array_equal(
                 pba.sum(shape=shape, axis=1),
-                np.array(pba).reshape(shape).sum(axis=1),
+                np.asarray(pba).reshape(shape).sum(axis=1),
             )
 
         with self.assertRaises(ValueError):
@@ -321,7 +321,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
         for pba in short_arrays:
             # Test setting a single index to True or False.
             pba_test = pba.copy()
-            pba_array = np.array(pba)
+            pba_array = np.asarray(pba)
 
             pba_test[2] = True
             pba_array[2] = True
@@ -334,34 +334,34 @@ class PackedBoolArrayTestCase(unittest.TestCase):
 
             # Test setting a list/array of indexes to True or False.
             pba_test = pba.copy()
-            pba_array = np.array(pba)
+            pba_array = np.asarray(pba)
 
             pba_test[[1, 2, 4]] = True
             pba_array[[1, 2, 4]] = True
             testing.assert_array_equal(pba_test, pba_array)
 
-            pba_test[np.array([1, 2, 4])] = False
-            pba_array[np.array([1, 2, 4])] = False
+            pba_test[np.asarray([1, 2, 4])] = False
+            pba_array[np.asarray([1, 2, 4])] = False
             testing.assert_array_equal(pba_test, pba_array)
 
-            pba_test[np.array([], dtype=np.int64)] = True
+            pba_test[np.asarray([], dtype=np.int64)] = True
             testing.assert_array_equal(pba_test, pba_array)
 
-            pba_test[np.array([], dtype=np.int64)] = False
+            pba_test[np.asarray([], dtype=np.int64)] = False
             testing.assert_array_equal(pba_test, pba_array)
 
             # Test setting a list/array of indices to an array.
             pba_test = pba.copy()
-            pba_array = np.array(pba)
+            pba_array = np.asarray(pba)
 
-            pba_test[[1, 2, 4]] = np.array([True, True, False])
-            pba_array[[1, 2, 4]] = np.array([True, True, False])
+            pba_test[[1, 2, 4]] = np.asarray([True, True, False])
+            pba_array[[1, 2, 4]] = np.asarray([True, True, False])
             testing.assert_array_equal(pba_test, pba_array)
 
             # Test setting slices: setting to True/False
             for full in (True, False):
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 if full:
                     s = slice(None, None, None)
@@ -379,7 +379,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
             # Test setting slices: setting to a numpy array.
             for full in (True, False):
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 if full:
                     s = slice(None, None, None)
@@ -394,7 +394,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
             # Test setting slices: setting to packed boolean array.
             for full in (True, False):
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 if full:
                     s = slice(None, None, None)
@@ -408,7 +408,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
                 target[:] = True
 
                 pba_test[s] = target
-                pba_array[s] = np.array(target)
+                pba_array[s] = np.asarray(target)
                 testing.assert_array_equal(pba_test, pba_array)
 
         with self.assertRaises(ValueError):
@@ -441,7 +441,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
         for pba in middle_arrays:
             # Test setting a single index to True or False.
             pba_test = pba.copy()
-            pba_array = np.array(pba)
+            pba_array = np.asarray(pba)
 
             pba_test[10] = True
             pba_array[10] = True
@@ -454,28 +454,28 @@ class PackedBoolArrayTestCase(unittest.TestCase):
 
             # Test setting a list/array of indexes to True or False.
             pba_test = pba.copy()
-            pba_array = np.array(pba)
+            pba_array = np.asarray(pba)
 
             pba_test[[1, 2, 4, 10]] = True
             pba_array[[1, 2, 4, 10]] = True
             testing.assert_array_equal(pba_test, pba_array)
 
-            pba_test[np.array([1, 2, 4, 10])] = False
-            pba_array[np.array([1, 2, 4, 10])] = False
+            pba_test[np.asarray([1, 2, 4, 10])] = False
+            pba_array[np.asarray([1, 2, 4, 10])] = False
             testing.assert_array_equal(pba_test, pba_array)
 
             # Test setting a list/array of indices to an array.
             pba_test = pba.copy()
-            pba_array = np.array(pba)
+            pba_array = np.asarray(pba)
 
-            pba_test[[1, 2, 4, 10]] = np.array([True, True, False, False])
-            pba_array[[1, 2, 4, 10]] = np.array([True, True, False, False])
+            pba_test[[1, 2, 4, 10]] = np.asarray([True, True, False, False])
+            pba_array[[1, 2, 4, 10]] = np.asarray([True, True, False, False])
             testing.assert_array_equal(pba_test, pba_array)
 
             # Test setting slices: setting to True/False
             for full in (True, False):
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 if full:
                     s = slice(None, None, None)
@@ -493,7 +493,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
             # Test setting slices: setting to a numpy array.
             for full in (True, False):
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 if full:
                     s = slice(None, None, None)
@@ -508,7 +508,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
             # Test setting slices: setting to packed boolean array.
             for full in (True, False):
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 if full:
                     s = slice(None, None, None)
@@ -521,7 +521,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
                 target[:] = True
 
                 pba_test[s] = target
-                pba_array[s] = np.array(target)
+                pba_array[s] = np.asarray(target)
                 testing.assert_array_equal(pba_test, pba_array)
 
     def test_setitem_long(self):
@@ -530,7 +530,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
         for pba in long_arrays:
             # Test setting a single index to True or False.
             pba_test = pba.copy()
-            pba_array = np.array(pba)
+            pba_array = np.asarray(pba)
 
             pba_test[20] = True
             pba_array[20] = True
@@ -543,28 +543,28 @@ class PackedBoolArrayTestCase(unittest.TestCase):
 
             # Test setting a list/array of indexes to True or False.
             pba_test = pba.copy()
-            pba_array = np.array(pba)
+            pba_array = np.asarray(pba)
 
             pba_test[[1, 2, 4, 10, 20, 29]] = True
             pba_array[[1, 2, 4, 10, 20, 29]] = True
             testing.assert_array_equal(pba_test, pba_array)
 
-            pba_test[np.array([1, 2, 4, 10, 20, 29])] = False
-            pba_array[np.array([1, 2, 4, 10, 20, 29])] = False
+            pba_test[np.asarray([1, 2, 4, 10, 20, 29])] = False
+            pba_array[np.asarray([1, 2, 4, 10, 20, 29])] = False
             testing.assert_array_equal(pba_test, pba_array)
 
             # Test setting a list/array of indices to an array.
             pba_test = pba.copy()
-            pba_array = np.array(pba)
+            pba_array = np.asarray(pba)
 
-            pba_test[[1, 2, 4, 10, 20, 29]] = np.array([True, True, False, False, False, True])
-            pba_array[[1, 2, 4, 10, 20, 29]] = np.array([True, True, False, False, False, True])
+            pba_test[[1, 2, 4, 10, 20, 29]] = np.asarray([True, True, False, False, False, True])
+            pba_array[[1, 2, 4, 10, 20, 29]] = np.asarray([True, True, False, False, False, True])
             testing.assert_array_equal(pba_test, pba_array)
 
             # Test setting slices: setting to True/False
             for mode in ("full", "aligned", "unaligned"):
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 if mode == "full":
                     s = slice(None, None, None)
@@ -584,7 +584,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
             # Test setting slices: setting to a numpy array.
             for mode in ("full", "aligned", "unaligned"):
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 if mode == "full":
                     s = slice(None, None, None)
@@ -602,7 +602,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
             for mode in ("full", "aligned", "unaligned"):
 
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 if mode == "full":
                     s = slice(None, None, None)
@@ -617,7 +617,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
                 target[:] = True
 
                 pba_test[s] = target
-                pba_array[s] = np.array(target)
+                pba_array[s] = np.asarray(target)
                 testing.assert_array_equal(pba_test, pba_array)
 
     def test_getitem_short(self):
@@ -625,26 +625,26 @@ class PackedBoolArrayTestCase(unittest.TestCase):
 
         for pba in short_arrays:
             # Test getting a single index.
-            arr = np.array(pba)
+            arr = np.asarray(pba)
             for i in range(len(pba)):
                 self.assertEqual(pba[i], arr[i])
 
             # Test getting slices.
             # The full slice.
-            testing.assert_array_equal(np.array(pba[:]), arr[:])
-            testing.assert_array_equal(np.array(pba[0: len(pba)]), arr[0: len(pba)])
+            testing.assert_array_equal(np.asarray(pba[:]), arr[:])
+            testing.assert_array_equal(np.asarray(pba[0: len(pba)]), arr[0: len(pba)])
 
             # Start at 0, end at less than the last:
-            testing.assert_array_equal(np.array(pba[: len(pba) - 2]), arr[: len(pba) - 2])
-            testing.assert_array_equal(np.array(pba[0: len(pba) - 2]), arr[0: len(pba) - 2])
+            testing.assert_array_equal(np.asarray(pba[: len(pba) - 2]), arr[: len(pba) - 2])
+            testing.assert_array_equal(np.asarray(pba[0: len(pba) - 2]), arr[0: len(pba) - 2])
 
             # Start at 1, end at end:
-            testing.assert_array_equal(np.array(pba[1:]), arr[1:])
-            testing.assert_array_equal(np.array(pba[1: len(pba)]), arr[1: len(pba)])
+            testing.assert_array_equal(np.asarray(pba[1:]), arr[1:])
+            testing.assert_array_equal(np.asarray(pba[1: len(pba)]), arr[1: len(pba)])
 
             # Start at 1, end at less than the last:
-            testing.assert_array_equal(np.array(pba[1: len(pba) - 2]), arr[1: len(pba) - 2])
-            testing.assert_array_equal(np.array(pba[1: -2]), arr[1: -2])
+            testing.assert_array_equal(np.asarray(pba[1: len(pba) - 2]), arr[1: len(pba) - 2])
+            testing.assert_array_equal(np.asarray(pba[1: -2]), arr[1: -2])
 
             # And get an array of indices:
             inds = np.arange(len(pba))
@@ -652,7 +652,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
             testing.assert_array_equal(pba[list(inds)], arr[list(inds)])
 
             # And an empty array of indices.
-            inds = np.array([], dtype=np.int64)
+            inds = np.asarray([], dtype=np.int64)
             testing.assert_array_equal(pba[inds], arr[inds])
 
         with self.assertRaises(IndexError):
@@ -680,34 +680,34 @@ class PackedBoolArrayTestCase(unittest.TestCase):
 
         for pba in middle_arrays:
             # Test getting a single index.
-            arr = np.array(pba)
+            arr = np.asarray(pba)
             for i in range(len(pba)):
                 self.assertEqual(pba[i], arr[i])
 
             # Test getting slices.
             # The full slice.
-            testing.assert_array_equal(np.array(pba[:]), arr[:])
-            testing.assert_array_equal(np.array(pba[0: len(pba)]), arr[0: len(pba)])
+            testing.assert_array_equal(np.asarray(pba[:]), arr[:])
+            testing.assert_array_equal(np.asarray(pba[0: len(pba)]), arr[0: len(pba)])
 
             # Start at 0, end at less than the last:
-            testing.assert_array_equal(np.array(pba[: len(pba) - 2]), arr[: len(pba) - 2])
-            testing.assert_array_equal(np.array(pba[0: len(pba) - 2]), arr[0: len(pba) - 2])
+            testing.assert_array_equal(np.asarray(pba[: len(pba) - 2]), arr[: len(pba) - 2])
+            testing.assert_array_equal(np.asarray(pba[0: len(pba) - 2]), arr[0: len(pba) - 2])
 
             # Start at 1, end at end:
-            testing.assert_array_equal(np.array(pba[1:]), arr[1:])
-            testing.assert_array_equal(np.array(pba[1: len(pba)]), arr[1: len(pba)])
+            testing.assert_array_equal(np.asarray(pba[1:]), arr[1:])
+            testing.assert_array_equal(np.asarray(pba[1: len(pba)]), arr[1: len(pba)])
 
             # Start at 1, end at less than the last:
-            testing.assert_array_equal(np.array(pba[1: len(pba) - 2]), arr[1: len(pba) - 2])
-            testing.assert_array_equal(np.array(pba[1: -2]), arr[1: -2])
+            testing.assert_array_equal(np.asarray(pba[1: len(pba) - 2]), arr[1: len(pba) - 2])
+            testing.assert_array_equal(np.asarray(pba[1: -2]), arr[1: -2])
 
             # Start at 8, end at end:
-            testing.assert_array_equal(np.array(pba[8:]), arr[8:])
-            testing.assert_array_equal(np.array(pba[8: len(pba)]), arr[8: len(pba)])
+            testing.assert_array_equal(np.asarray(pba[8:]), arr[8:])
+            testing.assert_array_equal(np.asarray(pba[8: len(pba)]), arr[8: len(pba)])
 
             # Start at 9, end at end:
-            testing.assert_array_equal(np.array(pba[9:]), arr[9:])
-            testing.assert_array_equal(np.array(pba[9: len(pba)]), arr[9: len(pba)])
+            testing.assert_array_equal(np.asarray(pba[9:]), arr[9:])
+            testing.assert_array_equal(np.asarray(pba[9: len(pba)]), arr[9: len(pba)])
 
             # And get an array of indices:
             inds = np.arange(len(pba))
@@ -719,37 +719,37 @@ class PackedBoolArrayTestCase(unittest.TestCase):
 
         for pba in long_arrays:
             # Test getting a single index.
-            arr = np.array(pba)
+            arr = np.asarray(pba)
             for i in range(len(pba)):
                 self.assertEqual(pba[i], arr[i])
 
             # Test getting slices.
             # The full slice.
-            testing.assert_array_equal(np.array(pba[:]), arr[:])
-            testing.assert_array_equal(np.array(pba[0: len(pba)]), arr[0: len(pba)])
+            testing.assert_array_equal(np.asarray(pba[:]), arr[:])
+            testing.assert_array_equal(np.asarray(pba[0: len(pba)]), arr[0: len(pba)])
 
             # Start at 0, end at less than the last:
-            testing.assert_array_equal(np.array(pba[: len(pba) - 2]), arr[: len(pba) - 2])
-            testing.assert_array_equal(np.array(pba[0: len(pba) - 2]), arr[0: len(pba) - 2])
+            testing.assert_array_equal(np.asarray(pba[: len(pba) - 2]), arr[: len(pba) - 2])
+            testing.assert_array_equal(np.asarray(pba[0: len(pba) - 2]), arr[0: len(pba) - 2])
 
             # Start at 1, end at end:
-            testing.assert_array_equal(np.array(pba[1:]), arr[1:])
-            testing.assert_array_equal(np.array(pba[1: len(pba)]), arr[1: len(pba)])
+            testing.assert_array_equal(np.asarray(pba[1:]), arr[1:])
+            testing.assert_array_equal(np.asarray(pba[1: len(pba)]), arr[1: len(pba)])
 
             # Start at 1, end at less than the last:
-            testing.assert_array_equal(np.array(pba[1: len(pba) - 2]), arr[1: len(pba) - 2])
-            testing.assert_array_equal(np.array(pba[1: -2]), arr[1: -2])
+            testing.assert_array_equal(np.asarray(pba[1: len(pba) - 2]), arr[1: len(pba) - 2])
+            testing.assert_array_equal(np.asarray(pba[1: -2]), arr[1: -2])
 
             # Start at 16, end at end:
-            testing.assert_array_equal(np.array(pba[16:]), arr[16:])
-            testing.assert_array_equal(np.array(pba[16: len(pba)]), arr[16: len(pba)])
+            testing.assert_array_equal(np.asarray(pba[16:]), arr[16:])
+            testing.assert_array_equal(np.asarray(pba[16: len(pba)]), arr[16: len(pba)])
 
             # Start at 16, end at 24 (aligned, less than end):
-            testing.assert_array_equal(np.array(pba[16: 24]), arr[16: 24])
+            testing.assert_array_equal(np.asarray(pba[16: 24]), arr[16: 24])
 
             # Start at 17, end at end:
-            testing.assert_array_equal(np.array(pba[17:]), arr[17:])
-            testing.assert_array_equal(np.array(pba[17: len(pba)]), arr[17: len(pba)])
+            testing.assert_array_equal(np.asarray(pba[17:]), arr[17:])
+            testing.assert_array_equal(np.asarray(pba[17: len(pba)]), arr[17: len(pba)])
 
             # And get an array of indices:
             inds = np.arange(len(pba))
@@ -770,7 +770,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
             for pba in pba_arrays:
                 # Test with constants.
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 pba_test2 = pba_test & True
                 pba_array2 = pba_array & True
@@ -786,18 +786,18 @@ class PackedBoolArrayTestCase(unittest.TestCase):
 
                 # Test with _PackedBoolArray.
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 other = pba_test.copy()
                 other[:] = True
                 other[1] = False
 
                 pba_test2 = pba_test & other
-                pba_array2 = pba_array & np.array(other)
+                pba_array2 = pba_array & np.asarray(other)
                 testing.assert_array_equal(pba_test2, pba_array2)
 
                 pba_test &= other
-                pba_array &= np.array(other)
+                pba_array &= np.asarray(other)
                 testing.assert_array_equal(pba_test, pba_array)
 
         pba = self._make_short_arrays()[0]
@@ -824,7 +824,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
             for pba in pba_arrays:
                 # Test with constants.
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 pba_test2 = pba_test[1: -2] & True
                 pba_array2 = pba_array[1: -2] & True
@@ -840,18 +840,18 @@ class PackedBoolArrayTestCase(unittest.TestCase):
 
                 # Test with _PackedBoolArray.
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 other = pba_test.copy()
                 other[:] = True
                 other[1] = False
 
                 pba_test2 = pba_test[1: -2] & other[1: -2]
-                pba_array2 = pba_array[1: -2] & np.array(other)[1: -2]
+                pba_array2 = pba_array[1: -2] & np.asarray(other)[1: -2]
                 testing.assert_array_equal(pba_test2, pba_array2)
 
                 pba_test[1: -2] &= other[1: -2]
-                pba_array[1: -2] &= np.array(other)[1: -2]
+                pba_array[1: -2] &= np.asarray(other)[1: -2]
                 testing.assert_array_equal(pba_test, pba_array)
 
     def test_or(self):
@@ -868,7 +868,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
             for pba in pba_arrays:
                 # Test with constants.
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 pba_test2 = pba_test | True
                 pba_array2 = pba_array | True
@@ -884,18 +884,18 @@ class PackedBoolArrayTestCase(unittest.TestCase):
 
                 # Test with _PackedBoolArray.
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 other = pba_test.copy()
                 other[:] = True
                 other[1] = False
 
                 pba_test2 = pba_test | other
-                pba_array2 = pba_array | np.array(other)
+                pba_array2 = pba_array | np.asarray(other)
                 testing.assert_array_equal(pba_test2, pba_array2)
 
                 pba_test |= other
-                pba_array |= np.array(other)
+                pba_array |= np.asarray(other)
                 testing.assert_array_equal(pba_test, pba_array)
 
         pba = self._make_short_arrays()[0]
@@ -922,7 +922,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
             for pba in pba_arrays:
                 # Test with constants.
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 pba_test2 = pba_test[1: -2] | True
                 pba_array2 = pba_array[1: -2] | True
@@ -938,22 +938,22 @@ class PackedBoolArrayTestCase(unittest.TestCase):
 
                 # Test with _PackedBoolArray.
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 other = pba_test.copy()
                 other[:] = True
                 other[1] = False
 
                 pba_test2 = pba_test[1: -2] | other[1: -2]
-                pba_array2 = pba_array[1: -2] | np.array(other)[1: -2]
+                pba_array2 = pba_array[1: -2] | np.asarray(other)[1: -2]
                 testing.assert_array_equal(pba_test2, pba_array2)
 
                 pba_test[1: -2] |= other[1: -2]
-                pba_array[1: -2] |= np.array(other)[1: -2]
+                pba_array[1: -2] |= np.asarray(other)[1: -2]
                 testing.assert_array_equal(pba_test, pba_array)
 
                 # Should do nothing.
-                pba_test[np.array([], dtype=np.int64)] |= True
+                pba_test[np.asarray([], dtype=np.int64)] |= True
                 testing.assert_array_equal(pba_test, pba_array)
 
     def test_xor(self):
@@ -970,7 +970,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
             for pba in pba_arrays:
                 # Test with constants.
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 pba_test2 = pba_test ^ True
                 pba_array2 = pba_array ^ True
@@ -986,18 +986,18 @@ class PackedBoolArrayTestCase(unittest.TestCase):
 
                 # Test with _PackedBoolArray.
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 other = pba_test.copy()
                 other[:] = True
                 other[1] = False
 
                 pba_test2 = pba_test ^ other
-                pba_array2 = pba_array ^ np.array(other)
+                pba_array2 = pba_array ^ np.asarray(other)
                 testing.assert_array_equal(pba_test2, pba_array2)
 
                 pba_test ^= other
-                pba_array ^= np.array(other)
+                pba_array ^= np.asarray(other)
                 testing.assert_array_equal(pba_test, pba_array)
 
         pba = self._make_short_arrays()[0]
@@ -1024,7 +1024,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
             for pba in pba_arrays:
                 # Test with constants.
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 pba_test2 = pba_test[1: -2] ^ True
                 pba_array2 = pba_array[1: -2] ^ True
@@ -1040,18 +1040,18 @@ class PackedBoolArrayTestCase(unittest.TestCase):
 
                 # Test with _PackedBoolArray.
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 other = pba_test.copy()
                 other[:] = True
                 other[1] = False
 
                 pba_test2 = pba_test[1: -2] ^ other[1: -2]
-                pba_array2 = pba_array[1: -2] ^ np.array(other)[1: -2]
+                pba_array2 = pba_array[1: -2] ^ np.asarray(other)[1: -2]
                 testing.assert_array_equal(pba_test2, pba_array2)
 
                 pba_test[1: -2] ^= other[1: -2]
-                pba_array[1: -2] ^= np.array(other)[1: -2]
+                pba_array[1: -2] ^= np.asarray(other)[1: -2]
                 testing.assert_array_equal(pba_test, pba_array)
 
     def test_invert(self):
@@ -1068,7 +1068,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
             for pba in pba_arrays:
                 # Test with constants.
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 pba_test2 = ~pba_test
                 pba_array2 = ~pba_array
@@ -1092,7 +1092,7 @@ class PackedBoolArrayTestCase(unittest.TestCase):
             for pba in pba_arrays:
                 # Test with constants.
                 pba_test = pba.copy()
-                pba_array = np.array(pba)
+                pba_array = np.asarray(pba)
 
                 pba_test[1: -2] = ~pba_test[1: -2]
                 pba_array[1: -2] = ~pba_array[1: -2]

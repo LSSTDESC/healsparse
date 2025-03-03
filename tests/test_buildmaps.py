@@ -111,8 +111,9 @@ class BuildMapsTestCase(unittest.TestCase):
         sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype, primary='col1')
 
         # Look up all the values, make sure they're all UNSEEN
-        testing.assert_almost_equal(sparse_map.get_values_pos(ra, dec, lonlat=True)['col1'], hpg.UNSEEN)
-        testing.assert_almost_equal(sparse_map.get_values_pos(ra, dec, lonlat=True)['col2'], hpg.UNSEEN)
+        delta = sparse_map.get_values_pos(ra, dec, lonlat=True)['col1'] - hpg.UNSEEN
+        testing.assert_array_almost_equal(delta, 0.0)
+        testing.assert_array_almost_equal(sparse_map.get_values_pos(ra, dec, lonlat=True)['col2'], hpg.UNSEEN)
 
         pixel = np.arange(4000, 20000)
         values = np.zeros_like(pixel, dtype=dtype)
