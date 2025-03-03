@@ -25,7 +25,8 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install .[parquet,test,test_with_healpy] "numpy{{ matrix.numpy-version }}"
+        pip install .[parquet,test,test_with_healpy]
+        pip install 'numpy{{ numpy-version }}'
     - name: Lint with flake8
       run: |
         flake8
