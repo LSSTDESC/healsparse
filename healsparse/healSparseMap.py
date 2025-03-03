@@ -695,6 +695,10 @@ class HealSparseMap(object):
         # Compute the coverage pixels.
         cov_pix_ranges = np.right_shift(pixel_ranges, self._cov_map.bit_shift)
         # After the bit shift these pixel ranges are inclusive, not exclusive.
+        # But we also need to protect against an overrun at the high end.
+        if cov_pix_ranges[-1, 1] == len(self.coverage_mask):
+            cov_pix_ranges[-1, 1] = len(self.coverage_mask) - 1
+
         cov_pix_to_set = hpg.pixel_ranges_to_pixels(cov_pix_ranges, inclusive=True)
         cov_pix_to_set = np.unique(cov_pix_to_set)
 
