@@ -390,7 +390,7 @@ def _read_healsparse_fits_file_and_degrade(filename, pixels, nside_out, reductio
         if cov_map_weight.nside_coverage != cov_map.nside_coverage:
             raise ValueError("The weightfile %s must have same coverage nside." % (weightfile))
         cov_pix_weight, = np.where(cov_map_weight.coverage_mask)
-        if not np.all(np.in1d(_pixels, cov_pix_weight)):
+        if not np.all(np.isin(_pixels, cov_pix_weight)):
             raise ValueError("The weightfile %s must have coverage in all the "
                              "pixels to read." % (weightfile))
         use_weightfile = True
