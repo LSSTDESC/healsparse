@@ -1,8 +1,15 @@
-import h5py
 import os
 import numpy as np
 from .utils import WIDE_MASK
 from .packedBoolArray import _PackedBoolArray
+import warnings
+
+use_hdf5 = False
+try:
+    import h5py
+    use_hdf5 = True
+except ImportError:
+    pass
 
 def _write_map_hdf5(hsp_map, filepath, group='map', clobber=False):
     """
@@ -162,3 +169,28 @@ def _read_map_hdf5(healsparse_class, filename, group='map'):
                                      metadata=user_metadata)
 
         return hsp_map
+    
+def check_hdf5_file(filepath):
+    """
+    Check if a filepath points to an hdf5 file
+
+    Parameters
+    ----------
+    filepath : `str`
+        File path to check.
+
+    Returns
+    -------
+    is_hdf5_file : `bool`
+        True if it is an hdf5 file
+
+    Raises
+    ------
+    Warns if hdf5 is not installed.
+    """
+    if not use_hdf5:
+        warnings.warn("Cannot access hdf5 files without h5py",
+                      UserWarning)
+        return False
+
+    return h5py.is_hdf5(filepath)
