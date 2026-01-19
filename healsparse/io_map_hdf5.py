@@ -80,7 +80,7 @@ def _write_map_hdf5(hsp_map, filepath, group='map', clobber=False):
                 grp.attrs[k] = str(v)
 
 
-def read_map_hdf5(healsparse_class, filename, group='map'):
+def _read_map_hdf5(healsparse_class, filename, group='map'):
     """
     Internal method to read a HealSparseMap from an HDF5 file in a specified group.
 
