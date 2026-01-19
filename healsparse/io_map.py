@@ -5,10 +5,11 @@ from .io_map_fits import _read_map_fits, _write_map_fits, _write_moc_fits
 from .parquet_shim import check_parquet_dataset
 from .io_map_parquet import _read_map_parquet, _write_map_parquet
 from .io_map_healpix import _write_map_healpix
+from .io_map_hdf5 import _read_map_hdf5, _write_map_hdf5, check_hdf5_file
 
 
 def _read_map(healsparse_class, filename, nside_coverage=None, pixels=None, header=False,
-              degrade_nside=None, weightfile=None, reduction='mean', use_threads=False):
+              degrade_nside=None, weightfile=None, reduction='mean', use_threads=False, hdf5_group='map'):
     """
     Internal function to check the map filetype and read in a HealSparseMap.
 
@@ -37,6 +38,8 @@ def _read_map(healsparse_class, filename, nside_coverage=None, pixels=None, head
         (mean, median, std, max, min, and, or, sum, prod, wmean).
     use_threads : `bool`, optional
         Use multithreaded reading for parquet files.
+    hdf5_group: `str`, optional
+        hdf5 group to read from (only used if reading from an hdf5 file)
 
     Returns
     -------
@@ -47,6 +50,7 @@ def _read_map(healsparse_class, filename, nside_coverage=None, pixels=None, head
     """
     is_fits_file = False
     is_parquet_file = False
+    is_hdf5_file = False
 
     try:
         fits = HealSparseFits(filename)
@@ -58,6 +62,9 @@ def _read_map(healsparse_class, filename, nside_coverage=None, pixels=None, head
     if not is_fits_file:
         is_parquet_file = check_parquet_dataset(filename)
 
+    if not is_fits_file and not is_parquet_file:
+        is_hdf5_file = check_hdf5_file(filename)
+
     if is_fits_file:
         return _read_map_fits(healsparse_class, filename, nside_coverage=nside_coverage,
                               pixels=pixels, header=header, degrade_nside=degrade_nside,
@@ -67,13 +74,15 @@ def _read_map(healsparse_class, filename, nside_coverage=None, pixels=None, head
                                  pixels=pixels, header=header, degrade_nside=degrade_nside,
                                  weightfile=weightfile, reduction=reduction,
                                  use_threads=use_threads)
+    elif is_hdf5_file:
+        return _read_map_hdf5(healsparse_class, filename, hdf5_group='map')
     elif not os.path.isfile(filename):
         raise IOError("Filename %s could not be found." % (filename))
     else:
-        raise NotImplementedError("HealSparse only supports fits and parquet files (with pyarrow).")
+        raise NotImplementedError("HealSparse only supports fits, hdf5 and parquet files (with pyarrow).")
 
 
-def _write_map(hsp_map, filename, clobber=False, nocompress=False, format='fits', nside_io=4):
+def _write_map(hsp_map, filename, clobber=False, nocompress=False, format='fits', nside_io=4, hdf5_group='map'):
     """
     Internal method to write a HealSparseMap to a file, and check formats.
     Use the `metadata` property from
@@ -96,7 +105,7 @@ def _write_map(hsp_map, filename, clobber=False, nocompress=False, format='fits'
         This option only applies if format=``parquet``.
         Must be less than or equal to nside_coverage, and not greater than 16.
     format : `str`, optional
-        File format.  May be ``fits``, ``parquet``, or ``healpix``.
+        File format.  May be ``fits``, ``parquet``, ``hdf5`` or ``healpix``.
 
     Raises
     ------
@@ -109,8 +118,10 @@ def _write_map(hsp_map, filename, clobber=False, nocompress=False, format='fits'
         _write_map_parquet(hsp_map, filename, clobber=clobber, nside_io=nside_io)
     elif format == 'healpix':
         _write_map_healpix(hsp_map, filename, clobber=clobber)
+    elif format == 'hdf5':
+        _write_map_hdf5(hsp_map, filename, clobber=clobber)
     else:
-        raise NotImplementedError("Only 'fits', 'parquet' and 'healpix' file formats are supported.")
+        raise NotImplementedError("Only 'fits', 'parquet', 'hdf5' and 'healpix' file formats are supported.")
 
 
 def _write_moc(hsp_map, filename, clobber=False):
