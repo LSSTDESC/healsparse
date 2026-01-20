@@ -118,6 +118,8 @@ def _read_map_hdf5(healsparse_class, filename, group='map', pixels=None, header=
     -------
     HealSparseMap instance
     """
+    assert pixels is None
+    
     with h5py.File(filename, 'r') as f:
         if group not in f:
             raise RuntimeError(f"Group '{group}' not found in file '{filename}'")
