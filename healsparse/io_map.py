@@ -75,7 +75,10 @@ def _read_map(healsparse_class, filename, nside_coverage=None, pixels=None, head
                                  weightfile=weightfile, reduction=reduction,
                                  use_threads=use_threads)
     elif is_hdf5_file:
-        return _read_map_hdf5(healsparse_class, filename, hdf5_group='map')
+        # TODO: pass pixels, degrade options, etc to hdf5 read
+        return _read_map_hdf5(healsparse_class, filename, hdf5_group=hdf5_group,
+                              pixels=pixels, header=header, degrade_nside=degrade_nside,
+                              weightfile=weightfile, reduction=reduction,)
     elif not os.path.isfile(filename):
         raise IOError("Filename %s could not be found." % (filename))
     else:
@@ -119,7 +122,7 @@ def _write_map(hsp_map, filename, clobber=False, nocompress=False, format='fits'
     elif format == 'healpix':
         _write_map_healpix(hsp_map, filename, clobber=clobber)
     elif format == 'hdf5':
-        _write_map_hdf5(hsp_map, filename, clobber=clobber)
+        _write_map_hdf5(hsp_map, filename, clobber=clobber, group=hdf5_group)
     else:
         raise NotImplementedError("Only 'fits', 'parquet', 'hdf5' and 'healpix' file formats are supported.")
 

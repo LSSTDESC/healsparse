@@ -87,7 +87,8 @@ def _write_map_hdf5(hsp_map, filepath, group='map', clobber=False):
                 grp.attrs[k] = str(v)
 
 
-def _read_map_hdf5(healsparse_class, filename, group='map'):
+def _read_map_hdf5(healsparse_class, filename, group='map', pixels=None, header=False, 
+                   degrade_nside=None, weightfile=None, reduction='mean' ):
     """
     Internal method to read a HealSparseMap from an HDF5 file in a specified group.
 
@@ -99,7 +100,17 @@ def _read_map_hdf5(healsparse_class, filename, group='map'):
         HDF5 file path
     group : str
         HDF5 group containing the map
-
+    pixels : `list`, optional
+        List of coverage map pixels to read.
+    header : `bool`, optional
+        Return stored metadata/header as well as map?  Default is False.
+        Not implemented for hdf5
+    degrade_nside : `int`, optional
+        Degrade map to this nside on read.
+    weightfile : `str`, optional
+        Weight map for weighted degrade.
+    reduction : `str`, optional
+        Reduction method for degrade-on-read.
     Returns
     -------
     HealSparseMap instance
@@ -114,7 +125,10 @@ def _read_map_hdf5(healsparse_class, filename, group='map'):
         coverage_mask = np.zeros(coverage_pixels.max() + 1, dtype=bool)
         coverage_mask[coverage_pixels] = coverage_values
 
-        pixels = grp['pixel'][:]
+        if pixels is not None:
+            pixels = np.atleast_1d(pixels)
+        else:
+            pixels = grp['pixel'][:]
 
         is_rec_array = grp.attrs.get('is_rec_array', False)
         is_bit_packed = grp.attrs.get('is_bit_packed', False)
@@ -155,18 +169,25 @@ def _read_map_hdf5(healsparse_class, filename, group='map'):
             elif is_bit_packed:
                 sparse_map = _PackedBoolArray(data_buffer=sparse_map)
 
-        # User metadata
-        user_metadata = {k: grp.attrs[k] for k in grp.attrs
-                         if k not in ['nside_sparse', 'sentinel', 'primary',
-                                      'nest', 'is_rec_array', 'is_bit_packed',
-                                      'is_wide_mask', 'wide_mask_width']}
+        # metadata
+        metadata = {k: grp.attrs[k] for k in grp.attrs
+                        if k not in ['nside_sparse', 'sentinel', 'primary',
+                                    'nest', 'is_rec_array', 'is_bit_packed',
+                                    'is_wide_mask', 'wide_mask_width']}
 
         hsp_map = healsparse_class(cov_map=coverage_mask,
                                      sparse_map=sparse_map,
                                      nside_sparse=grp.attrs['nside_sparse'],
                                      primary=grp.attrs.get('primary', None),
                                      sentinel=sentinel,
-                                     metadata=user_metadata)
+                                     metadata=metadata)
+    
+        if degrade_nside is not None:
+            hsp_map = hsp_map.degrade(
+                degrade_nside,
+                reduction=reduction,
+                weightfile=weightfile
+            )
 
         return hsp_map
     
