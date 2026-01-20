@@ -4,7 +4,7 @@ from .utils import WIDE_MASK
 from .packedBoolArray import _PackedBoolArray
 import warnings
 from .healSparseCoverage import HealSparseCoverage
-import healpy as hp
+import astropy.io.fits as fits
 
 use_hdf5 = False
 try:
@@ -108,7 +108,7 @@ def _read_map_hdf5(healsparse_class, filename, group='map', pixels=None, header=
         Not implemented for hdf5
     header : `bool`, optional
         Return stored metadata/header as well as map?  Default is False.
-        Not implemented for hdf5
+        returns empty header for hdf5
     degrade_nside : `int`, optional
         Degrade map to this nside on read.
     weightfile : `str`, optional
@@ -202,7 +202,11 @@ def _read_map_hdf5(healsparse_class, filename, group='map', pixels=None, header=
                 weightfile=weightfile
             )
 
-        return hsp_map
+        if header:
+            hdr = fits.Header()
+            return (hsp_map, hdr)
+        else:
+            return hsp_map
     
 def check_hdf5_file(filepath):
     """
