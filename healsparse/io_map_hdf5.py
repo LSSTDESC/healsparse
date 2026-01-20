@@ -75,7 +75,7 @@ def _write_map_hdf5(hsp_map, filepath, group='map', clobber=False):
         # Metadata
         grp.attrs['nside_sparse'] = hsp_map.nside_sparse
         grp.attrs['nside_coverage'] = hsp_map.nside_coverage
-        grp.attrs['sentinel'] = float(hsp_map._sentinel) if np.isscalar(hsp_map._sentinel) else str(hsp_map._sentinel)
+        grp.attrs['sentinel'] = hsp_map._sentinel
         grp.attrs['primary'] = '' if hsp_map._primary is None else hsp_map._primary
         grp.attrs['nest'] = True  # always True
 
@@ -145,16 +145,6 @@ def _read_map_hdf5(healsparse_class, filename, group='map', pixels=None, header=
 
         # sentinel handling
         sentinel = grp.attrs['sentinel']
-        try:
-            sentinel = float(sentinel)
-        except ValueError:
-            if sentinel == 'UNSEEN':
-                import hpgeom as hpg
-                sentinel = hpg.UNSEEN
-            elif sentinel == 'False':
-                sentinel = False
-            elif sentinel == 'True':
-                sentinel = True
 
         #figure out where in the sparse map each valid pixel should go
         cov_pix = cov_map.cov_pixels(valid_pixels) #coverage pixel for each valid sparse pixel
