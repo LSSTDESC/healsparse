@@ -108,7 +108,6 @@ def _read_map_hdf5(healsparse_class, filename, group='map', pixels=None, header=
         Not implemented for hdf5
     header : `bool`, optional
         Return stored metadata/header as well as map?  Default is False.
-        returns empty header for hdf5
     degrade_nside : `int`, optional
         Degrade map to this nside on read.
     weightfile : `str`, optional
@@ -193,7 +192,7 @@ def _read_map_hdf5(healsparse_class, filename, group='map', pixels=None, header=
             )
 
         if header:
-            hdr = fits.Header()
+            hdr = fits.Header(hsp_map.metadata)
             return (hsp_map, hdr)
         else:
             return hsp_map
