@@ -75,7 +75,6 @@ def _read_map(healsparse_class, filename, nside_coverage=None, pixels=None, head
                                  weightfile=weightfile, reduction=reduction,
                                  use_threads=use_threads)
     elif is_hdf5_file:
-        # TODO: pass pixels, degrade options, etc to hdf5 read
         return _read_map_hdf5(healsparse_class, filename, group=hdf5_group,
                               pixels=pixels, header=header, degrade_nside=degrade_nside,
                               weightfile=weightfile, reduction=reduction,)
