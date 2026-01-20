@@ -87,7 +87,7 @@ def _write_map_hdf5(hsp_map, filepath, group='map', clobber=False):
 
         if hsp_map.metadata is not None:
             for k, v in hsp_map.metadata.items():
-                grp.attrs[k] = str(v)
+                grp.attrs[k] = v
 
 
 def _read_map_hdf5(healsparse_class, filename, group='map', pixels=None, header=False, 
