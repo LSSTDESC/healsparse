@@ -56,7 +56,7 @@ def _read_map(healsparse_class, filename, nside_coverage=None, pixels=None, head
         fits = HealSparseFits(filename)
         is_fits_file = True
         fits.close()
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         pass
 
     if not is_fits_file:
@@ -76,7 +76,7 @@ def _read_map(healsparse_class, filename, nside_coverage=None, pixels=None, head
                                  use_threads=use_threads)
     elif is_hdf5_file:
         # TODO: pass pixels, degrade options, etc to hdf5 read
-        return _read_map_hdf5(healsparse_class, filename, hdf5_group=hdf5_group,
+        return _read_map_hdf5(healsparse_class, filename, group=hdf5_group,
                               pixels=pixels, header=header, degrade_nside=degrade_nside,
                               weightfile=weightfile, reduction=reduction,)
     elif not os.path.isfile(filename):
