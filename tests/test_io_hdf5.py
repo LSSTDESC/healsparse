@@ -10,8 +10,9 @@ import pathlib
 
 import healsparse
 
-#read specific coverage pixels not yet implemented
+# read specific coverage pixels not yet implemented
 test_pixels_read = False
+
 
 class Hdf5IoTestCase(unittest.TestCase):
     def test_hdf5_writeread(self):
@@ -27,7 +28,7 @@ class Hdf5IoTestCase(unittest.TestCase):
         ra = np.random.random(n_rand) * 360.0
         dec = np.random.random(n_rand) * 180.0 - 90.0
 
-        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+        self.test_dir = tempfile.mkdtemp(dir="./", prefix="TestHealSparse-")
 
         # Generate a random map
         full_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
@@ -37,11 +38,9 @@ class Hdf5IoTestCase(unittest.TestCase):
         test_values = full_map[ipnest]
 
         sparse_map = healsparse.HealSparseMap.make_empty(
-            nside_coverage,
-            nside_map,
-            full_map.dtype
+            nside_coverage, nside_map, full_map.dtype
         )
-        u, = np.where(full_map > hpg.UNSEEN)
+        (u,) = np.where(full_map > hpg.UNSEEN)
         sparse_map[u] = full_map[u]
 
         for mode in ("str", "path"):
@@ -56,41 +55,28 @@ class Hdf5IoTestCase(unittest.TestCase):
             # Read full map
             sparse_map2 = healsparse.HealSparseMap.read(fname)
 
-            testing.assert_almost_equal(
-                sparse_map2.get_values_pix(ipnest),
-                test_values
-            )
+            testing.assert_almost_equal(sparse_map2.get_values_pix(ipnest), test_values)
 
             if test_pixels_read:
-            # Non-unique pixels should error
+                # Non-unique pixels should error
                 self.assertRaises(
-                    RuntimeError,
-                    healsparse.HealSparseMap.read,
-                    fname,
-                    pixels=[0, 0]
+                    RuntimeError, healsparse.HealSparseMap.read, fname, pixels=[0, 0]
                 )
 
                 # Read two coverage pixels
-                sparse_map_small = healsparse.HealSparseMap.read(
-                    fname,
-                    pixels=[0, 1]
-                )
+                sparse_map_small = healsparse.HealSparseMap.read(fname, pixels=[0, 1])
 
                 cov_mask = sparse_map_small.coverage_mask
                 self.assertEqual(cov_mask.sum(), 2)
 
-                ipnest_cov = np.right_shift(
-                    ipnest,
-                    sparse_map_small._cov_map.bit_shift
-                )
+                ipnest_cov = np.right_shift(ipnest, sparse_map_small._cov_map.bit_shift)
 
                 test_values2 = test_values.copy()
-                outside_small, = np.where(ipnest_cov > 1)
+                (outside_small,) = np.where(ipnest_cov > 1)
                 test_values2[outside_small] = hpg.UNSEEN
 
                 testing.assert_almost_equal(
-                    sparse_map_small.get_values_pix(ipnest),
-                    test_values2
+                    sparse_map_small.get_values_pix(ipnest), test_values2
                 )
 
                 # Read all coverage pixels explicitly
@@ -100,8 +86,7 @@ class Hdf5IoTestCase(unittest.TestCase):
                 )
 
                 testing.assert_almost_equal(
-                    sparse_map_full.get_values_pix(ipnest),
-                    test_values
+                    sparse_map_full.get_values_pix(ipnest), test_values
                 )
 
     def test_hdf5_read_outoforder(self):
@@ -117,8 +102,8 @@ class Hdf5IoTestCase(unittest.TestCase):
         ra = np.random.random(n_rand) * 360.0
         dec = np.random.random(n_rand) * 180.0 - 90.0
 
-        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
-        fname = os.path.join(self.test_dir, 'healsparse_map_outoforder.hdf5')
+        self.test_dir = tempfile.mkdtemp(dir="./", prefix="TestHealSparse-")
+        fname = os.path.join(self.test_dir, "healsparse_map_outoforder.hdf5")
 
         sparse_map = healsparse.HealSparseMap.make_empty(
             nside_coverage, nside_map, np.float64
@@ -132,7 +117,7 @@ class Hdf5IoTestCase(unittest.TestCase):
         values2 = np.random.random(pixel2.size)
         sparse_map.update_values_pix(pixel2, values2)
 
-        sparse_map.write(fname, format='hdf5')
+        sparse_map.write(fname, format="hdf5")
 
         sparse_map2 = healsparse.HealSparseMap.read(fname)
 
@@ -142,32 +127,22 @@ class Hdf5IoTestCase(unittest.TestCase):
         test_map[pixel2] = values2
 
         testing.assert_almost_equal(
-            sparse_map2.get_values_pix(ipnest),
-            test_map[ipnest]
+            sparse_map2.get_values_pix(ipnest), test_map[ipnest]
         )
 
         if test_pixels_read:
-            sparse_map_small = healsparse.HealSparseMap.read(
-                fname,
-                pixels=[0, 1, 3179]
-            )
+            sparse_map_small = healsparse.HealSparseMap.read(fname, pixels=[0, 1, 3179])
 
-            ipnest_cov = np.right_shift(
-                ipnest,
-                sparse_map_small._cov_map.bit_shift
-            )
+            ipnest_cov = np.right_shift(ipnest, sparse_map_small._cov_map.bit_shift)
 
             test_values_small = test_map[ipnest]
-            outside_small, = np.where(
-                (ipnest_cov != 0) &
-                (ipnest_cov != 1) &
-                (ipnest_cov != 3179)
+            (outside_small,) = np.where(
+                (ipnest_cov != 0) & (ipnest_cov != 1) & (ipnest_cov != 3179)
             )
             test_values_small[outside_small] = hpg.UNSEEN
 
             testing.assert_almost_equal(
-                sparse_map_small.get_values_pix(ipnest),
-                test_values_small
+                sparse_map_small.get_values_pix(ipnest), test_values_small
             )
 
     def test_hdf5_writeread_withheader(self):
@@ -179,26 +154,24 @@ class Hdf5IoTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 64
 
-        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
-        fname = os.path.join(self.test_dir, 'sparsemap_with_header.hdf5')
+        self.test_dir = tempfile.mkdtemp(dir="./", prefix="TestHealSparse-")
+        fname = os.path.join(self.test_dir, "sparsemap_with_header.hdf5")
 
         full_map = np.zeros(hpg.nside_to_npixel(nside_map)) + hpg.UNSEEN
         full_map[0:20000] = np.random.random(size=20000)
 
         sparse_map = healsparse.HealSparseMap(
-            healpix_map=full_map,
-            nside_coverage=nside_coverage,
-            nest=True
+            healpix_map=full_map, nside_coverage=nside_coverage, nest=True
         )
 
-        hdr = {'TESTING': 1.0}
+        hdr = {"TESTING": 1.0}
         sparse_map.metadata = hdr
 
-        sparse_map.write(fname, format='hdf5')
+        sparse_map.write(fname, format="hdf5")
 
         ret_map, ret_hdr = healsparse.HealSparseMap.read(fname, header=True)
 
-        self.assertEqual(hdr['TESTING'], ret_hdr['TESTING'])
+        self.assertEqual(hdr["TESTING"], ret_hdr["TESTING"])
 
     def test_hdf5_writeread_highres(self):
         """
@@ -206,16 +179,14 @@ class Hdf5IoTestCase(unittest.TestCase):
         """
         random.seed(seed=12345)
 
-        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
-        fname = os.path.join(self.test_dir, 'healsparse_map.hdf5')
+        self.test_dir = tempfile.mkdtemp(dir="./", prefix="TestHealSparse-")
+        fname = os.path.join(self.test_dir, "healsparse_map.hdf5")
 
         nside_coverage = 32
         nside_map = 2**17
 
         sparse_map = healsparse.HealSparseMap.make_empty(
-            nside_sparse=nside_map,
-            nside_coverage=nside_coverage,
-            dtype=bool
+            nside_sparse=nside_map, nside_coverage=nside_coverage, dtype=bool
         )
 
         sparse_map[1_000_000:20_000_000] = True
@@ -223,32 +194,22 @@ class Hdf5IoTestCase(unittest.TestCase):
 
         valid_pixels = sparse_map.valid_pixels
 
-        sparse_map.write(fname, format='hdf5')
+        sparse_map.write(fname, format="hdf5")
 
         sparse_map2 = healsparse.HealSparseMap.read(fname)
 
-        testing.assert_array_equal(
-            sparse_map2.valid_pixels,
-            valid_pixels
-        )
+        testing.assert_array_equal(sparse_map2.valid_pixels, valid_pixels)
 
-        testing.assert_array_equal(
-            sparse_map2.get_values_pix(valid_pixels),
-            True
-        )
+        testing.assert_array_equal(sparse_map2.get_values_pix(valid_pixels), True)
 
         if test_pixels_read:
             for covpix_map in sparse_map.get_covpix_maps():
-                covpix, = np.where(covpix_map.coverage_mask)
+                (covpix,) = np.where(covpix_map.coverage_mask)
 
-                covpix_map2 = healsparse.HealSparseMap.read(
-                    fname,
-                    pixels=covpix
-                )
+                covpix_map2 = healsparse.HealSparseMap.read(fname, pixels=covpix)
 
                 testing.assert_array_equal(
-                    covpix_map2.valid_pixels,
-                    covpix_map.valid_pixels
+                    covpix_map2.valid_pixels, covpix_map.valid_pixels
                 )
 
     def test_hdf5_writeread_bool(self):
@@ -256,22 +217,19 @@ class Hdf5IoTestCase(unittest.TestCase):
         nside_coverage = 32
         nside_map = 64
 
-        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
-        fname = os.path.join(self.test_dir, 'healsparse_map.hdf5')
+        self.test_dir = tempfile.mkdtemp(dir="./", prefix="TestHealSparse-")
+        fname = os.path.join(self.test_dir, "healsparse_map.hdf5")
 
         sparse_map = healsparse.HealSparseMap.make_empty(
             nside_coverage, nside_map, bool
         )
         sparse_map[30000:30005] = True
 
-        sparse_map.write(fname, format='hdf5')
+        sparse_map.write(fname, format="hdf5")
 
         sparse_map2 = healsparse.HealSparseMap.read(fname)
 
-        testing.assert_array_equal(
-            sparse_map2[30000:30005],
-            True
-        )
+        testing.assert_array_equal(sparse_map2[30000:30005], True)
 
         self.assertEqual(len(sparse_map2.valid_pixels), 5)
 
@@ -283,5 +241,5 @@ class Hdf5IoTestCase(unittest.TestCase):
             shutil.rmtree(self.test_dir, True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

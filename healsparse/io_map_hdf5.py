@@ -9,11 +9,13 @@ import astropy.io.fits as fits
 use_hdf5 = False
 try:
     import h5py
+
     use_hdf5 = True
 except ImportError:
     pass
 
-def _write_map_hdf5(hsp_map, filepath, group='map', clobber=False):
+
+def _write_map_hdf5(hsp_map, filepath, group="map", clobber=False):
     """
     Internal method to write a HealSparseMap to an HDF5 file in a specified group.
 
@@ -32,66 +34,78 @@ def _write_map_hdf5(hsp_map, filepath, group='map', clobber=False):
     """
     if os.path.isfile(filepath) and not clobber:
         raise RuntimeError("Filename %s exists and clobber is False." % (filepath))
-    
-    mode='a' #append mode so we can save to an existing file
+
+    mode = "a"  # append mode so we can save to an existing file
     with h5py.File(filepath, mode) as f:
         if group in f:
             if clobber:
                 del f[group]
             else:
-                raise RuntimeError(f"Group '{group}' in file '{filepath}' exists. Use clobber=True to overwrite.")
+                raise RuntimeError(
+                    f"Group '{group}' in file '{filepath}' exists. Use clobber=True to overwrite."
+                )
         grp = f.create_group(group)
 
         # Coverage map - only save valid pixels
         coverage_pixels = np.where(hsp_map.coverage_mask)[0]
         coverage_values = hsp_map.coverage_mask[coverage_pixels].astype(bool)
-        grp.create_dataset('coverage_pixel', data=coverage_pixels, compression='gzip')
-        grp.create_dataset('coverage_value', data=coverage_values, compression='gzip')
+        grp.create_dataset("coverage_pixel", data=coverage_pixels, compression="gzip")
+        grp.create_dataset("coverage_value", data=coverage_values, compression="gzip")
 
         # Sparse map - only save valid pixels
         valid_pixels = hsp_map.valid_pixels
-        grp.create_dataset('pixel', data=valid_pixels, compression='gzip')
+        grp.create_dataset("pixel", data=valid_pixels, compression="gzip")
 
         if hsp_map.is_rec_array:
             # for recarray, save each field separately
             sparse_values = hsp_map[valid_pixels]
             for name in sparse_values.dtype.names:
                 field_grp = grp.create_group(name)
-                field_grp.create_dataset('value', data=sparse_values[name], compression='gzip')
+                field_grp.create_dataset(
+                    "value", data=sparse_values[name], compression="gzip"
+                )
         elif hsp_map.is_bit_packed_map:
             # for bit-packed, save packed buffer
             sparse_values = hsp_map._sparse_map.data_array[
                 hsp_map._cov_map.cov_index_map[valid_pixels]
             ]
-            grp.create_dataset('value', data=sparse_values, compression='gzip')
+            grp.create_dataset("value", data=sparse_values, compression="gzip")
         elif hsp_map.is_wide_mask_map:
             # wide mask, save 2D values
             sparse_values = hsp_map[valid_pixels]
-            grp.create_dataset('value', data=sparse_values, compression='gzip')
+            grp.create_dataset("value", data=sparse_values, compression="gzip")
         else:
             sparse_values = hsp_map[valid_pixels]
-            grp.create_dataset('value', data=sparse_values, compression='gzip')
+            grp.create_dataset("value", data=sparse_values, compression="gzip")
 
         # Metadata
-        grp.attrs['nside_sparse'] = hsp_map.nside_sparse
-        grp.attrs['nside_coverage'] = hsp_map.nside_coverage
-        grp.attrs['sentinel'] = hsp_map._sentinel
-        grp.attrs['primary'] = '' if hsp_map._primary is None else hsp_map._primary
-        grp.attrs['nest'] = True  # always True
+        grp.attrs["nside_sparse"] = hsp_map.nside_sparse
+        grp.attrs["nside_coverage"] = hsp_map.nside_coverage
+        grp.attrs["sentinel"] = hsp_map._sentinel
+        grp.attrs["primary"] = "" if hsp_map._primary is None else hsp_map._primary
+        grp.attrs["nest"] = True  # always True
 
         # Map type flags
-        grp.attrs['is_rec_array'] = hsp_map.is_rec_array
-        grp.attrs['is_bit_packed'] = hsp_map.is_bit_packed_map
-        grp.attrs['is_wide_mask'] = hsp_map.is_wide_mask_map
-        grp.attrs['wide_mask_width'] = getattr(hsp_map, '_wide_mask_width', 0)
+        grp.attrs["is_rec_array"] = hsp_map.is_rec_array
+        grp.attrs["is_bit_packed"] = hsp_map.is_bit_packed_map
+        grp.attrs["is_wide_mask"] = hsp_map.is_wide_mask_map
+        grp.attrs["wide_mask_width"] = getattr(hsp_map, "_wide_mask_width", 0)
 
         if hsp_map.metadata is not None:
             for k, v in hsp_map.metadata.items():
                 grp.attrs[k] = v
 
 
-def _read_map_hdf5(healsparse_class, filename, group='map', pixels=None, header=False, 
-                   degrade_nside=None, weightfile=None, reduction='mean' ):
+def _read_map_hdf5(
+    healsparse_class,
+    filename,
+    group="map",
+    pixels=None,
+    header=False,
+    degrade_nside=None,
+    weightfile=None,
+    reduction="mean",
+):
     """
     Internal method to read a HealSparseMap from an HDF5 file in a specified group.
 
@@ -119,52 +133,53 @@ def _read_map_hdf5(healsparse_class, filename, group='map', pixels=None, header=
     HealSparseMap instance
     """
     assert pixels is None
-    
-    with h5py.File(filename, 'r') as f:
+
+    with h5py.File(filename, "r") as f:
         if group not in f:
             raise RuntimeError(f"Group '{group}' not found in file '{filename}'")
         grp = f[group]
 
-        coverage_pixels = grp['coverage_pixel'][:]
-        coverage_values = grp['coverage_value'][:]
+        coverage_pixels = grp["coverage_pixel"][:]
+        coverage_values = grp["coverage_value"][:]
 
-        nside_sparse = grp.attrs['nside_sparse']
-        nside_coverage = grp.attrs['nside_coverage']
+        nside_sparse = grp.attrs["nside_sparse"]
+        nside_coverage = grp.attrs["nside_coverage"]
 
         cov_map = HealSparseCoverage.make_from_pixels(
-            nside_coverage,
-            nside_sparse,
-            coverage_pixels[coverage_values.astype(bool)]
+            nside_coverage, nside_sparse, coverage_pixels[coverage_values.astype(bool)]
         )
-        
-        valid_pixels = grp['pixel'][:]
 
-        is_rec_array = grp.attrs.get('is_rec_array', False)
-        is_bit_packed = grp.attrs.get('is_bit_packed', False)
-        is_wide_mask = grp.attrs.get('is_wide_mask', False)
-        wide_mask_width = grp.attrs.get('wide_mask_width', 0)
+        is_rec_array = grp.attrs.get("is_rec_array", False)
+        is_bit_packed = grp.attrs.get("is_bit_packed", False)
+        is_wide_mask = grp.attrs.get("is_wide_mask", False)
+        wide_mask_width = grp.attrs.get("wide_mask_width", 0)
 
         # sentinel handling
-        sentinel = grp.attrs['sentinel']
+        sentinel = grp.attrs["sentinel"]
 
-        #figure out where in the sparse map each valid pixel should go
-        cov_pix = cov_map.cov_pixels(valid_pixels) #coverage pixel for each valid sparse pixel
+        # figure out where in the sparse map each valid pixel should go
+        valid_pixels = grp["pixel"][:]
+        cov_pix = cov_map.cov_pixels(
+            valid_pixels
+        )  # coverage pixel for each valid sparse pixel
         sparse_index = valid_pixels + cov_map[cov_pix]
-        sparse_size = (sum(cov_map.coverage_mask)+1) * cov_map.nfine_per_cov #sparse map for filled coverage pixels only + 1 overflow 
+        sparse_size = (
+            sum(cov_map.coverage_mask) + 1
+        ) * cov_map.nfine_per_cov  # sparse map for filled coverage pixels only + 1 overflow
 
         if is_rec_array:
             dtype = []
             for name in grp:
-                if name in ['pixel', 'coverage_pixel', 'coverage_value']:
+                if name in ["pixel", "coverage_pixel", "coverage_value"]:
                     continue
-                dtype.append((name, grp[name]['value'].dtype))
+                dtype.append((name, grp[name]["value"].dtype))
 
             sparse_map = np.zeros(sparse_size, dtype=dtype)
             for name, _ in dtype:
                 sparse_map[name][:] = sentinel
-                sparse_map[name][sparse_index] = grp[name]['value'][:]
+                sparse_map[name][sparse_index] = grp[name]["value"][:]
         else:
-            values = grp['value'][:]
+            values = grp["value"][:]
             sparse_map = np.full(sparse_size, sentinel, dtype=values.dtype)
             sparse_map[sparse_index] = values
 
@@ -174,23 +189,35 @@ def _read_map_hdf5(healsparse_class, filename, group='map', pixels=None, header=
                 sparse_map = _PackedBoolArray(data_buffer=sparse_map)
 
         # metadata
-        metadata = {k: grp.attrs[k] for k in grp.attrs
-                        if k not in ['nside_sparse', 'nside_coverage', 'sentinel', 'primary',
-                                    'nest', 'is_rec_array', 'is_bit_packed',
-                                    'is_wide_mask', 'wide_mask_width']}
+        metadata = {
+            k: grp.attrs[k]
+            for k in grp.attrs
+            if k
+            not in [
+                "nside_sparse",
+                "nside_coverage",
+                "sentinel",
+                "primary",
+                "nest",
+                "is_rec_array",
+                "is_bit_packed",
+                "is_wide_mask",
+                "wide_mask_width",
+            ]
+        }
 
-        hsp_map = healsparse_class(cov_map=cov_map,
-                                     sparse_map=sparse_map,
-                                     nside_sparse=grp.attrs['nside_sparse'],
-                                     primary=grp.attrs.get('primary', None),
-                                     sentinel=sentinel,
-                                     metadata=metadata)
-    
+        hsp_map = healsparse_class(
+            cov_map=cov_map,
+            sparse_map=sparse_map,
+            nside_sparse=grp.attrs["nside_sparse"],
+            primary=grp.attrs.get("primary", None),
+            sentinel=sentinel,
+            metadata=metadata,
+        )
+
         if degrade_nside is not None:
             hsp_map = hsp_map.degrade(
-                degrade_nside,
-                reduction=reduction,
-                weightfile=weightfile
+                degrade_nside, reduction=reduction, weightfile=weightfile
             )
 
         if header:
@@ -198,7 +225,8 @@ def _read_map_hdf5(healsparse_class, filename, group='map', pixels=None, header=
             return (hsp_map, hdr)
         else:
             return hsp_map
-    
+
+
 def check_hdf5_file(filepath):
     """
     Check if a filepath points to an hdf5 file
@@ -218,8 +246,7 @@ def check_hdf5_file(filepath):
     Warns if hdf5 is not installed.
     """
     if not use_hdf5:
-        warnings.warn("Cannot access hdf5 files without h5py",
-                      UserWarning)
+        warnings.warn("Cannot access hdf5 files without h5py", UserWarning)
         return False
 
     return h5py.is_hdf5(filepath)

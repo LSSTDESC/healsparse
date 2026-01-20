@@ -84,7 +84,8 @@ def _read_map(healsparse_class, filename, nside_coverage=None, pixels=None, head
         raise NotImplementedError("HealSparse only supports fits, hdf5 and parquet files (with pyarrow).")
 
 
-def _write_map(hsp_map, filename, clobber=False, nocompress=False, format='fits', nside_io=4, hdf5_group='map'):
+def _write_map(hsp_map, filename, clobber=False, nocompress=False, format='fits', nside_io=4,
+               hdf5_group='map'):
     """
     Internal method to write a HealSparseMap to a file, and check formats.
     Use the `metadata` property from

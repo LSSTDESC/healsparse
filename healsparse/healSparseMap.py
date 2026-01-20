@@ -162,7 +162,8 @@ class HealSparseMap(object):
         """
         return _read_map(cls, filename, nside_coverage=nside_coverage, pixels=pixels,
                          header=header, degrade_nside=degrade_nside,
-                         weightfile=weightfile, reduction=reduction, use_threads=use_threads, hdf5_group=group)
+                         weightfile=weightfile, reduction=reduction, use_threads=use_threads,
+                         hdf5_group=group)
 
     @classmethod
     def make_empty(cls, nside_coverage, nside_sparse, dtype, primary=None, sentinel=None,
