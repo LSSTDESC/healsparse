@@ -81,7 +81,8 @@ def _read_map(healsparse_class, filename, nside_coverage=None, pixels=None, head
     elif not os.path.isfile(filename):
         raise IOError("Filename %s could not be found." % (filename))
     else:
-        raise NotImplementedError("HealSparse only supports fits, hdf5 (with h5py), and parquet files (with pyarrow).")
+        raise NotImplementedError(
+            "HealSparse only supports fits, hdf5 (with h5py), and parquet files (with pyarrow).")
 
 
 def _write_map(hsp_map, filename, clobber=False, nocompress=False, format='fits', nside_io=4,

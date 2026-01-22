@@ -34,12 +34,12 @@ def _write_map_hdf5(hsp_map, filepath, hdf5_group="map", clobber=False):
         Overwrite the file/group if it exists.
     """
     if os.path.isfile(filepath) and not clobber:
-        with h5py.File(filepath, mode) as f:
+        with h5py.File(filepath, 'r') as f:
             group_exists = hdf5_group in f
         if group_exists:
             raise RuntimeError(f"Filename {filepath} with group {hdf5_group} exists and clobber is False.")
 
-    mode = "a"  # append mode so we can save to an existing file if we want
+    mode = "a"  # append mode, if file doesn't exist it will be made
     with h5py.File(filepath, mode) as f:
         if hdf5_group in f and clobber:
             del f[hdf5_group]
@@ -190,8 +190,8 @@ def _read_map_hdf5(
 
             # translate the _pixel index to the row in the hdf5 file
             cov_index_map_temp = (
-                cov_map[:]
-                + np.arange(hpg.nside_to_npixel(nside_coverage), dtype=np.int64) * cov_map.nfine_per_cov
+                cov_map[:] +
+                np.arange(hpg.nside_to_npixel(nside_coverage), dtype=np.int64) * cov_map.nfine_per_cov
             )
             cov_index_in_sparse = np.append(
                 0, cov_index_map_temp[_pixels] // cov_map.nfine_per_cov
