@@ -25,13 +25,13 @@ def _write_map_hdf5(hsp_map, filepath, group="map", clobber=False):
     Parameters
     ----------
     hsp_map : HealSparseMap
-        Map to save
+        Map to save.
     filepath : str
-        HDF5 file path
+        HDF5 file path.
     group : str, optional
-        Name of the HDF5 group to store the map (default 'map')
+        Name of the HDF5 group to store the map.
     clobber : bool, optional
-        Overwrite the file/group if it exists (default False)
+        Overwrite the file/group if it exists.
     """
     if os.path.isfile(filepath) and not clobber:
         raise RuntimeError("Filename %s exists and clobber is False." % (filepath))
@@ -141,7 +141,6 @@ def _read_map_hdf5(
         HDF5 group containing the map
     pixels : `list`, optional
         List of coverage map pixels to read.
-        Not implemented for hdf5
     header : `bool`, optional
         Return stored metadata/header as well as map?  Default is False.
     degrade_nside : `int`, optional
@@ -298,7 +297,7 @@ def check_hdf5_file(filepath):
     Returns
     -------
     is_hdf5_file : `bool`
-        True if it is an hdf5 file
+        True if it is an hdf5 file.
 
     Raises
     ------

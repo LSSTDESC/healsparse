@@ -39,7 +39,7 @@ def _read_map(healsparse_class, filename, nside_coverage=None, pixels=None, head
     use_threads : `bool`, optional
         Use multithreaded reading for parquet files.
     hdf5_group: `str`, optional
-        hdf5 group to read from (only used if reading from an hdf5 file)
+        Read from this hdf5 group (only used reading from an hdf5 file).
 
     Returns
     -------
@@ -77,11 +77,11 @@ def _read_map(healsparse_class, filename, nside_coverage=None, pixels=None, head
     elif is_hdf5_file:
         return _read_map_hdf5(healsparse_class, filename, group=hdf5_group,
                               pixels=pixels, header=header, degrade_nside=degrade_nside,
-                              weightfile=weightfile, reduction=reduction,)
+                              weightfile=weightfile, reduction=reduction)
     elif not os.path.isfile(filename):
         raise IOError("Filename %s could not be found." % (filename))
     else:
-        raise NotImplementedError("HealSparse only supports fits, hdf5 and parquet files (with pyarrow).")
+        raise NotImplementedError("HealSparse only supports fits, hdf5 (with h5py), and parquet files (with pyarrow).")
 
 
 def _write_map(hsp_map, filename, clobber=False, nocompress=False, format='fits', nside_io=4,

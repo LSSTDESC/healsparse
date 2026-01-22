@@ -119,7 +119,7 @@ class HealSparseMap(object):
     @classmethod
     def read(cls, filename, nside_coverage=None, pixels=None, header=False,
              degrade_nside=None, weightfile=None, reduction='mean',
-             use_threads=False, group='map'):
+             use_threads=False, hdf5_group='map'):
         """
         Read in a HealSparseMap.
 
@@ -149,9 +149,8 @@ class HealSparseMap(object):
            Not yet implemented for parquet files.
         use_threads : `bool`, optional
            Use multithreaded reading for parquet files.
-        group : `str`, optional
-            if file is hdf5, read from this group
-            default is `map`
+        hdf5_group : `str`, optional
+           If file format is ``hdf5``, read from this group, otheriwse unused.
 
         Returns
         -------
@@ -163,7 +162,7 @@ class HealSparseMap(object):
         return _read_map(cls, filename, nside_coverage=nside_coverage, pixels=pixels,
                          header=header, degrade_nside=degrade_nside,
                          weightfile=weightfile, reduction=reduction, use_threads=use_threads,
-                         hdf5_group=group)
+                         hdf5_group=hdf5_group)
 
     @classmethod
     def make_empty(cls, nside_coverage, nside_sparse, dtype, primary=None, sentinel=None,
@@ -363,7 +362,7 @@ class HealSparseMap(object):
 
         return cov_map, sparse_map
 
-    def write(self, filename, clobber=False, nocompress=False, format='fits', nside_io=4, group='map'):
+    def write(self, filename, clobber=False, nocompress=False, format='fits', nside_io=4, hdf5_group='map'):
         """
         Write a HealSparseMap to a file.  Use the `metadata` property from
         the map to persist additional information in the fits header.
@@ -386,10 +385,8 @@ class HealSparseMap(object):
             File format.  May be ``fits``, ``parquet``, ``hdf5`` or ``healpix``. Note that
             the ``healpix`` EXPLICIT format does not maintain all metadata and
             coverage information.
-        group: `str`, optional
-            If file format is ``hdf5``, save to this group
-            otheriwse unused
-            default is ``map``
+        hdf5_group: `str`, optional
+            If file format is ``hdf5``, save to this group, otheriwse unused.
 
         Raises
         ------
@@ -397,7 +394,7 @@ class HealSparseMap(object):
         ValueError if nside_io is out of range.
         """
         _write_map(self, filename, clobber=clobber, nocompress=nocompress, format=format,
-                   nside_io=nside_io, hdf5_group=group)
+                   nside_io=nside_io, hdf5_group=hdf5_group)
 
     def write_moc(self, filename, clobber=False):
         """
