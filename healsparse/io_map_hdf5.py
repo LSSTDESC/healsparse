@@ -34,9 +34,12 @@ def _write_map_hdf5(hsp_map, filepath, group="map", clobber=False):
         Overwrite the file/group if it exists.
     """
     if os.path.isfile(filepath) and not clobber:
-        raise RuntimeError("Filename %s exists and clobber is False." % (filepath))
+        with h5py.File(filepath, mode) as f:
+            group_exists = group in f.keys()
+        if group_exists:
+            raise RuntimeError(f"Filename {filepath} with group {group} exists and clobber is False.")
 
-    mode = "a"  # append mode so we can save to an existing file
+    mode = "a"  # append mode so we can save to an existing file if we want
     with h5py.File(filepath, mode) as f:
         if group in f:
             if clobber:
