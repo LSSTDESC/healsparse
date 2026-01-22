@@ -46,11 +46,8 @@ def _write_map_hdf5(hsp_map, filepath, group="map", clobber=False):
                 )
         grp = f.create_group(group)
 
-        # Coverage map - only save valid pixels
-        coverage_pixels = np.where(hsp_map.coverage_mask)[0]
-        coverage_values = hsp_map.coverage_mask[coverage_pixels].astype(bool)
-        grp.create_dataset("coverage_pixel", data=coverage_pixels, compression="gzip")
-        grp.create_dataset("coverage_value", data=coverage_values, compression="gzip")
+        # Coverage map - save coverage index map
+        grp.create_dataset("cov_index_map", data=hsp_map._cov_map[:], compression="gzip")
 
         # Sparse map - save the _sparse_map (occupied coverage pixels only+overflow)
         # re-shape sparse_map data so each coverage pixel is a different row
@@ -139,16 +136,12 @@ def _read_map_hdf5(
             raise RuntimeError(f"Group '{group}' not found in file '{filename}'")
         grp = f[group]
 
-        coverage_pixels = grp["coverage_pixel"][:]
-        coverage_values = grp["coverage_value"][:]
-
+        cov_index_map = grp["cov_index_map"][:]
         nside_sparse = grp.attrs["nside_sparse"]
         nside_coverage = grp.attrs["nside_coverage"]
 
         # this is the coverage map of the *full* map
-        cov_map = HealSparseCoverage.make_from_pixels(
-            nside_coverage, nside_sparse, coverage_pixels[coverage_values.astype(bool)]
-        )
+        cov_map = HealSparseCoverage(cov_index_map, nside_sparse)
 
         ncov_in_sparse = sum(cov_map.coverage_mask) + 1 #including overflow pixel
         nfine_per_cov = cov_map._nfine_per_cov
