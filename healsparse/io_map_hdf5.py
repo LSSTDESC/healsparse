@@ -48,35 +48,53 @@ def _write_map_hdf5(hsp_map, filepath, group="map", clobber=False):
         grp = f.create_group(group)
 
         # Coverage map - save coverage index map
-        grp.create_dataset("cov_index_map", data=hsp_map._cov_map[:], compression="gzip")
+        grp.create_dataset(
+            "cov_index_map", data=hsp_map._cov_map[:], compression="gzip"
+        )
 
         # Sparse map - save the _sparse_map (occupied coverage pixels only+overflow)
         # re-shape sparse_map data so each coverage pixel is a different row
         # chunk the dataset such that each chunk is 1 coverage pixel
-        ncov_in_sparse = sum(hsp_map.coverage_mask) + 1 #include buffer pixel
+        ncov_in_sparse = sum(hsp_map.coverage_mask) + 1  # include buffer pixel
         nfine_per_cov = hsp_map._cov_map._nfine_per_cov
 
         if hsp_map.is_rec_array:
             # for recarray, save each field separately
             for name in hsp_map._sparse_map.dtype.names:
-                sparse_map_reshape = hsp_map[name]._sparse_map.reshape(ncov_in_sparse, nfine_per_cov)
+                sparse_map_reshape = hsp_map[name]._sparse_map.reshape(
+                    ncov_in_sparse, nfine_per_cov
+                )
                 field_grp = grp.create_group(name)
                 field_grp.create_dataset(
-                    "sparse_map", data=sparse_map_reshape, 
-                    chunks=(1, nfine_per_cov), compression="gzip"
+                    "sparse_map",
+                    data=sparse_map_reshape,
+                    chunks=(1, nfine_per_cov),
+                    compression="gzip",
                 )
         elif hsp_map.is_bit_packed_map:
-            raise RuntimeError('bit packed save to hdf5 not yet implemented')
+            raise RuntimeError("bit packed save to hdf5 not yet implemented")
         elif hsp_map.is_wide_mask_map:
             # wide mask, save 2D values
-            sparse_map_reshape = hsp_map[name]._sparse_map.reshape(ncov_in_sparse, nfine_per_cov, hsp_map.wide_mask_width)
-            grp.create_dataset("sparse_map", data=hsp_map._sparse_map, 
-                               chunks=(1, nfine_per_cov, hsp_map.wide_mask_width), compression="gzip")
+            sparse_map_reshape = hsp_map[name]._sparse_map.reshape(
+                ncov_in_sparse, nfine_per_cov, hsp_map.wide_mask_width
+            )
+            grp.create_dataset(
+                "sparse_map",
+                data=hsp_map._sparse_map,
+                chunks=(1, nfine_per_cov, hsp_map.wide_mask_width),
+                compression="gzip",
+            )
         else:
-            #"regular" map
-            sparse_map_reshape = hsp_map._sparse_map.reshape(ncov_in_sparse, nfine_per_cov)
-            grp.create_dataset("sparse_map", data=sparse_map_reshape, 
-                               chunks=(1, nfine_per_cov), compression="gzip")
+            # "regular" map
+            sparse_map_reshape = hsp_map._sparse_map.reshape(
+                ncov_in_sparse, nfine_per_cov
+            )
+            grp.create_dataset(
+                "sparse_map",
+                data=sparse_map_reshape,
+                chunks=(1, nfine_per_cov),
+                compression="gzip",
+            )
 
         # Metadata
         grp.attrs["nside_sparse"] = hsp_map.nside_sparse
@@ -144,7 +162,7 @@ def _read_map_hdf5(
         # this is the coverage map of the *full* map
         cov_map = HealSparseCoverage(cov_index_map, nside_sparse)
 
-        ncov_in_sparse = sum(cov_map.coverage_mask) + 1 #including overflow pixel
+        ncov_in_sparse = sum(cov_map.coverage_mask) + 1  # including overflow pixel
         nfine_per_cov = cov_map._nfine_per_cov
 
         is_rec_array = grp.attrs.get("is_rec_array", False)
@@ -154,46 +172,57 @@ def _read_map_hdf5(
 
         # sentinel handling
         sentinel = grp.attrs["sentinel"]
-        
+
         if pixels is not None:
-            #check the requested pixels are ok
+            # check the requested pixels are ok
             _pixels = np.atleast_1d(pixels)
             if len(np.unique(_pixels)) < len(_pixels):
                 raise RuntimeError("Input list of pixels must be unique.")
 
             # Which pixels are in the coverage map?
-            cov_pix, = np.where(cov_map.coverage_mask)
+            (cov_pix,) = np.where(cov_map.coverage_mask)
             sub = np.clip(np.searchsorted(cov_pix, _pixels), 0, cov_pix.size - 1)
-            ok, = np.where(cov_pix[sub] == _pixels)
+            (ok,) = np.where(cov_pix[sub] == _pixels)
             if ok.size == 0:
-                raise RuntimeError("None of the specified pixels are in the coverage map.")
+                raise RuntimeError(
+                    "None of the specified pixels are in the coverage map."
+                )
             _pixels = np.sort(_pixels[ok])
 
-            #translate the _pixel index to the row in the hdf5 file
-            cov_index_map_temp = cov_map[:] + np.arange(hpg.nside_to_npixel(nside_coverage), dtype=np.int64)*cov_map.nfine_per_cov
-            cov_index_in_sparse = np.append(0, cov_index_map_temp[_pixels]//cov_map.nfine_per_cov) #pixel 0 is the overflow pixel
+            # translate the _pixel index to the row in the hdf5 file
+            cov_index_map_temp = (
+                cov_map[:] +
+                np.arange(hpg.nside_to_npixel(nside_coverage), dtype=np.int64) *
+                cov_map.nfine_per_cov
+            )
+            cov_index_in_sparse = np.append(
+                0, cov_index_map_temp[_pixels] // cov_map.nfine_per_cov
+            )  # pixel 0 is the overflow pixel
 
-            #hdf5 has to read rows in order
+            # hdf5 has to read rows in order
             order = np.argsort(cov_index_in_sparse)
             cov_index_in_sparse_ordered = cov_index_in_sparse[order]
             inv = np.empty_like(order)
             inv[order] = np.arange(order.size)
 
-            #make sub coverage map
+            # make sub coverage map
             _cov_map = HealSparseCoverage.make_from_pixels(
-                    nside_coverage, nside_sparse, _pixels, )
+                nside_coverage,
+                nside_sparse,
+                _pixels,
+            )
 
-            #how many cov pixels(+overflow) are in the sub map
-            ncov_in_sparse_sub = len(_pixels) + 1 
+            # how many cov pixels(+overflow) are in the sub map
+            ncov_in_sparse_sub = len(_pixels) + 1
 
-            sparse_size = ncov_in_sparse_sub*nfine_per_cov
+            sparse_size = ncov_in_sparse_sub * nfine_per_cov
         else:
             cov_index_in_sparse_ordered = slice(None)
             inv = slice(None)
-            sparse_size = ncov_in_sparse*nfine_per_cov
+            sparse_size = ncov_in_sparse * nfine_per_cov
             _cov_map = cov_map
 
-        #load the data
+        # load the data
         if is_rec_array:
             dtype = []
             for name in grp:
@@ -204,15 +233,23 @@ def _read_map_hdf5(
             sparse_map = np.zeros(sparse_size, dtype=dtype)
             for name, _ in dtype:
                 sparse_map[name][:] = sentinel
-                sparse_map[name] = grp[name]["sparse_map"][cov_index_in_sparse_ordered,:][inv].reshape(-1)
+                sparse_map[name] = grp[name]["sparse_map"][
+                    cov_index_in_sparse_ordered, :
+                ][inv].reshape(-1)
         elif is_wide_mask:
-            sparse_map = grp["sparse_map"][cov_index_in_sparse_ordered,:][inv].reshape((-1, wide_mask_width)).astype(WIDE_MASK)
+            sparse_map = (
+                grp["sparse_map"][cov_index_in_sparse_ordered, :][inv]
+                .reshape((-1, wide_mask_width))
+                .astype(WIDE_MASK)
+            )
         elif is_bit_packed:
-            raise RuntimeError('bit packed not implemented yet')
-            #sparse_map = _PackedBoolArray(data_buffer=sparse_map)
+            raise RuntimeError("bit packed not implemented yet")
+            # sparse_map = _PackedBoolArray(data_buffer=sparse_map)
         else:
-            #is regular map
-            sparse_map = grp["sparse_map"][cov_index_in_sparse_ordered,:][inv].reshape(-1)
+            # is regular map
+            sparse_map = grp["sparse_map"][cov_index_in_sparse_ordered, :][inv].reshape(
+                -1
+            )
 
         # metadata
         metadata = {
