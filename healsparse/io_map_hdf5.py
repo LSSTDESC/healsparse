@@ -5,6 +5,7 @@ from .packedBoolArray import _PackedBoolArray
 import warnings
 from .healSparseCoverage import HealSparseCoverage
 import astropy.io.fits as fits
+import hpgeom as hpg
 
 use_hdf5 = False
 try:
@@ -169,8 +170,14 @@ def _read_map_hdf5(
             _pixels = np.sort(_pixels[ok])
 
             #translate the _pixel index to the row in the hdf5 file
-            # we always want index 0 first as this is the overfow pixel 
-            cov_index_in_sparse = np.append(0, np.searchsorted(cov_pix, _pixels) + 1)
+            cov_index_map_temp = cov_map[:] + np.arange(hpg.nside_to_npixel(nside_coverage), dtype=np.int64)*cov_map.nfine_per_cov
+            cov_index_in_sparse = np.append(0, cov_index_map_temp[_pixels]//cov_map.nfine_per_cov) #pixel 0 is the overflow pixel
+
+            #hdf5 has to read rows in order
+            order = np.argsort(cov_index_in_sparse)
+            cov_index_in_sparse_ordered = cov_index_in_sparse[order]
+            inv = np.empty_like(order)
+            inv[order] = np.arange(order.size)
 
             #make sub coverage map
             _cov_map = HealSparseCoverage.make_from_pixels(
@@ -181,7 +188,8 @@ def _read_map_hdf5(
 
             sparse_size = ncov_in_sparse_sub*nfine_per_cov
         else:
-            cov_index_in_sparse = slice(None)
+            cov_index_in_sparse_ordered = slice(None)
+            inv = slice(None)
             sparse_size = ncov_in_sparse*nfine_per_cov
             _cov_map = cov_map
 
@@ -196,15 +204,15 @@ def _read_map_hdf5(
             sparse_map = np.zeros(sparse_size, dtype=dtype)
             for name, _ in dtype:
                 sparse_map[name][:] = sentinel
-                sparse_map[name] = grp[name]["sparse_map"][cov_index_in_sparse,:].reshape(-1)
+                sparse_map[name] = grp[name]["sparse_map"][cov_index_in_sparse_ordered,:][inv].reshape(-1)
         elif is_wide_mask:
-            sparse_map = grp["sparse_map"][cov_index_in_sparse,:].reshape((-1, wide_mask_width)).astype(WIDE_MASK)
+            sparse_map = grp["sparse_map"][cov_index_in_sparse_ordered,:][inv].reshape((-1, wide_mask_width)).astype(WIDE_MASK)
         elif is_bit_packed:
             raise RuntimeError('bit packed not implemented yet')
             #sparse_map = _PackedBoolArray(data_buffer=sparse_map)
         else:
             #is regular map
-            sparse_map = grp["sparse_map"][cov_index_in_sparse,:].reshape(-1)
+            sparse_map = grp["sparse_map"][cov_index_in_sparse_ordered,:][inv].reshape(-1)
 
         # metadata
         metadata = {
