@@ -72,7 +72,19 @@ def _write_map_hdf5(hsp_map, filepath, group="map", clobber=False):
                     compression="gzip",
                 )
         elif hsp_map.is_bit_packed_map:
-            raise RuntimeError("bit packed save to hdf5 not yet implemented")
+            #save as bool array rather than packed to keep the same pixel as other maps when reading
+            sparse_map_reshape = np.asarray(hsp_map._sparse_map).reshape(
+                ncov_in_sparse, nfine_per_cov
+            )
+            #save the bit packed map as a 1D array
+            grp.create_dataset(
+                "sparse_map",
+                data=sparse_map_reshape,
+                chunks=(1, nfine_per_cov),
+                compression="gzip",
+                dtype=bool
+            )
+        
         elif hsp_map.is_wide_mask_map:
             # wide mask, save 2D values
             sparse_map_reshape = hsp_map[name]._sparse_map.reshape(
@@ -243,13 +255,12 @@ def _read_map_hdf5(
                 .astype(WIDE_MASK)
             )
         elif is_bit_packed:
-            raise RuntimeError("bit packed not implemented yet")
-            # sparse_map = _PackedBoolArray(data_buffer=sparse_map)
+            sparse_map = grp["sparse_map"][cov_index_in_sparse_ordered, :][inv].reshape(-1)
+            sparse_map = _PackedBoolArray.from_boolean_array(sparse_map)
+            sentinel = bool(sentinel) #has to be python bool, not numpy bool
         else:
             # is regular map
-            sparse_map = grp["sparse_map"][cov_index_in_sparse_ordered, :][inv].reshape(
-                -1
-            )
+            sparse_map = grp["sparse_map"][cov_index_in_sparse_ordered, :][inv].reshape(-1)
 
         # metadata
         metadata = {
