@@ -48,9 +48,7 @@ def _write_map_hdf5(hsp_map, filepath, group="map", clobber=False):
         grp = f.create_group(group)
 
         # Coverage map - save coverage index map
-        grp.create_dataset(
-            "cov_index_map", data=hsp_map._cov_map[:], compression="gzip"
-        )
+        grp.create_dataset("cov_index_map", data=hsp_map._cov_map[:], compression="gzip")
 
         # Sparse map - save the _sparse_map (occupied coverage pixels only+overflow)
         # re-shape sparse_map data so each coverage pixel is a different row
@@ -61,9 +59,7 @@ def _write_map_hdf5(hsp_map, filepath, group="map", clobber=False):
         if hsp_map.is_rec_array:
             # for recarray, save each field separately
             for name in hsp_map._sparse_map.dtype.names:
-                sparse_map_reshape = hsp_map[name]._sparse_map.reshape(
-                    ncov_in_sparse, nfine_per_cov
-                )
+                sparse_map_reshape = hsp_map[name]._sparse_map.reshape(ncov_in_sparse, nfine_per_cov)
                 field_grp = grp.create_group(name)
                 field_grp.create_dataset(
                     "sparse_map",
@@ -72,19 +68,17 @@ def _write_map_hdf5(hsp_map, filepath, group="map", clobber=False):
                     compression="gzip",
                 )
         elif hsp_map.is_bit_packed_map:
-            #save as bool array rather than packed to keep the same pixel as other maps when reading
-            sparse_map_reshape = np.asarray(hsp_map._sparse_map).reshape(
-                ncov_in_sparse, nfine_per_cov
-            )
-            #save the bit packed map as a 1D array
+            # save as bool array rather than packed to keep the same pixel as other maps when reading
+            sparse_map_reshape = np.asarray(hsp_map._sparse_map).reshape(ncov_in_sparse, nfine_per_cov)
+            # save the bit packed map as a 1D array
             grp.create_dataset(
                 "sparse_map",
                 data=sparse_map_reshape,
                 chunks=(1, nfine_per_cov),
                 compression="gzip",
-                dtype=bool
+                dtype=bool,
             )
-        
+
         elif hsp_map.is_wide_mask_map:
             # wide mask, save 2D values
             sparse_map_reshape = hsp_map[name]._sparse_map.reshape(
@@ -98,9 +92,7 @@ def _write_map_hdf5(hsp_map, filepath, group="map", clobber=False):
             )
         else:
             # "regular" map
-            sparse_map_reshape = hsp_map._sparse_map.reshape(
-                ncov_in_sparse, nfine_per_cov
-            )
+            sparse_map_reshape = hsp_map._sparse_map.reshape(ncov_in_sparse, nfine_per_cov)
             grp.create_dataset(
                 "sparse_map",
                 data=sparse_map_reshape,
@@ -196,16 +188,13 @@ def _read_map_hdf5(
             sub = np.clip(np.searchsorted(cov_pix, _pixels), 0, cov_pix.size - 1)
             (ok,) = np.where(cov_pix[sub] == _pixels)
             if ok.size == 0:
-                raise RuntimeError(
-                    "None of the specified pixels are in the coverage map."
-                )
+                raise RuntimeError("None of the specified pixels are in the coverage map.")
             _pixels = np.sort(_pixels[ok])
 
             # translate the _pixel index to the row in the hdf5 file
             cov_index_map_temp = (
-                cov_map[:] +
-                np.arange(hpg.nside_to_npixel(nside_coverage), dtype=np.int64) *
-                cov_map.nfine_per_cov
+                cov_map[:]
+                + np.arange(hpg.nside_to_npixel(nside_coverage), dtype=np.int64) * cov_map.nfine_per_cov
             )
             cov_index_in_sparse = np.append(
                 0, cov_index_map_temp[_pixels] // cov_map.nfine_per_cov
@@ -245,9 +234,7 @@ def _read_map_hdf5(
             sparse_map = np.zeros(sparse_size, dtype=dtype)
             for name, _ in dtype:
                 sparse_map[name][:] = sentinel
-                sparse_map[name] = grp[name]["sparse_map"][
-                    cov_index_in_sparse_ordered, :
-                ][inv].reshape(-1)
+                sparse_map[name] = grp[name]["sparse_map"][cov_index_in_sparse_ordered, :][inv].reshape(-1)
         elif is_wide_mask:
             sparse_map = (
                 grp["sparse_map"][cov_index_in_sparse_ordered, :][inv]
@@ -257,7 +244,7 @@ def _read_map_hdf5(
         elif is_bit_packed:
             sparse_map = grp["sparse_map"][cov_index_in_sparse_ordered, :][inv].reshape(-1)
             sparse_map = _PackedBoolArray.from_boolean_array(sparse_map)
-            sentinel = bool(sentinel) #has to be python bool, not numpy bool
+            sentinel = bool(sentinel)  # has to be python bool, not numpy bool
         else:
             # is regular map
             sparse_map = grp["sparse_map"][cov_index_in_sparse_ordered, :][inv].reshape(-1)
@@ -290,9 +277,7 @@ def _read_map_hdf5(
         )
 
         if degrade_nside is not None:
-            hsp_map = hsp_map.degrade(
-                degrade_nside, reduction=reduction, weightfile=weightfile
-            )
+            hsp_map = hsp_map.degrade(degrade_nside, reduction=reduction, weightfile=weightfile)
 
         if header:
             hdr = fits.Header(hsp_map.metadata)
