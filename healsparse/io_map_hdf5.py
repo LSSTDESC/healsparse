@@ -16,7 +16,7 @@ except ImportError:
     pass
 
 
-def _write_map_hdf5(hsp_map, filepath, group="map", clobber=False):
+def _write_map_hdf5(hsp_map, filepath, hdf5_group="map", clobber=False):
     """
     Internal method to write a HealSparseMap to an HDF5 file in a specified group.
 
@@ -28,27 +28,22 @@ def _write_map_hdf5(hsp_map, filepath, group="map", clobber=False):
         Map to save.
     filepath : str
         HDF5 file path.
-    group : str, optional
+    hdf5_group : str, optional
         Name of the HDF5 group to store the map.
     clobber : bool, optional
         Overwrite the file/group if it exists.
     """
     if os.path.isfile(filepath) and not clobber:
         with h5py.File(filepath, mode) as f:
-            group_exists = group in f.keys()
+            group_exists = hdf5_group in f
         if group_exists:
-            raise RuntimeError(f"Filename {filepath} with group {group} exists and clobber is False.")
+            raise RuntimeError(f"Filename {filepath} with group {hdf5_group} exists and clobber is False.")
 
     mode = "a"  # append mode so we can save to an existing file if we want
     with h5py.File(filepath, mode) as f:
-        if group in f:
-            if clobber:
-                del f[group]
-            else:
-                raise RuntimeError(
-                    f"Group '{group}' in file '{filepath}' exists. Use clobber=True to overwrite."
-                )
-        grp = f.create_group(group)
+        if hdf5_group in f and clobber:
+            del f[hdf5_group]
+        grp = f.create_group(hdf5_group)
 
         # Coverage map - save coverage index map
         grp.create_dataset("cov_index_map", data=hsp_map._cov_map[:], compression="gzip")
@@ -124,7 +119,7 @@ def _write_map_hdf5(hsp_map, filepath, group="map", clobber=False):
 def _read_map_hdf5(
     healsparse_class,
     filename,
-    group="map",
+    hdf5_group="map",
     pixels=None,
     header=False,
     degrade_nside=None,
@@ -157,9 +152,9 @@ def _read_map_hdf5(
     HealSparseMap instance
     """
     with h5py.File(filename, "r") as f:
-        if group not in f:
-            raise RuntimeError(f"Group '{group}' not found in file '{filename}'")
-        grp = f[group]
+        if hdf5_group not in f:
+            raise RuntimeError(f"Group '{hdf5_group}' not found in file '{filename}'")
+        grp = f[hdf5_group]
 
         cov_index_map = grp["cov_index_map"][:]
         nside_sparse = grp.attrs["nside_sparse"]
