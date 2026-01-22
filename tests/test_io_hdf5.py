@@ -130,13 +130,11 @@ class Hdf5IoTestCase(unittest.TestCase):
             sparse_map2.get_values_pix(ipnest), test_map[ipnest]
         )
 
-        #test if out of order pixel load works
-        sparse_map3 = healsparse.HealSparseMap.read(fname, pixels=[1,2,4988])
+        # test if out of order pixel load works
+        sparse_map3 = healsparse.HealSparseMap.read(fname, pixels=[1, 2, 4988])
         hp3 = sparse_map3.generate_healpix_map()
-        select = (hp3 != hpg.UNSEEN)
-        testing.assert_almost_equal(
-            hp3[select], test_map[select]
-        )
+        select = hp3 != hpg.UNSEEN
+        testing.assert_almost_equal(hp3[select], test_map[select])
 
         if test_pixels_read:
             sparse_map_small = healsparse.HealSparseMap.read(fname, pixels=[0, 1, 3179])
