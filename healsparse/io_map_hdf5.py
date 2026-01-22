@@ -226,7 +226,7 @@ def _read_map_hdf5(
         if is_rec_array:
             dtype = []
             for name in grp:
-                if name in ["coverage_pixel", "coverage_value"]:
+                if name in ["cov_index_map"]:
                     continue
                 dtype.append((name, grp[name]["sparse_map"].dtype))
 
