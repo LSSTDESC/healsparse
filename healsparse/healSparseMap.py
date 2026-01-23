@@ -386,7 +386,7 @@ class HealSparseMap(object):
             the ``healpix`` EXPLICIT format does not maintain all metadata and
             coverage information.
         hdf5_group: `str`, optional
-            If file format is ``hdf5``, save to this group, otheriwse unused.
+            If file format is ``hdf5``, save to this group, otherwise unused.
 
         Raises
         ------
