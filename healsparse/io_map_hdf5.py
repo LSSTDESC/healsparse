@@ -67,14 +67,14 @@ def _write_map_hdf5(hsp_map, filepath, hdf5_group="map", clobber=False):
                 )
         elif hsp_map.is_bit_packed_map:
             # save as bool array rather than packed to keep the same pixel as other maps when reading
-            sparse_map_reshape = np.asarray(hsp_map._sparse_map).reshape(ncov_in_sparse, nfine_per_cov)
+            sparse_map_reshape = hsp_map._sparse_map.data_array.reshape(ncov_in_sparse, nfine_per_cov//8)
             # save the bit packed map as a 1D array
             grp.create_dataset(
                 "sparse_map",
                 data=sparse_map_reshape,
-                chunks=(1, nfine_per_cov),
+                chunks=(1, nfine_per_cov//8),
                 compression="gzip",
-                dtype=bool,
+                dtype=np.uint8,
             )
 
         elif hsp_map.is_wide_mask_map:
@@ -239,8 +239,8 @@ def _read_map_hdf5(
                 .astype(WIDE_MASK)
             )
         elif is_bit_packed:
-            sparse_map = grp["sparse_map"][cov_index_in_sparse_ordered, :][inv].reshape(-1)
-            sparse_map = _PackedBoolArray.from_boolean_array(sparse_map)
+            bit_packed_map = grp["sparse_map"][cov_index_in_sparse_ordered, :][inv].reshape(-1)
+            sparse_map = _PackedBoolArray(data_buffer=bit_packed_map)
             sentinel = bool(sentinel)  # has to be python bool, not numpy bool
         else:
             # is regular map
