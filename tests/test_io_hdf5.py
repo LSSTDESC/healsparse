@@ -268,7 +268,7 @@ class Hdf5IoTestCase(unittest.TestCase):
         self.test_dir = tempfile.mkdtemp(dir="./", prefix="TestHealSparse-")
         fname = os.path.join(self.test_dir, "healsparse_map.hdf5")
 
-        dtype = [('gal_delta','f8'),('star_num','i4'),('sky_brightness','f4')]
+        dtype = [('gal_delta', 'f8'), ('star_num', 'i4'), ('sky_brightness', 'f4')]
 
         sparse_map = healsparse.HealSparseMap.make_empty(
             nside_coverage, nside_map, dtype=dtype, primary='gal_delta'
@@ -286,9 +286,15 @@ class Hdf5IoTestCase(unittest.TestCase):
 
         sparse_map2 = healsparse.HealSparseMap.read(fname)
 
-        testing.assert_array_equal(sparse_map['gal_delta'][30000:30005], sparse_map2['gal_delta'][30000:30005])
-        testing.assert_array_equal(sparse_map['star_num'][30000:30005], sparse_map2['star_num'][30000:30005])
-        testing.assert_array_equal(sparse_map['sky_brightness'][30000:30005], sparse_map2['sky_brightness'][30000:30005])
+        testing.assert_array_equal(
+            sparse_map['gal_delta'][30000:30005],
+            sparse_map2['gal_delta'][30000:30005])
+        testing.assert_array_equal(
+            sparse_map['star_num'][30000:30005],
+            sparse_map2['star_num'][30000:30005])
+        testing.assert_array_equal(
+            sparse_map['sky_brightness'][30000:30005],
+            sparse_map2['sky_brightness'][30000:30005])
 
         self.assertEqual(len(sparse_map2.valid_pixels), npop)
 
