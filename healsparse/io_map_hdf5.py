@@ -230,7 +230,6 @@ def _read_map_hdf5(
 
             sparse_map = np.zeros(sparse_size, dtype=dtype)
             for name, _ in dtype:
-                sparse_map[name][:] = sentinel
                 sparse_map[name] = grp[name]["sparse_map"][cov_index_in_sparse_ordered, :][inv].reshape(-1)
         elif is_wide_mask:
             sparse_map = (
