@@ -276,3 +276,123 @@ The other columns in the overflow coverage pixel are filled with the default sen
 
 If the sparse map is a bit-packed mask, the schema is the same as for a regular sparse map image.
 In this case, as with the FITS serialization, the sparse map is stored as an array of unsigned 8-bit integers which is the in-memory backing of the bit-packed array.
+
+.. _hdf5_format:
+
+HealSparseMap HDF5 Serialization
+================================
+
+A :code:`HealSparseMap` may also be serialized to an HDF5 file. 
+Multiple :code:`HealSparseMap` objects can be stored in the same HDF5 file.
+Each :code:`HealSparseMap` is stored in a different HDF5 group.
+They are not required to have the same mask, :code:`nside_coverage` or :code:`nside_sparse`.
+
+All datasets are written with gzip compression and chunked such that each chunk corresponds to a single coverage pixel.
+
+HDF5 Group Layout
+-----------------
+
+A serialized :code:`HealSparseMap` is stored within a single HDF5 group (default name :code:`"map"`), which contains:
+
+* A dataset encoding the coverage map
+* One or more datasets encoding the sparse map
+* Attributes storing map metadata
+
+Coverage Map
+------------
+
+The coverage map is stored as a one-dimensional dataset:
+
+* **Dataset name:** :code:`cov_index_map`
+* **Datatype:** :code:`numpy.int64`
+* **Shape:** :code:`(12 * nside_coverage * nside_coverage,)`
+
+This dataset is a direct serialization of the in-memory coverage index map,
+following the same conventions described in :ref:`coverage_map`.
+
+Sparse Map
+----------
+
+The sparse map is stored as a two-dimensional dataset, where each row corresponds to a single coverage pixel.
+The first row always represents the overflow (sentinel) coverage pixel.
+
+Regular Sparse Map
+^^^^^^^^^^^^^^^^^^
+
+For regular (non-record, non-wide-mask, non-bit-packed) sparse maps:
+
+* **Dataset name:** :code:`sparse_map`
+* **Shape:** :code:`(ncov_in_sparse, nfine_per_cov)`
+* **Datatype:** Sparse map datatype
+
+where:
+
+* :code:`ncov_in_sparse`: The number of coverage pixels containing non-sentinel data, plus one for the overflow pixel
+ 
+Each row contains the :code:`nfine_per_cov` sparse pixel values associated with a single coverage pixel.
+The dataset is chunked as :code:`(1, nfine_per_cov)` to allow efficient access to individual coverage pixels.
+
+Sparse Map Record Array
+^^^^^^^^^^^^^^^^^^^^^^^
+
+If the sparse map is a numpy record array, each field is stored in a separate subgroup:
+
+* **Group name:** Name of the record field
+* **Dataset name:** :code:`sparse_map`
+* **Shape:** :code:`(ncov_in_sparse, nfine_per_cov)`
+* **Datatype:** Field datatype
+
+All fields share the same coverage map indexing.
+
+Sparse Map Wide Mask
+^^^^^^^^^^^^^^^^^^^^
+
+For wide mask maps, the sparse map is stored as a three-dimensional dataset:
+
+* **Dataset name:** :code:`sparse_map`
+* **Shape:** :code:`(ncov_in_sparse, nfine_per_cov, wide_mask_width)`
+* **Datatype:** :code:`numpy.uint8`
+
+Each sparse pixel is represented by :code:`wide_mask_width` bytes.
+The dataset is chunked as :code:`(1, nfine_per_cov, wide_mask_width)`.
+
+Sparse Map Bit-Packed Mask
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For bit-packed mask maps, the sparse map is stored in its packed representation:
+
+* **Dataset name:** :code:`sparse_map`
+* **Shape:** :code:`(ncov_in_sparse, nfine_per_cov // 8)`
+* **Datatype:** :code:`numpy.uint8`
+
+Each byte encodes eight sparse pixels.
+
+Metadata and Attributes
+-----------------------
+
+All remaining map metadata is stored as HDF5 group attributes.
+The following attributes are required:
+
+* :code:`nside_sparse`
+* :code:`nside_coverage`
+* :code:`sentinel`
+* :code:`primary`
+* :code:`nest` (always :code:`True`)
+
+The following flags describe the sparse map type:
+
+* :code:`is_rec_array`
+* :code:`is_bit_packed`
+* :code:`is_wide_mask`
+* :code:`wide_mask_width`
+
+Any additional metadata attached to the :code:`HealSparseMap` object is also written as group attributes.
+
+Partial Reads
+-------------
+
+The HDF5 format supports reading a subset of coverage pixels.
+When a subset is requested, only the corresponding rows of the sparse map datasets are read.
+The overflow (sentinel) coverage pixel is always included as the first row.
+
+On read, the sparse map rows are reshaped and reordered to reconstruct the in-memory sparse map layout described in :ref:`sparse_map`.
