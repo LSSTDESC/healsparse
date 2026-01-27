@@ -239,6 +239,59 @@ class Hdf5IoTestCase(unittest.TestCase):
 
         self.assertEqual(len(sparse_map2.valid_pixels), 5)
 
+    def test_hdf5_writeread_bool_bitpacked(self):
+        """Test writing and reading a bool map."""
+        nside_coverage = 32
+        nside_map = 128
+
+        self.test_dir = tempfile.mkdtemp(dir="./", prefix="TestHealSparse-")
+        fname = os.path.join(self.test_dir, "healsparse_map.hdf5")
+
+        sparse_map = healsparse.HealSparseMap.make_empty(
+            nside_coverage, nside_map, bool, bit_packed=True
+        )
+        sparse_map[30000:30005] = True
+
+        sparse_map.write(fname, format="hdf5")
+
+        sparse_map2 = healsparse.HealSparseMap.read(fname)
+
+        testing.assert_array_equal(sparse_map2[30000:30005], True)
+
+        self.assertEqual(len(sparse_map2.valid_pixels), 5)
+
+    def test_hdf5_writeread_rec(self):
+        """Test writing and reading a recarray map."""
+        nside_coverage = 32
+        nside_map = 64
+
+        self.test_dir = tempfile.mkdtemp(dir="./", prefix="TestHealSparse-")
+        fname = os.path.join(self.test_dir, "healsparse_map.hdf5")
+
+        dtype = [('gal_delta','f8'),('star_num','i4'),('sky_brightness','f4')]
+
+        sparse_map = healsparse.HealSparseMap.make_empty(
+            nside_coverage, nside_map, dtype=dtype, primary='gal_delta'
+        )
+
+        npop = 5
+        pixels = np.arange(30000, 30000+npop)
+        pix_vals = np.zeros(npop, dtype=dtype)
+        pix_vals['gal_delta'] = -1 + 10*np.random.random(npop)
+        pix_vals['star_num'] = np.random.randint(low=0, high=10, size=npop)
+        pix_vals['sky_brightness'] = 3000 + 10000*np.random.random(size=npop)
+        sparse_map.update_values_pix(pixels, pix_vals)
+
+        sparse_map.write(fname, format="hdf5")
+
+        sparse_map2 = healsparse.HealSparseMap.read(fname)
+
+        testing.assert_array_equal(sparse_map['gal_delta'][30000:30005], sparse_map2['gal_delta'][30000:30005])
+        testing.assert_array_equal(sparse_map['star_num'][30000:30005], sparse_map2['star_num'][30000:30005])
+        testing.assert_array_equal(sparse_map['sky_brightness'][30000:30005], sparse_map2['sky_brightness'][30000:30005])
+
+        self.assertEqual(len(sparse_map2.valid_pixels), npop)
+
     def setUp(self):
         self.test_dir = None
 
