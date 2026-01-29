@@ -150,7 +150,7 @@ class HealSparseMap(object):
         use_threads : `bool`, optional
            Use multithreaded reading for parquet files.
         hdf5_group : `str`, optional
-           If file format is ``hdf5``, read from this group, otheriwse unused.
+           If file format is ``hdf5``, read from this group, otherwise unused.
 
         Returns
         -------
