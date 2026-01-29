@@ -139,13 +139,14 @@ def _read_map_hdf5(
     pixels : `list`, optional
         List of coverage map pixels to read.
     header : `bool`, optional
-        Return stored metadata/header as well as map?  Default is False.
+        Return stored metadata/header as well as map?
     degrade_nside : `int`, optional
         Degrade map to this nside on read.
     weightfile : `str`, optional
         Weight map for weighted degrade.
     reduction : `str`, optional
         Reduction method for degrade-on-read.
+
     Returns
     -------
     HealSparseMap instance
