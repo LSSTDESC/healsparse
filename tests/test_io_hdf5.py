@@ -7,8 +7,13 @@ import tempfile
 import shutil
 import os
 import pathlib
+import pytest
 
 import healsparse
+
+
+if not healsparse.io_map_hdf5.use_hdf5:
+    pytest.skip("Skipping hdf5 tests", allow_module_level=True)
 
 
 class Hdf5IoTestCase(unittest.TestCase):
