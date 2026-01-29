@@ -285,7 +285,7 @@ HealSparseMap HDF5 Serialization
 A :code:`HealSparseMap` may also be serialized to an HDF5 file. 
 Multiple :code:`HealSparseMap` objects can be stored in the same HDF5 file.
 Each :code:`HealSparseMap` is stored in a different HDF5 group.
-They are not required to have the same mask, :code:`nside_coverage` or :code:`nside_sparse`.
+They are not required to have the same mask, :code:`nside_coverage`, or :code:`nside_sparse`.
 
 All datasets are written with gzip compression and chunked such that each chunk corresponds to a single coverage pixel.
 
