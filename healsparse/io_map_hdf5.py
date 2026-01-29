@@ -66,9 +66,8 @@ def _write_map_hdf5(hsp_map, filepath, hdf5_group="map", clobber=False):
                     compression="gzip",
                 )
         elif hsp_map.is_bit_packed_map:
-            # save as bool array rather than packed to keep the same pixel as other maps when reading
+            # for bit packed maps, save packed array
             sparse_map_reshape = hsp_map._sparse_map.data_array.reshape(ncov_in_sparse, nfine_per_cov//8)
-            # save the bit packed map as a 1D array
             grp.create_dataset(
                 "sparse_map",
                 data=sparse_map_reshape,
