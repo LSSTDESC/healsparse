@@ -10,9 +10,6 @@ import pathlib
 
 import healsparse
 
-# read specific coverage pixels not yet implemented
-test_pixels_read = False
-
 
 class Hdf5IoTestCase(unittest.TestCase):
     def test_hdf5_writeread(self):
@@ -57,37 +54,36 @@ class Hdf5IoTestCase(unittest.TestCase):
 
             testing.assert_almost_equal(sparse_map2.get_values_pix(ipnest), test_values)
 
-            if test_pixels_read:
-                # Non-unique pixels should error
-                self.assertRaises(
-                    RuntimeError, healsparse.HealSparseMap.read, fname, pixels=[0, 0]
-                )
+            # Non-unique pixels should error
+            self.assertRaises(
+                RuntimeError, healsparse.HealSparseMap.read, fname, pixels=[0, 0]
+            )
 
-                # Read two coverage pixels
-                sparse_map_small = healsparse.HealSparseMap.read(fname, pixels=[0, 1])
+            # Read two coverage pixels
+            sparse_map_small = healsparse.HealSparseMap.read(fname, pixels=[0, 1])
 
-                cov_mask = sparse_map_small.coverage_mask
-                self.assertEqual(cov_mask.sum(), 2)
+            cov_mask = sparse_map_small.coverage_mask
+            self.assertEqual(cov_mask.sum(), 2)
 
-                ipnest_cov = np.right_shift(ipnest, sparse_map_small._cov_map.bit_shift)
+            ipnest_cov = np.right_shift(ipnest, sparse_map_small._cov_map.bit_shift)
 
-                test_values2 = test_values.copy()
-                (outside_small,) = np.where(ipnest_cov > 1)
-                test_values2[outside_small] = hpg.UNSEEN
+            test_values2 = test_values.copy()
+            (outside_small,) = np.where(ipnest_cov > 1)
+            test_values2[outside_small] = hpg.UNSEEN
 
-                testing.assert_almost_equal(
-                    sparse_map_small.get_values_pix(ipnest), test_values2
-                )
+            testing.assert_almost_equal(
+                sparse_map_small.get_values_pix(ipnest), test_values2
+            )
 
-                # Read all coverage pixels explicitly
-                sparse_map_full = healsparse.HealSparseMap.read(
-                    fname,
-                    pixels=np.arange(hpg.nside_to_npixel(nside_coverage)),
-                )
+            # Read all coverage pixels explicitly
+            sparse_map_full = healsparse.HealSparseMap.read(
+                fname,
+                pixels=np.arange(hpg.nside_to_npixel(nside_coverage)),
+            )
 
-                testing.assert_almost_equal(
-                    sparse_map_full.get_values_pix(ipnest), test_values
-                )
+            testing.assert_almost_equal(
+                sparse_map_full.get_values_pix(ipnest), test_values
+            )
 
     def test_hdf5_read_outoforder(self):
         """
@@ -136,20 +132,19 @@ class Hdf5IoTestCase(unittest.TestCase):
         select = hp3 != hpg.UNSEEN
         testing.assert_almost_equal(hp3[select], test_map[select])
 
-        if test_pixels_read:
-            sparse_map_small = healsparse.HealSparseMap.read(fname, pixels=[0, 1, 3179])
+        sparse_map_small = healsparse.HealSparseMap.read(fname, pixels=[0, 1, 3179])
 
-            ipnest_cov = np.right_shift(ipnest, sparse_map_small._cov_map.bit_shift)
+        ipnest_cov = np.right_shift(ipnest, sparse_map_small._cov_map.bit_shift)
 
-            test_values_small = test_map[ipnest]
-            (outside_small,) = np.where(
-                (ipnest_cov != 0) & (ipnest_cov != 1) & (ipnest_cov != 3179)
-            )
-            test_values_small[outside_small] = hpg.UNSEEN
+        test_values_small = test_map[ipnest]
+        (outside_small,) = np.where(
+            (ipnest_cov != 0) & (ipnest_cov != 1) & (ipnest_cov != 3179)
+        )
+        test_values_small[outside_small] = hpg.UNSEEN
 
-            testing.assert_almost_equal(
-                sparse_map_small.get_values_pix(ipnest), test_values_small
-            )
+        testing.assert_almost_equal(
+            sparse_map_small.get_values_pix(ipnest), test_values_small
+        )
 
     def test_hdf5_writeread_withheader(self):
         """
@@ -208,15 +203,14 @@ class Hdf5IoTestCase(unittest.TestCase):
 
         testing.assert_array_equal(sparse_map2.get_values_pix(valid_pixels), True)
 
-        if test_pixels_read:
-            for covpix_map in sparse_map.get_covpix_maps():
-                (covpix,) = np.where(covpix_map.coverage_mask)
+        for covpix_map in sparse_map.get_covpix_maps():
+            (covpix,) = np.where(covpix_map.coverage_mask)
 
-                covpix_map2 = healsparse.HealSparseMap.read(fname, pixels=covpix)
+            covpix_map2 = healsparse.HealSparseMap.read(fname, pixels=covpix)
 
-                testing.assert_array_equal(
-                    covpix_map2.valid_pixels, covpix_map.valid_pixels
-                )
+            testing.assert_array_equal(
+                covpix_map2.valid_pixels, covpix_map.valid_pixels
+            )
 
     def test_hdf5_writeread_bool(self):
         """Test writing and reading a bool map."""
