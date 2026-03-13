@@ -1629,9 +1629,24 @@ class HealSparseMap(object):
         """
         if nside_out > self._nside_sparse:
             raise ValueError("To increase the resolution of the map, use ``upgrade``.")
+        elif nside_out == self._nside_sparse:
+            # This is a no-op.
+            return self
 
         if self._is_bit_packed:
-            raise NotImplementedError("Map degrading is not yet supported for bit_packed maps.")
+            if weights is not None:
+                raise NotImplementedError("Map degrading with weights is not supported for bit_packed maps.")
+            elif nside_out < self.nside_coverage:
+                raise NotImplementedError(
+                    "Map degrading below nside_coverage is not supported for bi_packed maps.",
+                )
+
+            # Do coverage-pixel by coverage-pixel:
+            sparse_map_out = HealSparseMap.make_empty(self.nside_coverage, nside_out, dtype=np.float64)
+            for covpix_map in self.get_covpix_maps():
+                covpix_degrade = covpix_map.astype(np.bool_)._degrade(nside_out, reduction=reduction)
+                sparse_map_out[covpix_degrade.valid_pixels] = covpix_degrade[covpix_degrade.valid_pixels]
+            return sparse_map_out
 
         if nside_out < self.nside_coverage:
             # The way we do the reduction requires nside_out to be >= nside_coverage
@@ -1651,13 +1666,10 @@ class HealSparseMap(object):
             sparse_map_out[valid_pixels] = self[valid_pixels]
             sparse_map_out = sparse_map_out._degrade(nside_out, reduction=reduction, weights=weights)
         else:
-            if self._nside_sparse == nside_out:
-                sparse_map_out = self
-            else:
-                # Regular degrade
-                sparse_map_out = self._degrade(nside_out,
-                                               reduction=reduction,
-                                               weights=weights)
+            # Regular degrade
+            sparse_map_out = self._degrade(nside_out,
+                                           reduction=reduction,
+                                           weights=weights)
 
         return sparse_map_out
 
