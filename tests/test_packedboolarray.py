@@ -1132,6 +1132,32 @@ class HealSparseBitPackedTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             sparse_map = HealSparseMap.make_empty(nside_coverage, 64, np.bool_, bit_packed=True)
 
+    def test_bit_packed_coverage_pixel_submaps(self):
+        nside_coverage = 32
+        nside_sparse = 2**17
+
+        sparse_map = healsparse.HealSparseMap.make_empty(
+            nside_coverage=nside_coverage,
+            nside_sparse=nside_sparse,
+            dtype=np.bool_,
+            bit_packed=True,
+        )
+
+        sparse_map[1_000_000: 2_000_000] = True
+        sparse_map[100_000_000: 100_040_000] = True
+
+        for i, covpix_map in enumerate(sparse_map.get_covpix_maps()):
+            if i == 0:
+                np.testing.assert_array_equal(
+                    covpix_map.valid_pixels,
+                    np.arange(1_000_000, 2_000_000),
+                )
+            else:
+                np.testing.assert_array_equal(
+                    covpix_map.valid_pixels,
+                    np.arange(100_000_000, 100_040_000),
+                )
+
     def test_bit_packed_map_fits_io(self):
         nside_coverage = 32
         nside_map = 1024
