@@ -1964,6 +1964,11 @@ class HealSparseMap(object):
             new_sparse_map[nfine_per_cov: 2*nfine_per_cov, :] = self._sparse_map[
                 self._cov_map[covpix] + covpix*nfine_per_cov:
                 self._cov_map[covpix] + covpix*nfine_per_cov + nfine_per_cov, :]
+        elif self._is_bit_packed:
+            new_sparse_map = _PackedBoolArray(size=nfine_per_cov*2)
+            new_sparse_map[nfine_per_cov: 2*nfine_per_cov] = self._sparse_map[
+                self._cov_map[covpix] + covpix*nfine_per_cov:
+                self._cov_map[covpix] + covpix*nfine_per_cov + nfine_per_cov]
         else:
             new_sparse_map = np.zeros(2*nfine_per_cov, dtype=self.dtype)
             # Copy overflow bin
