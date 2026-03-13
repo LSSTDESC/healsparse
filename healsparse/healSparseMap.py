@@ -1013,6 +1013,10 @@ class HealSparseMap(object):
             # This trickery first checks all the bits, and then sums into the
             # coverage pixel
             counts = np.sum(np.any(sp_map_t != self._sentinel, axis=2), axis=1)
+        elif self._is_bit_packed:
+            shape_new = (npop_pix + 1,
+                         self._cov_map.nfine_per_cov)
+            counts = self._sparse_map.sum(shape=shape_new, axis=1).astype(np.float64)
         else:
             shape_new = (npop_pix + 1,
                          self._cov_map.nfine_per_cov)

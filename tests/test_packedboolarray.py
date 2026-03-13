@@ -1323,7 +1323,7 @@ class HealSparseBitPackedTestCase(unittest.TestCase):
         sparse_map_bool[1000000: 2000000] = True
 
         fracdet = sparse_map.fracdet_map(128)
-        fracdet_bool = sparse_map.fracdet_map(128)
+        fracdet_bool = sparse_map_bool.fracdet_map(128)
 
         self.assertEqual(fracdet.n_valid, fracdet_bool.n_valid)
         testing.assert_array_equal(fracdet.valid_pixels, fracdet_bool.valid_pixels)
@@ -1331,6 +1331,25 @@ class HealSparseBitPackedTestCase(unittest.TestCase):
             fracdet[fracdet.valid_pixels],
             fracdet_bool[fracdet_bool.valid_pixels],
         )
+
+    def test_bit_packed_coverage_map(self):
+        nside_coverage = 32
+        nside_map = 2**13
+
+        # We compare the fracdet map generated with the bit_packed code to that
+        # generated with a regular boolean map.
+        sparse_map = HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_, bit_packed=True)
+        sparse_map_bool = HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_)
+
+        sparse_map[10000: 20000] = True
+        sparse_map_bool[10000: 20000] = True
+        sparse_map[1000000: 2000000] = True
+        sparse_map_bool[1000000: 2000000] = True
+
+        cov_map = sparse_map.coverage_map
+        cov_map_bool = sparse_map_bool.coverage_map
+
+        testing.assert_array_almost_equal(cov_map, cov_map_bool)
 
     def test_bit_packed_from_other_map(self):
         nside_coverage = 32
