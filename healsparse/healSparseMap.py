@@ -2031,12 +2031,20 @@ class HealSparseMap(object):
         elif self._is_wide_mask:
             raise RuntimeError("Cannot convert datatype of a wide mask.")
 
-        new_sparse_map = np.zeros(self._sparse_map.shape, dtype=dtype)
-        valid_pix = (self._sparse_map != self._sentinel)
-        new_sparse_map[valid_pix] = self._sparse_map[valid_pix].astype(dtype)
+        if self._is_bit_packed:
+            if dtype not in (np.bool_, bool):
+                raise ValueError("Can only convert a bit-packed map to boolean map.")
 
-        _sentinel = check_sentinel(new_sparse_map.dtype.type, sentinel)
-        new_sparse_map[~valid_pix] = _sentinel
+            new_sparse_map = np.asarray(self._sparse_map)
+            _sentinel = False
+        else:
+            new_sparse_map = np.zeros(self._sparse_map.shape, dtype=dtype)
+
+            valid_pix = (self._sparse_map != self._sentinel)
+            new_sparse_map[valid_pix] = self._sparse_map[valid_pix].astype(dtype)
+
+            _sentinel = check_sentinel(new_sparse_map.dtype.type, sentinel)
+            new_sparse_map[~valid_pix] = _sentinel
 
         return HealSparseMap(cov_map=self._cov_map, sparse_map=new_sparse_map,
                              nside_sparse=self.nside_sparse, sentinel=_sentinel)
