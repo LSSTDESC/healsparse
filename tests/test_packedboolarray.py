@@ -1170,7 +1170,7 @@ class HealSparseBitPackedTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map_in_partial.valid_pixels, pixel_sub)
 
     @pytest.mark.skipif("GITHUB_ACTIONS" in os.environ, reason='Giant test cannot be run on GHA')
-    def notest_bit_packed_map_fits_io_giant(self):
+    def test_bit_packed_map_fits_io_giant(self):
         # I don't know how to test this.
         nside_coverage = 32
         nside_map = 2**17
