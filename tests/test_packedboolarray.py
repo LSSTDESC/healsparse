@@ -1132,6 +1132,32 @@ class HealSparseBitPackedTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             sparse_map = HealSparseMap.make_empty(nside_coverage, 64, np.bool_, bit_packed=True)
 
+    def test_bit_packed_coverage_pixel_submaps(self):
+        nside_coverage = 32
+        nside_sparse = 2**17
+
+        sparse_map = healsparse.HealSparseMap.make_empty(
+            nside_coverage=nside_coverage,
+            nside_sparse=nside_sparse,
+            dtype=np.bool_,
+            bit_packed=True,
+        )
+
+        sparse_map[1_000_000: 2_000_000] = True
+        sparse_map[100_000_000: 100_040_000] = True
+
+        for i, covpix_map in enumerate(sparse_map.get_covpix_maps()):
+            if i == 0:
+                np.testing.assert_array_equal(
+                    covpix_map.valid_pixels,
+                    np.arange(1_000_000, 2_000_000),
+                )
+            else:
+                np.testing.assert_array_equal(
+                    covpix_map.valid_pixels,
+                    np.arange(100_000_000, 100_040_000),
+                )
+
     def test_bit_packed_map_fits_io(self):
         nside_coverage = 32
         nside_map = 1024
@@ -1170,7 +1196,7 @@ class HealSparseBitPackedTestCase(unittest.TestCase):
         testing.assert_array_equal(sparse_map_in_partial.valid_pixels, pixel_sub)
 
     @pytest.mark.skipif("GITHUB_ACTIONS" in os.environ, reason='Giant test cannot be run on GHA')
-    def notest_bit_packed_map_fits_io_giant(self):
+    def test_bit_packed_map_fits_io_giant(self):
         # I don't know how to test this.
         nside_coverage = 32
         nside_map = 2**17
@@ -1297,7 +1323,7 @@ class HealSparseBitPackedTestCase(unittest.TestCase):
         sparse_map_bool[1000000: 2000000] = True
 
         fracdet = sparse_map.fracdet_map(128)
-        fracdet_bool = sparse_map.fracdet_map(128)
+        fracdet_bool = sparse_map_bool.fracdet_map(128)
 
         self.assertEqual(fracdet.n_valid, fracdet_bool.n_valid)
         testing.assert_array_equal(fracdet.valid_pixels, fracdet_bool.valid_pixels)
@@ -1305,6 +1331,59 @@ class HealSparseBitPackedTestCase(unittest.TestCase):
             fracdet[fracdet.valid_pixels],
             fracdet_bool[fracdet_bool.valid_pixels],
         )
+
+    def test_bit_packed_coverage_map(self):
+        nside_coverage = 32
+        nside_map = 2**13
+
+        # We compare the fracdet map generated with the bit_packed code to that
+        # generated with a regular boolean map.
+        sparse_map = HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_, bit_packed=True)
+        sparse_map_bool = HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_)
+
+        sparse_map[10000: 20000] = True
+        sparse_map_bool[10000: 20000] = True
+        sparse_map[1000000: 2000000] = True
+        sparse_map_bool[1000000: 2000000] = True
+
+        cov_map = sparse_map.coverage_map
+        cov_map_bool = sparse_map_bool.coverage_map
+
+        testing.assert_array_almost_equal(cov_map, cov_map_bool)
+
+    def test_bit_packed_astype(self):
+        nside_coverage = 32
+        nside_map = 2**13
+
+        sparse_map = HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_, bit_packed=True)
+
+        sparse_map[10000: 20000] = True
+        sparse_map[1000000: 2000000] = True
+
+        sparse_map_bool = sparse_map.astype(np.bool_)
+
+        testing.assert_array_equal(np.asarray(sparse_map._sparse_map), sparse_map_bool._sparse_map)
+        testing.assert_array_equal(sparse_map_bool.valid_pixels, sparse_map.valid_pixels)
+
+        with self.assertRaises(ValueError):
+            _ = sparse_map.astype(np.int32)
+
+    def test_bit_packed_degrade(self):
+        nside_coverage = 32
+        nside_map = 2**13
+
+        sparse_map = HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_, bit_packed=True)
+
+        sparse_map[10000: 20000] = True
+        sparse_map[1000000: 2000000] = True
+
+        sparse_map_bool = sparse_map.astype(np.bool_)
+
+        dg = sparse_map.degrade(4096)
+        dg_bool = sparse_map_bool.degrade(4096)
+
+        testing.assert_array_equal(dg.valid_pixels, dg_bool.valid_pixels)
+        testing.assert_array_almost_equal(dg[dg.valid_pixels], dg_bool[dg_bool.valid_pixels])
 
     def test_bit_packed_from_other_map(self):
         nside_coverage = 32

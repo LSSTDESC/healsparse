@@ -1013,6 +1013,10 @@ class HealSparseMap(object):
             # This trickery first checks all the bits, and then sums into the
             # coverage pixel
             counts = np.sum(np.any(sp_map_t != self._sentinel, axis=2), axis=1)
+        elif self._is_bit_packed:
+            shape_new = (npop_pix + 1,
+                         self._cov_map.nfine_per_cov)
+            counts = self._sparse_map.sum(shape=shape_new, axis=1).astype(np.float64)
         else:
             shape_new = (npop_pix + 1,
                          self._cov_map.nfine_per_cov)
@@ -1625,9 +1629,24 @@ class HealSparseMap(object):
         """
         if nside_out > self._nside_sparse:
             raise ValueError("To increase the resolution of the map, use ``upgrade``.")
+        elif nside_out == self._nside_sparse:
+            # This is a no-op.
+            return self
 
         if self._is_bit_packed:
-            raise NotImplementedError("Map degrading is not yet supported for bit_packed maps.")
+            if weights is not None:
+                raise NotImplementedError("Map degrading with weights is not supported for bit_packed maps.")
+            elif nside_out < self.nside_coverage:
+                raise NotImplementedError(
+                    "Map degrading below nside_coverage is not supported for bit_packed maps.",
+                )
+
+            # Do coverage-pixel by coverage-pixel:
+            sparse_map_out = HealSparseMap.make_empty(self.nside_coverage, nside_out, dtype=np.float64)
+            for covpix_map in self.get_covpix_maps():
+                covpix_degrade = covpix_map.astype(np.bool_)._degrade(nside_out, reduction=reduction)
+                sparse_map_out[covpix_degrade.valid_pixels] = covpix_degrade[covpix_degrade.valid_pixels]
+            return sparse_map_out
 
         if nside_out < self.nside_coverage:
             # The way we do the reduction requires nside_out to be >= nside_coverage
@@ -1647,13 +1666,10 @@ class HealSparseMap(object):
             sparse_map_out[valid_pixels] = self[valid_pixels]
             sparse_map_out = sparse_map_out._degrade(nside_out, reduction=reduction, weights=weights)
         else:
-            if self._nside_sparse == nside_out:
-                sparse_map_out = self
-            else:
-                # Regular degrade
-                sparse_map_out = self._degrade(nside_out,
-                                               reduction=reduction,
-                                               weights=weights)
+            # Regular degrade
+            sparse_map_out = self._degrade(nside_out,
+                                           reduction=reduction,
+                                           weights=weights)
 
         return sparse_map_out
 
@@ -1964,6 +1980,11 @@ class HealSparseMap(object):
             new_sparse_map[nfine_per_cov: 2*nfine_per_cov, :] = self._sparse_map[
                 self._cov_map[covpix] + covpix*nfine_per_cov:
                 self._cov_map[covpix] + covpix*nfine_per_cov + nfine_per_cov, :]
+        elif self._is_bit_packed:
+            new_sparse_map = _PackedBoolArray(size=nfine_per_cov*2)
+            new_sparse_map[nfine_per_cov: 2*nfine_per_cov] = self._sparse_map[
+                self._cov_map[covpix] + covpix*nfine_per_cov:
+                self._cov_map[covpix] + covpix*nfine_per_cov + nfine_per_cov]
         else:
             new_sparse_map = np.zeros(2*nfine_per_cov, dtype=self.dtype)
             # Copy overflow bin
@@ -2022,12 +2043,20 @@ class HealSparseMap(object):
         elif self._is_wide_mask:
             raise RuntimeError("Cannot convert datatype of a wide mask.")
 
-        new_sparse_map = np.zeros(self._sparse_map.shape, dtype=dtype)
-        valid_pix = (self._sparse_map != self._sentinel)
-        new_sparse_map[valid_pix] = self._sparse_map[valid_pix].astype(dtype)
+        if self._is_bit_packed:
+            if dtype not in (np.bool_, bool):
+                raise ValueError("Can only convert a bit-packed map to boolean map.")
 
-        _sentinel = check_sentinel(new_sparse_map.dtype.type, sentinel)
-        new_sparse_map[~valid_pix] = _sentinel
+            new_sparse_map = np.asarray(self._sparse_map)
+            _sentinel = False
+        else:
+            new_sparse_map = np.zeros(self._sparse_map.shape, dtype=dtype)
+
+            valid_pix = (self._sparse_map != self._sentinel)
+            new_sparse_map[valid_pix] = self._sparse_map[valid_pix].astype(dtype)
+
+            _sentinel = check_sentinel(new_sparse_map.dtype.type, sentinel)
+            new_sparse_map[~valid_pix] = _sentinel
 
         return HealSparseMap(cov_map=self._cov_map, sparse_map=new_sparse_map,
                              nside_sparse=self.nside_sparse, sentinel=_sentinel)

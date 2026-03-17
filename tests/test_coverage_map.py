@@ -142,8 +142,12 @@ class CoverageMapTestCase(unittest.TestCase):
         nside_map = 512
 
         # Generate sparse map and check that it rasises a warning
-        testing.assert_warns(ResourceWarning, healsparse.HealSparseMap.make_empty, nside_sparse=nside_map,
-                             nside_coverage=nside_coverage, dtype=np.float32)
+        with self.assertWarns(ResourceWarning):
+            healsparse.HealSparseMap.make_empty(
+                nside_sparse=nside_map,
+                nside_coverage=nside_coverage,
+                dtype=np.float32,
+            )
 
 
 if __name__ == '__main__':
