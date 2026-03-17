@@ -1638,7 +1638,7 @@ class HealSparseMap(object):
                 raise NotImplementedError("Map degrading with weights is not supported for bit_packed maps.")
             elif nside_out < self.nside_coverage:
                 raise NotImplementedError(
-                    "Map degrading below nside_coverage is not supported for bi_packed maps.",
+                    "Map degrading below nside_coverage is not supported for bit_packed maps.",
                 )
 
             # Do coverage-pixel by coverage-pixel:
