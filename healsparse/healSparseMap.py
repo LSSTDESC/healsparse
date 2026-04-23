@@ -2449,13 +2449,25 @@ class HealSparseMap(object):
             return self
         else:
             output_sentinel = self._sentinel if sentinel is None else sentinel
-            combinedSparseMap = self._sparse_map.copy()
-            if self._is_wide_mask:
-                for i in range(self._wide_mask_width):
-                    col = combinedSparseMap[:, i]
-                    func(col, other_value[i], out=col, where=valid_sparse_pixels)
+            if sentinel is None:
+                #compute func in-place
+                combinedSparseMap = self._sparse_map.copy()
+                if self._is_wide_mask:
+                    for i in range(self._wide_mask_width):
+                        col = combinedSparseMap[:, i]
+                        func(col, other_value[i], out=col, where=valid_sparse_pixels)
+                else:
+                    func(combinedSparseMap, other, out=combinedSparseMap, where=valid_sparse_pixels)
             else:
-                func(combinedSparseMap, other, out=combinedSparseMap, where=valid_sparse_pixels)
+                #make empty combinedSparseMap with sentinel dtype and fill
+                combinedSparseMap = np.full_like(self._sparse_map, fill_value=sentinel, dtype=type(sentinel))
+                if self._is_wide_mask:
+                    for i in range(self._wide_mask_width):
+                        in_col = self._sparse_map[:, i]
+                        out_col = combinedSparseMap[:, i]
+                        func(in_col, other_value[i], out=out_col, where=valid_sparse_pixels)
+                else:
+                    func(self._sparse_map, other, out=combinedSparseMap, where=valid_sparse_pixels)
             return HealSparseMap(cov_map=self._cov_map, sparse_map=combinedSparseMap,
                                  nside_sparse=self._nside_sparse, sentinel=output_sentinel)
 
