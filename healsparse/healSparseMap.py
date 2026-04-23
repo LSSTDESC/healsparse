@@ -16,6 +16,7 @@ class HealSparseMap(object):
     """
     Class to define a HealSparseMap
     """
+
     def __init__(self, cov_map=None, cov_index_map=None, sparse_map=None, nside_sparse=None,
                  healpix_map=None, nside_coverage=None, primary=None, sentinel=None,
                  nest=True, metadata=None, _is_view=False):
@@ -2232,7 +2233,7 @@ class HealSparseMap(object):
         """
 
         return self._apply_operation(other, np.less_equal, sentinel=False).as_bit_packed_map()
-    
+
     def __gt__(self, other):
         """
         Apply greater than operator to a map with a constant
@@ -2260,7 +2261,7 @@ class HealSparseMap(object):
         if isinstance(other, HealSparseMap):
             # fall back to standard __eq__ if other is a map
             return NotImplemented
-        
+
         return self._apply_operation(other, np.equal, sentinel=False).as_bit_packed_map()
 
     def __ne__(self, other):
@@ -2274,7 +2275,7 @@ class HealSparseMap(object):
             return NotImplemented
 
         return self._apply_operation(other, np.not_equal, sentinel=False).as_bit_packed_map()
-    
+
     __hash__ = object.__hash__
 
     def __and__(self, other):
@@ -2511,7 +2512,7 @@ class HealSparseMap(object):
         else:
             output_sentinel = self._sentinel if sentinel is None else sentinel
             if sentinel is None:
-                #compute func in-place
+                # Compute func in-place
                 combinedSparseMap = self._sparse_map.copy()
                 if self._is_wide_mask:
                     for i in range(self._wide_mask_width):
@@ -2520,7 +2521,7 @@ class HealSparseMap(object):
                 else:
                     func(combinedSparseMap, other, out=combinedSparseMap, where=valid_sparse_pixels)
             else:
-                #make empty combinedSparseMap with sentinel dtype and fill
+                # Make empty combinedSparseMap with sentinel dtype and fill
                 combinedSparseMap = np.full_like(self._sparse_map, fill_value=sentinel, dtype=type(sentinel))
                 if self._is_wide_mask:
                     for i in range(self._wide_mask_width):
