@@ -2250,7 +2250,33 @@ class HealSparseMap(object):
         """
 
         return self._apply_operation(other, np.greater_equal, sentinel=False).as_bit_packed_map()
+
+    def __eq__(self, other):
+        """
+        Apply equal to operator to a map with a constant
+
+        Returns boolean map
+        """
+        if isinstance(other, HealSparseMap):
+            # fall back to standard __eq__ if other is a map
+            return NotImplemented
+        
+        return self._apply_operation(other, np.equal, sentinel=False).as_bit_packed_map()
+
+    def __ne__(self, other):
+        """
+        Apply not equal to operator to a map with a constant
+
+        Returns boolean map
+        """
+        if isinstance(other, HealSparseMap):
+            # fall back to standard __eq__ if other is a map
+            return NotImplemented
+
+        return self._apply_operation(other, np.not_equal, sentinel=False).as_bit_packed_map()
     
+    __hash__ = object.__hash__
+
     def __and__(self, other):
         """
         Perform a bitwise and with a constant.
