@@ -16,7 +16,6 @@ class HealSparseMap(object):
     """
     Class to define a HealSparseMap
     """
-
     def __init__(self, cov_map=None, cov_index_map=None, sparse_map=None, nside_sparse=None,
                  healpix_map=None, nside_coverage=None, primary=None, sentinel=None,
                  nest=True, metadata=None, _is_view=False):
@@ -2216,6 +2215,42 @@ class HealSparseMap(object):
 
         return self._apply_operation(other, np.power, in_place=True)
 
+    def __lt__(self, other):
+        """
+        Apply less than operator to a map with a constant
+
+        Returns boolean map
+        """
+
+        return self._apply_operation(other, np.less, sentinel=False).as_bit_packed_map()
+
+    def __le__(self, other):
+        """
+        Apply less than or equal to operator to a map with a constant
+
+        Returns boolean map
+        """
+
+        return self._apply_operation(other, np.less_equal, sentinel=False).as_bit_packed_map()
+    
+    def __gt__(self, other):
+        """
+        Apply greater than operator to a map with a constant
+
+        Returns boolean map
+        """
+
+        return self._apply_operation(other, np.greater, sentinel=False).as_bit_packed_map()
+
+    def __ge__(self, other):
+        """
+        Apply greater than or equal to operator to a map with a constant
+
+        Returns boolean map
+        """
+
+        return self._apply_operation(other, np.greater_equal, sentinel=False).as_bit_packed_map()
+    
     def __and__(self, other):
         """
         Perform a bitwise and with a constant.
