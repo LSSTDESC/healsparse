@@ -1324,8 +1324,8 @@ class HealSparseMap(object):
         elif nside > self._nside_sparse:
             raise ValueError("Cannot generate HEALPix map with higher resolution than the original.")
 
-        # Check to see if we have an integer map.
-        if issubclass(single_map._sparse_map.dtype.type, np.integer):
+        # Check to see if we have an integer or boolean map.
+        if issubclass(single_map._sparse_map.dtype.type, (np.integer, np.bool_, bool)):
             dtypeOut = np.float64
         else:
             dtypeOut = single_map._sparse_map.dtype
