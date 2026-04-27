@@ -414,7 +414,7 @@ class HealSparseMap(object):
             bit_packed=bit_packed,
         )
 
-    @staticmethod
+    @classmethod
     def from_data(
         pixels, data, nside_coverage, nside_sparse, nest=True, sentinel=hpg.UNSEEN
     ):
@@ -915,8 +915,8 @@ class HealSparseMap(object):
         delta_covpix = cov_pix_ranges[:, 1] - cov_pix_ranges[:, 0]
 
         covpix_start_values = (
-            self._cov_map[cov_pix_ranges.ravel()]
-            + self._cov_map.nfine_per_cov * cov_pix_ranges.ravel()
+            self._cov_map[cov_pix_ranges.ravel()] +
+            self._cov_map.nfine_per_cov * cov_pix_ranges.ravel()
         ).reshape(cov_pix_ranges.shape)
 
         covpix_offset_values = self._cov_map[
@@ -965,8 +965,8 @@ class HealSparseMap(object):
                         # Nothing to set here.
                         continue
                     start = (
-                        self._cov_map[cov_pix_full]
-                        + self._cov_map.nfine_per_cov * cov_pix_full
+                        self._cov_map[cov_pix_full] +
+                        self._cov_map.nfine_per_cov * cov_pix_full
                     )
                     stop = start + self._cov_map.nfine_per_cov
                     _do_operation_on_sparse_map_range(
@@ -979,8 +979,8 @@ class HealSparseMap(object):
                 else:
                     # The final coverage pixel will be partly covered.
                     start = (
-                        self._cov_map[cov_pix_ranges[i, 1]]
-                        + self._cov_map.nfine_per_cov * (cov_pix_ranges[i, 1])
+                        self._cov_map[cov_pix_ranges[i, 1]] +
+                        self._cov_map.nfine_per_cov * (cov_pix_ranges[i, 1])
                     )
                     stop = pixel_ranges[i, 1] + covpix_offset_values[i, 1]
                     _do_operation_on_sparse_map_range(
@@ -1599,8 +1599,8 @@ class HealSparseMap(object):
             (valid_pixel_inds,) = np.where(self._sparse_map != self._sentinel)
 
         return (
-            valid_pixel_inds
-            - self._cov_map[self._cov_map.cov_pixels_from_index(valid_pixel_inds)]
+            valid_pixel_inds -
+            self._cov_map[self._cov_map.cov_pixels_from_index(valid_pixel_inds)]
         )
 
     def valid_pixels_pos(self, lonlat=True, return_pixels=False):
@@ -1723,9 +1723,9 @@ class HealSparseMap(object):
 
         # We need to get the correct offsets for our valid pixel subset.
         return (
-            valid_pixel_inds
-            - self._cov_map[self._cov_map.cov_pixels_from_index(start)]
-            + start
+            valid_pixel_inds -
+            self._cov_map[self._cov_map.cov_pixels_from_index(start)] +
+            start
         )
 
     def get_valid_area(self, degrees=True):
@@ -1788,15 +1788,15 @@ class HealSparseMap(object):
                 if not isinstance(weights, HealSparseMap):
                     raise ValueError("weights must be a HealSparseMap.")
                 if (
-                    weights.is_rec_array
-                    or weights.is_wide_mask_map
-                    or weights.is_integer_map
+                    weights.is_rec_array or
+                    weights.is_wide_mask_map or
+                    weights.is_integer_map
                 ):
                     raise ValueError("weights must be a floating-point map.")
                 bad_map = (
-                    (weights.nside_sparse != self.nside_sparse)
-                    or (weights.nside_coverage != self.nside_coverage)
-                    or (not np.array_equal(weights.valid_pixels, self.valid_pixels))
+                    (weights.nside_sparse != self.nside_sparse) or
+                    (weights.nside_coverage != self.nside_coverage) or
+                    (not np.array_equal(weights.valid_pixels, self.valid_pixels))
                 )
                 if bad_map:
                     raise ValueError("weights dimensions must be the same as this map.")
@@ -2320,28 +2320,28 @@ class HealSparseMap(object):
             # Copy overflow bin
             new_sparse_map[0:nfine_per_cov, :] = self._sparse_map[0:nfine_per_cov, :]
             # Copy the pixel
-            new_sparse_map[nfine_per_cov : 2 * nfine_per_cov, :] = self._sparse_map[
-                self._cov_map[covpix] + covpix * nfine_per_cov : self._cov_map[covpix]
-                + covpix * nfine_per_cov
-                + nfine_per_cov,
+            new_sparse_map[nfine_per_cov: 2 * nfine_per_cov, :] = self._sparse_map[
+                self._cov_map[covpix] + covpix * nfine_per_cov: self._cov_map[covpix] +
+                covpix * nfine_per_cov +
+                nfine_per_cov,
                 :,
             ]
         elif self._is_bit_packed:
             new_sparse_map = _PackedBoolArray(size=nfine_per_cov * 2)
-            new_sparse_map[nfine_per_cov : 2 * nfine_per_cov] = self._sparse_map[
-                self._cov_map[covpix] + covpix * nfine_per_cov : self._cov_map[covpix]
-                + covpix * nfine_per_cov
-                + nfine_per_cov
+            new_sparse_map[nfine_per_cov: 2 * nfine_per_cov] = self._sparse_map[
+                self._cov_map[covpix] + covpix * nfine_per_cov: self._cov_map[covpix] +
+                covpix * nfine_per_cov +
+                nfine_per_cov
             ]
         else:
             new_sparse_map = np.zeros(2 * nfine_per_cov, dtype=self.dtype)
             # Copy overflow bin
             new_sparse_map[0:nfine_per_cov] = self._sparse_map[0:nfine_per_cov]
             # Copy the pixel
-            new_sparse_map[nfine_per_cov : 2 * nfine_per_cov] = self._sparse_map[
-                self._cov_map[covpix] + covpix * nfine_per_cov : self._cov_map[covpix]
-                + covpix * nfine_per_cov
-                + nfine_per_cov
+            new_sparse_map[nfine_per_cov: 2 * nfine_per_cov] = self._sparse_map[
+                self._cov_map[covpix] + covpix * nfine_per_cov: self._cov_map[covpix] +
+                covpix * nfine_per_cov +
+                nfine_per_cov
             ]
 
         return HealSparseMap(
@@ -2449,11 +2449,11 @@ class HealSparseMap(object):
 
         # This is the map without the offset.
         cov_index_map_temp = (
-            self._cov_map[:]
-            + np.arange(
+            self._cov_map[:] +
+            np.arange(
                 hpg.nside_to_npixel(self._cov_map.nside_coverage), dtype=np.int64
-            )
-            * self._cov_map.nfine_per_cov
+            ) *
+            self._cov_map.nfine_per_cov
         )
 
         for cov_pix in coverage_pixels:
@@ -2710,8 +2710,8 @@ class HealSparseMap(object):
         # We invalidate the n_valid cache here.
         self._n_valid = None
 
-        self._sparse_map[self._cov_map.nfine_per_cov :] = ~self._sparse_map[
-            self._cov_map.nfine_per_cov :
+        self._sparse_map[self._cov_map.nfine_per_cov:] = ~self._sparse_map[
+            self._cov_map.nfine_per_cov:
         ]
         return self
 
@@ -2725,8 +2725,8 @@ class HealSparseMap(object):
             raise NotImplementedError("Can only use invert(~) on boolean maps.")
 
         sparse_map_temp = self._sparse_map.copy()
-        sparse_map_temp[self._cov_map.nfine_per_cov :] = ~sparse_map_temp[
-            self._cov_map.nfine_per_cov :
+        sparse_map_temp[self._cov_map.nfine_per_cov:] = ~sparse_map_temp[
+            self._cov_map.nfine_per_cov:
         ]
         return HealSparseMap(
             cov_map=self._cov_map.copy(),
@@ -2950,8 +2950,8 @@ class HealSparseMap(object):
                 else:
                     sparse_map_temp = np.zeros(nsparse, dtype=np.bool_)
 
-                sparse_map_temp[0 : len(self._sparse_map)] = self._sparse_map[
-                    0 : len(self._sparse_map)
+                sparse_map_temp[0: len(self._sparse_map)] = self._sparse_map[
+                    0: len(self._sparse_map)
                 ]
 
             for cov_pixel in cov_pixels_run:
