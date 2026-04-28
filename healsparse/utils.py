@@ -197,3 +197,51 @@ def _compute_bitshift(nside_coarse, nside_fine):
        Number of bits to shift to convert nest pixels
     """
     return 2*int(np.round(np.log2(nside_fine / nside_coarse)))
+
+
+def has_duplicates(pixels):
+    """Optimized check for duplicate pixels.
+
+    Parameters
+    ----------
+    pixels : `np.ndarray`
+        Integer array of pixels.
+
+    Returns
+    -------
+    has_duplicates : `bool`
+    """
+    mn = pixels.min()
+    mx = pixels.max()
+    span = mx - mn + 1
+    if span < len(pixels):
+        # If the span is less than the pixel length
+        # then we know there are duplicates.
+        return True
+    # The following is faster than np.unique()
+    seen = np.zeros(span, dtype=np.bool_)
+    seen[pixels - mn] = True
+    return seen.sum() < len(pixels)
+
+
+def fast_unique(pixels):
+    """Optimized unique for integer pixels.
+
+    Parameters
+    ----------
+    pixels : `np.ndarray`
+        Integer array of pixels.
+
+    Returns
+    -------
+    unique_values : `np.ndarray`
+    """
+    mn = pixels.min()
+    mx = pixels.max()
+    span = mx - mn + 1
+    if span > len(pixels) * 20:
+        # If this is a sparse array, np.unique is faster.
+        return np.unique(pixels)
+    seen = np.zeros(span, dtype=np.bool_)
+    seen[pixels - mn] = True
+    return np.flatnonzero(seen) + mn
