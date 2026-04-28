@@ -6,6 +6,7 @@ from .healSparseCoverage import HealSparseCoverage
 from .utils import reduce_array, check_sentinel, _bitvals_to_packed_array
 from .utils import WIDE_NBIT, WIDE_MASK, PIXEL_RANGE_THRESHOLD
 from .utils import is_integer_value, _compute_bitshift
+from .utils import has_duplicates, fast_unique
 from .io_map import _read_map, _write_map, _write_moc
 from .packedBoolArray import _PackedBoolArray
 from .geom import GeomBase
@@ -352,7 +353,7 @@ class HealSparseMap(object):
         cov_map = HealSparseCoverage.make_empty(nside_coverage, nside_sparse)
 
         ipnest_cov = cov_map.cov_pixels(ipnest)
-        cov_pix = np.unique(ipnest_cov)
+        cov_pix = fast_unique(ipnest_cov)
 
         cov_map.initialize_pixels(cov_pix)
 
@@ -437,7 +438,7 @@ class HealSparseMap(object):
         self._sparse_map[oldsize:] = self._sparse_map[0]
 
     def update_values_pos(self, ra_or_theta, dec_or_phi, values,
-                          lonlat=True, operation='replace'):
+                          lonlat=True, operation='replace', check_unique=True):
         """
         Update the values in the sparsemap for a list of positions.
 
@@ -458,6 +459,8 @@ class HealSparseMap(object):
         operation : `str`, optional
             Operation to use to update values.  May be 'replace' (default);
             'add'; 'or', or 'and' (for bit masks).
+        check_unique : `bool`, optional
+            Check if input pixels are unique before 'replace' is used.
 
         Raises
         ------
@@ -470,14 +473,19 @@ class HealSparseMap(object):
         During the 'add' operation, if the default sentinel map value is not
         equal to 0, then any default values will be set to 0 prior to addition.
         """
-        return self.update_values_pix(hpg.angle_to_pixel(self._nside_sparse,
-                                                         ra_or_theta,
-                                                         dec_or_phi,
-                                                         lonlat=lonlat),
-                                      values,
-                                      operation=operation)
+        return self.update_values_pix(
+            hpg.angle_to_pixel(
+                self._nside_sparse,
+                ra_or_theta,
+                dec_or_phi,
+                lonlat=lonlat,
+            ),
+            values,
+            operation=operation,
+            check_unique=check_unique,
+        )
 
-    def update_values_pix(self, pixels, values, nest=True, operation='replace'):
+    def update_values_pix(self, pixels, values, nest=True, operation='replace', check_unique=True):
         """
         Update the values in the sparsemap for a list of pixels.
         The list of pixels must be unique if the operation is 'replace'.
@@ -496,6 +504,8 @@ class HealSparseMap(object):
         operation : `str`, optional
             Operation to use to update values.  May be 'replace' (default);
             'add'; 'or', or 'and' (for bit masks).
+        check_unique : `bool`, optional
+            Check if input pixels are unique before 'replace' is used.
 
         Raises
         ------
@@ -591,10 +601,9 @@ class HealSparseMap(object):
             elif self._sparse_map.dtype.type != _values.dtype.type:
                 raise ValueError("Data-type mismatch between sparse_map and values")
 
-        if operation == 'replace':
-            # Check for unique pixel positions
+        if operation == 'replace' and check_unique:
             if hasattr(pixels, "__len__"):
-                if len(np.unique(pixels)) < len(pixels):
+                if has_duplicates(pixels):
                     raise ValueError("List of pixels must be unique if operation='replace'")
 
         if pixels.ndim == 2 and pixels.shape[1] == 2:
@@ -705,7 +714,7 @@ class HealSparseMap(object):
             cov_pix_ranges[-1, 1] = len(self.coverage_mask) - 1
 
         cov_pix_to_set = hpg.pixel_ranges_to_pixels(cov_pix_ranges, inclusive=True)
-        cov_pix_to_set = np.unique(cov_pix_to_set)
+        cov_pix_to_set = fast_unique(cov_pix_to_set)
 
         cov_mask = self.coverage_mask
 
