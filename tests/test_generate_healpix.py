@@ -139,6 +139,41 @@ class GenerateHealpixMapTestCase(unittest.TestCase):
         healpix_map_ring = hp.reorder(healpix_map, n2r=True)
         testing.assert_almost_equal(healpix_map_ring, hp_out_ring)
 
+    def test_generate_healpix_map_bool(self):
+        random.seed(seed=12345)
+
+        nside_coverage = 32
+        nside_map = 64
+
+        n_rand = 1000
+        ra = np.random.random(n_rand) * 360.0
+        dec = np.random.random(n_rand) * 180.0 - 90.0
+
+        # Create a HEALPix map
+        healpix_map = np.zeros(hpg.nside_to_npixel(nside_map), dtype=np.float64) + hpg.UNSEEN
+        idx = hpg.angle_to_pixel(nside_map, ra, dec)
+        healpix_map[idx] = 1.0
+        # Create a HealSparseMap
+        sparse_map = healsparse.HealSparseMap.make_empty(
+            nside_coverage=nside_coverage,
+            nside_sparse=nside_map,
+            dtype=np.bool_,
+        )
+        sparse_map[np.unique(idx)] = True
+
+        hp_out = sparse_map.generate_healpix_map(nside=nside_map)
+        testing.assert_almost_equal(healpix_map, hp_out)
+
+        if not has_healpy:
+            return
+
+        # Now check that it works specifying a different resolution
+        nside_map2 = 32
+        hp_out = sparse_map.generate_healpix_map(nside=nside_map2)
+        # Let's compare with the original downgraded
+        healpix_map = hp.ud_grade(healpix_map, nside_out=nside_map2, order_in='NESTED', order_out='NESTED')
+        testing.assert_almost_equal(healpix_map, hp_out)
+
 
 if __name__ == '__main__':
     unittest.main()
