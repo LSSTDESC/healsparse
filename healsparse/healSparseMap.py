@@ -318,6 +318,52 @@ class HealSparseMap(object):
                               sentinel=sentinel, wide_mask_maxbits=wide_mask_maxbits,
                               metadata=metadata, cov_pixels=cov_pixels, bit_packed=bit_packed)
 
+    @classmethod
+    def from_data(
+        pixels, data, nside_coverage, nside_sparse, nest=True, sentinel=hpg.UNSEEN
+    ):
+        """
+        Create a healsparse map from a partial healpix map.
+
+        Parameters:
+        -----------
+        pixels : `np.ndarray` or `list`
+            The pixels covered by the data. Must be the same length as `data`.
+        data : `np.ndarray` or `list`
+            The data for the given pixels. Must be the same length as `pixels`.
+        nside_coverage : `int`
+           Coverage nside
+        nside_sparse : `int`, optional
+           Sparse map nside
+        nest : `bool`, optional
+           Is the input map in nest format?  Default is True. If False, data will
+           be converted to nested format.
+        sentinel : `float`, optional
+           Sentinel value for null values in the sparse_map.
+        """
+        if len(pixels) != len(data):
+            raise ValueError("pixel array and data array must be the same length!")
+
+        if not nest:
+            full_map = np.full(hpg.nside2npix(nside_sparse), sentinel, dtype=data.dtype)
+            full_map[pixels] = data
+            full_map = hpg.reorder(full_map, ring_to_nest=True)
+            pixels = np.where(full_map != sentinel)[0]
+            data = full_map[pixels]
+
+        cov_map = HealSparseCoverage.make_empty(nside_coverage, nside_sparse)
+        cov_pix = cov_map.cov_pixels(pixels)
+        unique_cov_pix = np.unique(cov_pix)
+
+        cov_map.initialize_pixels(unique_cov_pix)
+        sparse_indices = pixels + cov_map[cov_pix]
+        sparse_map_size = (len(unique_cov_pix) + 1) * cov_map.nfine_per_cov
+
+        sparse_map = np.full(sparse_map_size, sentinel, dtype=data.dtype)
+        sparse_map[sparse_indices] = data
+
+        return sparse_map
+
     @staticmethod
     def convert_healpix_map(healpix_map, nside_coverage, nest=True, sentinel=hpg.UNSEEN):
         """
