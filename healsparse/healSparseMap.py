@@ -8,7 +8,7 @@ from .utils import WIDE_NBIT, WIDE_MASK, PIXEL_RANGE_THRESHOLD
 from .utils import is_integer_value, _compute_bitshift
 from .io_map import _read_map, _write_map, _write_moc
 from .packedBoolArray import _PackedBoolArray
-from .utils import fast_unique, has_duplicates,
+from .utils import fast_unique, has_duplicates
 from .geom import GeomBase
 import warnings
 
