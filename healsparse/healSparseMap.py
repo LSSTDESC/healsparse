@@ -320,7 +320,7 @@ class HealSparseMap(object):
 
     @classmethod
     def from_data(
-        pixels, data, nside_coverage, nside_sparse, nest=True, sentinel=hpg.UNSEEN
+        cls, pixels, data, nside_coverage, nside_sparse, nest=True, sentinel=hpg.UNSEEN
     ):
         """
         Create a healsparse map from a partial healpix map.
@@ -351,18 +351,9 @@ class HealSparseMap(object):
             pixels = np.where(full_map != sentinel)[0]
             data = full_map[pixels]
 
-        cov_map = HealSparseCoverage.make_empty(nside_coverage, nside_sparse)
-        cov_pix = cov_map.cov_pixels(pixels)
-        unique_cov_pix = np.unique(cov_pix)
-
-        cov_map.initialize_pixels(unique_cov_pix)
-        sparse_indices = pixels + cov_map[cov_pix]
-        sparse_map_size = (len(unique_cov_pix) + 1) * cov_map.nfine_per_cov
-
-        sparse_map = np.full(sparse_map_size, sentinel, dtype=data.dtype)
-        sparse_map[sparse_indices] = data
-
-        return sparse_map
+        hsp_out = hsp.HealSparseMap.make_empty(nside_lr, nside, dtype=data.dtype, sentinel=sentinel)
+        hsp_out.update_values_pix(pixels, values, check_unique=False)
+        return hsp_out
 
     @staticmethod
     def convert_healpix_map(healpix_map, nside_coverage, nest=True, sentinel=hpg.UNSEEN):
@@ -531,7 +522,7 @@ class HealSparseMap(object):
             check_unique=check_unique,
         )
 
-    def update_values_pix(self, pixels, values, nest=True, operation='replace'):
+    def update_values_pix(self, pixels, values, nest=True, operation='replace', check_unique=True):
         """
         Update the values in the sparsemap for a list of pixels.
         The list of pixels must be unique if the operation is 'replace'.
@@ -647,12 +638,10 @@ class HealSparseMap(object):
             elif self._sparse_map.dtype.type != _values.dtype.type:
                 raise ValueError("Data-type mismatch between sparse_map and values")
 
-        if operation == "replace" and check_unique:
+        if operation == 'replace' and check_unique:
             if hasattr(pixels, "__len__"):
                 if has_duplicates(pixels):
-                    raise ValueError(
-                        "List of pixels must be unique if operation='replace'"
-                    )
+                    raise ValueError("List of pixels must be unique if operation='replace'")
 
         if pixels.ndim == 2 and pixels.shape[1] == 2:
             # These are pixel ranges.
