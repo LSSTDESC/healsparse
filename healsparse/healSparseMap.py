@@ -351,8 +351,8 @@ class HealSparseMap(object):
             pixels = np.where(full_map != sentinel)[0]
             data = full_map[pixels]
 
-        hsp_out = hsp.HealSparseMap.make_empty(nside_lr, nside, dtype=data.dtype, sentinel=sentinel)
-        hsp_out.update_values_pix(pixels, values, check_unique=False)
+        hsp_out = HealSparseMap.make_empty(nside_coverage, nside_sparse, dtype=data.dtype, sentinel=sentinel)
+        hsp_out.update_values_pix(pixels, data, check_unique=False)
         return hsp_out
 
     @staticmethod
