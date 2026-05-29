@@ -1173,7 +1173,109 @@ class OperationsTestCase(unittest.TestCase):
         hpmap_add = np.add(hpmap_add, hpmap3)
         hpmap_add[mask2] = hpg.UNSEEN
         testing.assert_almost_equal(hpmap_add, add_map.generate_healpix_map())
+    
+    def test_comparison_operators(self):
+        """
+        Test comparison operators with constants and map equality.
+        """
+        random.seed(seed=12345)
 
+        nside_coverage = 32
+        nside_map = 64
+
+        sparse_map1 = healsparse.HealSparseMap.make_empty(
+            nside_coverage,
+            nside_map,
+            np.float64
+        )
+
+        pixel1 = np.arange(4000, 20000)
+        pixel1 = np.delete(pixel1, 15000)
+        values1 = np.random.random(size=pixel1.size)
+        sparse_map1.update_values_pix(pixel1, values1)
+        hpmap1 = sparse_map1.generate_healpix_map()
+        npix = hpg.nside_to_npixel(sparse_map1.nside_sparse)
+
+        ##### >
+
+        test_map = sparse_map1 > 0.5
+        hpmap_test = np.zeros_like(hpmap1, dtype=np.bool_)
+        gd, = np.where(hpmap1 > hpg.UNSEEN)
+        hpmap_test[gd] = hpmap1[gd] > 0.5
+        testing.assert_equal(hpmap_test,
+                             test_map.get_values_pix(np.arange(npix)))
+
+        ##### >=
+
+        test_map = sparse_map1 >= 0.5
+        hpmap_test = np.zeros_like(hpmap1, dtype=np.bool_)
+        gd, = np.where(hpmap1 > hpg.UNSEEN)
+        hpmap_test[gd] = hpmap1[gd] >= 0.5
+        testing.assert_equal(hpmap_test,
+                             test_map.get_values_pix(np.arange(npix)))
+
+        ##### <
+
+        test_map = sparse_map1 < 0.5
+        hpmap_test = np.zeros_like(hpmap1, dtype=np.bool_)
+        gd, = np.where(hpmap1 > hpg.UNSEEN)
+        hpmap_test[gd] = hpmap1[gd] < 0.5
+        testing.assert_equal(hpmap_test,
+                             test_map.get_values_pix(np.arange(npix)))
+
+        ##### <=
+
+        test_map = sparse_map1 <= 0.5
+        hpmap_test = np.zeros_like(hpmap1, dtype=np.bool_)
+        gd, = np.where(hpmap1 > hpg.UNSEEN)
+        hpmap_test[gd] = hpmap1[gd] <= 0.5
+        testing.assert_equal(hpmap_test,
+                             test_map.get_values_pix(np.arange(npix)))
+
+        ##### == with constant
+
+        compare_value = values1[100]
+        test_map = sparse_map1 == compare_value
+        hpmap_test = np.zeros_like(hpmap1, dtype=np.bool_)
+        gd, = np.where(hpmap1 > hpg.UNSEEN)
+        hpmap_test[gd] = hpmap1[gd] == compare_value
+        testing.assert_equal(hpmap_test,
+                             test_map.get_values_pix(np.arange(npix)))
+
+        ##### != with constant
+
+        test_map = sparse_map1 != compare_value
+        hpmap_test = np.zeros_like(hpmap1, dtype=np.bool_)
+        gd, = np.where(hpmap1 > hpg.UNSEEN)
+        hpmap_test[gd] = hpmap1[gd] != compare_value
+        testing.assert_equal(hpmap_test,
+                             test_map.get_values_pix(np.arange(npix)))
+
+        ##### == map-map equality
+
+        sparse_map2 = sparse_map1.copy()
+
+        self.assertTrue(sparse_map1 == sparse_map2)
+        self.assertFalse(sparse_map1 != sparse_map2)
+
+        ##### != map-map inequality
+        sparse_map2.update_values_pix(
+            np.array([pixel1[0]]),
+            np.array([values1[0] + 1.0])
+        )
+        self.assertFalse(sparse_map1 == sparse_map2)
+        self.assertTrue(sparse_map1 != sparse_map2)
+
+        ##### unequal metadata
+
+        sparse_map3 = healsparse.HealSparseMap.make_empty(
+            nside_coverage,
+            nside_map * 2,
+            np.float64
+        )
+
+        self.assertFalse(sparse_map1 == sparse_map3)
+        self.assertTrue(sparse_map1 != sparse_map3)
 
 if __name__ == '__main__':
     unittest.main()
