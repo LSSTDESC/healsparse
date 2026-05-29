@@ -2255,7 +2255,7 @@ class HealSparseMap(object):
     def __eq__(self, other):
         """
         Apply equal to operator to a map
-        
+
         If other is a HealSparseMap, return True if the maps are equal.
 
         Otherwise apply equality against a constant and return a boolean map.
@@ -2278,7 +2278,7 @@ class HealSparseMap(object):
     def __ne__(self, other):
         """
         Apply not equal to operator to a map
-        
+
         If other is a HealSparseMap, return True if the maps are not equal.
 
         Otherwise apply inequality against a constant and return a boolean map.
