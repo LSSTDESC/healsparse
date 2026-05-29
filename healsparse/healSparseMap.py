@@ -2223,7 +2223,7 @@ class HealSparseMap(object):
         Returns boolean map
         """
 
-        return self._apply_operation(other, np.less, sentinel=False).as_bit_packed_map()
+        return self._apply_operation(other, np.less, sentinel=False)
 
     def __le__(self, other):
         """
@@ -2232,7 +2232,7 @@ class HealSparseMap(object):
         Returns boolean map
         """
 
-        return self._apply_operation(other, np.less_equal, sentinel=False).as_bit_packed_map()
+        return self._apply_operation(other, np.less_equal, sentinel=False)
 
     def __gt__(self, other):
         """
@@ -2241,7 +2241,7 @@ class HealSparseMap(object):
         Returns boolean map
         """
 
-        return self._apply_operation(other, np.greater, sentinel=False).as_bit_packed_map()
+        return self._apply_operation(other, np.greater, sentinel=False)
 
     def __ge__(self, other):
         """
@@ -2250,7 +2250,7 @@ class HealSparseMap(object):
         Returns boolean map
         """
 
-        return self._apply_operation(other, np.greater_equal, sentinel=False).as_bit_packed_map()
+        return self._apply_operation(other, np.greater_equal, sentinel=False)
 
     def __eq__(self, other):
         """
@@ -2262,7 +2262,7 @@ class HealSparseMap(object):
             # fall back to standard __eq__ if other is a map
             return NotImplemented
 
-        return self._apply_operation(other, np.equal, sentinel=False).as_bit_packed_map()
+        return self._apply_operation(other, np.equal, sentinel=False)
 
     def __ne__(self, other):
         """
@@ -2274,7 +2274,7 @@ class HealSparseMap(object):
             # fall back to standard __eq__ if other is a map
             return NotImplemented
 
-        return self._apply_operation(other, np.not_equal, sentinel=False).as_bit_packed_map()
+        return self._apply_operation(other, np.not_equal, sentinel=False)
 
     __hash__ = object.__hash__
 
