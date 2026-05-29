@@ -2276,8 +2276,6 @@ class HealSparseMap(object):
 
         return self._apply_operation(other, np.not_equal, sentinel=False)
 
-    __hash__ = object.__hash__
-
     def __and__(self, other):
         """
         Perform a bitwise and with a constant.
