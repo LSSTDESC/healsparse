@@ -2254,25 +2254,37 @@ class HealSparseMap(object):
 
     def __eq__(self, other):
         """
-        Apply equal to operator to a map with a constant
+        Apply equal to operator to a map
+        
+        If other is a HealSparseMap, return True if the maps are equal.
 
-        Returns boolean map
+        Otherwise apply equality against a constant and return a boolean map.
         """
         if isinstance(other, HealSparseMap):
-            # fall back to standard __eq__ if other is a map
-            return NotImplemented
+            if self._nside_sparse != other._nside_sparse:
+                return False
+            if self._cov_map.nside_coverage != other._cov_map.nside_coverage:
+                return False
+            if self._sentinel != other._sentinel:
+                return False
+            if not np.array_equal(self._cov_map.coverage_mask, other._cov_map.coverage_mask):
+                return False
+            if not np.array_equal(self._sparse_map, other._sparse_map):
+                return False
+            return True
 
         return self._apply_operation(other, np.equal, sentinel=False)
 
     def __ne__(self, other):
         """
-        Apply not equal to operator to a map with a constant
+        Apply not equal to operator to a map
+        
+        If other is a HealSparseMap, return True if the maps are not equal.
 
-        Returns boolean map
+        Otherwise apply inequality against a constant and return a boolean map.
         """
         if isinstance(other, HealSparseMap):
-            # fall back to standard __eq__ if other is a map
-            return NotImplemented
+            return not self.__eq__(other)
 
         return self._apply_operation(other, np.not_equal, sentinel=False)
 
