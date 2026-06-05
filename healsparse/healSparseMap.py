@@ -2446,7 +2446,7 @@ class HealSparseMap(object):
             Only accept integer types.
         in_place : `bool`, optional
             Perform operation in-place.
-        sentinel : None, `int` or `float`
+        sentinel : None, `int`, `float` or `bool`
             sentinel value for the output map, if None will use the same value as self
             must be None if in_place is True
 
