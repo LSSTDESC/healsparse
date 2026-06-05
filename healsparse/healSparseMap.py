@@ -2225,6 +2225,78 @@ class HealSparseMap(object):
 
         return self._apply_operation(other, np.power, in_place=True)
 
+    def __lt__(self, other):
+        """
+        Apply less than operator to a map with a constant
+
+        Returns boolean map
+        """
+
+        return self._apply_operation(other, np.less, sentinel=False)
+
+    def __le__(self, other):
+        """
+        Apply less than or equal to operator to a map with a constant
+
+        Returns boolean map
+        """
+
+        return self._apply_operation(other, np.less_equal, sentinel=False)
+
+    def __gt__(self, other):
+        """
+        Apply greater than operator to a map with a constant
+
+        Returns boolean map
+        """
+
+        return self._apply_operation(other, np.greater, sentinel=False)
+
+    def __ge__(self, other):
+        """
+        Apply greater than or equal to operator to a map with a constant
+
+        Returns boolean map
+        """
+
+        return self._apply_operation(other, np.greater_equal, sentinel=False)
+
+    def __eq__(self, other):
+        """
+        Apply equal to operator to a map
+
+        If other is a HealSparseMap, return True if the maps are equal.
+
+        Otherwise apply equality against a constant and return a boolean map.
+        """
+        if isinstance(other, HealSparseMap):
+            if self._nside_sparse != other._nside_sparse:
+                return False
+            if self._cov_map.nside_coverage != other._cov_map.nside_coverage:
+                return False
+            if self._sentinel != other._sentinel:
+                return False
+            if not np.array_equal(self._cov_map.coverage_mask, other._cov_map.coverage_mask):
+                return False
+            if not np.array_equal(self._sparse_map, other._sparse_map):
+                return False
+            return True
+
+        return self._apply_operation(other, np.equal, sentinel=False)
+
+    def __ne__(self, other):
+        """
+        Apply not equal to operator to a map
+
+        If other is a HealSparseMap, return True if the maps are not equal.
+
+        Otherwise apply inequality against a constant and return a boolean map.
+        """
+        if isinstance(other, HealSparseMap):
+            return not self.__eq__(other)
+
+        return self._apply_operation(other, np.not_equal, sentinel=False)
+
     def __and__(self, other):
         """
         Perform a bitwise and with a constant.
@@ -2367,7 +2439,7 @@ class HealSparseMap(object):
             sentinel=self._sentinel,
         )
 
-    def _apply_operation(self, other, func, int_only=False, in_place=False):
+    def _apply_operation(self, other, func, int_only=False, in_place=False, sentinel=None):
         """
         Apply a generic arithmetic function.
 
@@ -2383,6 +2455,9 @@ class HealSparseMap(object):
             Only accept integer types.
         in_place : `bool`, optional
             Perform operation in-place.
+        sentinel : None, `int`, `float` or `bool`
+            sentinel value for the output map, if None will use the same value as self
+            must be None if in_place is True
 
         Returns
         -------
@@ -2445,6 +2520,7 @@ class HealSparseMap(object):
             valid_sparse_pixels = (self._sparse_map != self._sentinel)
 
         if in_place:
+            assert sentinel is None
             if self._is_wide_mask:
                 for i in range(self._wide_mask_width):
                     col = self._sparse_map[:, i]
@@ -2453,15 +2529,28 @@ class HealSparseMap(object):
                 func(self._sparse_map, other, out=self._sparse_map, where=valid_sparse_pixels)
             return self
         else:
-            combinedSparseMap = self._sparse_map.copy()
-            if self._is_wide_mask:
-                for i in range(self._wide_mask_width):
-                    col = combinedSparseMap[:, i]
-                    func(col, other_value[i], out=col, where=valid_sparse_pixels)
+            output_sentinel = self._sentinel if sentinel is None else sentinel
+            if sentinel is None:
+                # Compute func in-place
+                combinedSparseMap = self._sparse_map.copy()
+                if self._is_wide_mask:
+                    for i in range(self._wide_mask_width):
+                        col = combinedSparseMap[:, i]
+                        func(col, other_value[i], out=col, where=valid_sparse_pixels)
+                else:
+                    func(combinedSparseMap, other, out=combinedSparseMap, where=valid_sparse_pixels)
             else:
-                func(combinedSparseMap, other, out=combinedSparseMap, where=valid_sparse_pixels)
+                # Make empty combinedSparseMap with sentinel dtype and fill
+                combinedSparseMap = np.full_like(self._sparse_map, fill_value=sentinel, dtype=type(sentinel))
+                if self._is_wide_mask:
+                    for i in range(self._wide_mask_width):
+                        in_col = self._sparse_map[:, i]
+                        out_col = combinedSparseMap[:, i]
+                        func(in_col, other_value[i], out=out_col, where=valid_sparse_pixels)
+                else:
+                    func(self._sparse_map, other, out=combinedSparseMap, where=valid_sparse_pixels)
             return HealSparseMap(cov_map=self._cov_map, sparse_map=combinedSparseMap,
-                                 nside_sparse=self._nside_sparse, sentinel=self._sentinel)
+                                 nside_sparse=self._nside_sparse, sentinel=output_sentinel)
 
     def _apply_boolean_map_operation(self, other, name, in_place=False):
         """Apply an operation to a boolean mask map.

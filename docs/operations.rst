@@ -39,6 +39,37 @@ Arithmetic operations with a constant are very simple, and are handled with the 
     print(map_float2[0: 10000])
     >>> [100. 100. 100. ... 100. 100. 100.]
 
+    map_float3 = map_float > 0.0
+    print(map_float3[0: 10000])
+    >>> [False False False ... False False False]
+
+Comparison operations with a constant are also handled with the default Python operations. 
+The equality and inequality operations can be applied against a constant (returning a boolean healsparse map) 
+or another healsparse (returning a boolean)
+
+.. code-block :: python
+
+    import numpy as np
+    import healsparse
+
+    map_float = healsparse.HealSparseMap.make_empty(32, 4096, np.float64)
+    map_float[0: 10000] = np.random.choice([0.5, 1.0, 1.5], size=10000)
+
+    print(map_float[0: 10000])
+    >>> [1.  0.5 1.  ... 1.5 1.  0.5]
+
+    map_float2 = map_float > 1.1
+    print(map_float2[0: 10000])
+    >>> [False False False ...  True False False]
+
+    map_float2 = map_float == 1.0
+    print(map_float2[0: 10000])
+    >>> [ True False  True ... False  True False]
+
+    map_float == map_float.copy()
+    >>> True
+    
+
 
 Operations With Multiple Maps
 -----------------------------
