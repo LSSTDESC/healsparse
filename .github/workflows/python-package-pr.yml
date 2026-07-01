@@ -34,3 +34,5 @@ jobs:
         pytest
         pip install fitsio>=1.0.5
         pytest
+        pip install rustfits
+        pytest
