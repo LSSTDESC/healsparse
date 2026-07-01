@@ -142,7 +142,7 @@ class FitsShimTestCase(unittest.TestCase):
         self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
         header = None
 
-        if healsparse.fits_shim.use_fitsio:
+        if healsparse.fits_shim.use_rustfits or healsparse.fits_shim.use_fitsio:
             # Test appending to image and recarray
             for t in ['array', 'recarray', 'widemask']:
                 filename = os.path.join(self.test_dir, 'test_%s.fits' % (t))
@@ -201,7 +201,12 @@ class FitsShimTestCase(unittest.TestCase):
         """
         Write a testfile.
         """
-        if healsparse.fits_shim.use_fitsio:
+        if healsparse.fits_shim.use_rustfits:
+            healsparse.fits_shim.rustfits.write(filename, data0,
+                                                header=header, extname='COV')
+            healsparse.fits_shim.rustfits.write(filename, data1, mode='r+',
+                                                header=header, extname='SPARSE')
+        elif healsparse.fits_shim.use_fitsio:
             healsparse.fits_shim.fitsio.write(filename, data0,
                                               header=header, extname='COV')
             healsparse.fits_shim.fitsio.write(filename, data1,
