@@ -1,15 +1,24 @@
+import copy
 import numpy as np
 import mmap
 from .utils import is_integer_value
 # We need this for compression before a newer version of fitsio arrives
 import astropy.io.fits as fits
 
+use_rustfits = False
 use_fitsio = False
 try:
-    import fitsio
-    use_fitsio = True
+    import rustfits
+    use_rustfits = True
 except ImportError:
     pass
+
+if not use_rustfits:
+    try:
+        import fitsio
+        use_fitsio = True
+    except ImportError:
+        pass
 
 
 _image_bitpix2npy = {
@@ -29,12 +38,12 @@ FITS_RESERVED = ['TFIELDS', 'TTYPE1', 'TFORM1', 'ZIMAGE',
                  'ZPCOUNT', 'ZGCOUNT', 'ZTILE1', 'ZCMPTYPE',
                  'ZNAME1', 'ZVAL1', 'ZQUANTIZ',
                  'SIMPLE', 'BITPIX', 'NAXIS', 'NAXIS1', 'NAXIS2',
-                 'PCOUNT', 'GCOUNT']
+                 'PCOUNT', 'GCOUNT', 'XTENSION']
 
 
 class HealSparseFits(object):
     """
-    Wrapper class to handle fitsio or astropy.io.fits
+    Wrapper class to handle rustfits, fitsio, or astropy.io.fits
     """
     def __init__(self, filename, mode='r'):
         """
@@ -54,7 +63,19 @@ class HealSparseFits(object):
         self._filename = filename
         self._mode = mode
 
-        if use_fitsio:
+        if use_rustfits:
+            if mode == "r":
+                rustfits_mode = "r"
+            elif mode == "rw":
+                rustfits_mode = "r+"
+
+            self.fits_object = rustfits.FITS(str(filename), mode=rustfits_mode)
+
+            try:
+                _ = self.fits_object[0]
+            except ValueError:
+                raise IOError("File %s does not appear to be a fits file." % (filename))
+        elif use_fitsio:
             self.fits_object = fitsio.FITS(filename, mode=mode)
         else:
             if mode == 'r':
@@ -80,6 +101,7 @@ class HealSparseFits(object):
         if use_fitsio:
             return self.fits_object[extension].read_header()
         else:
+            # This works for rustfits and astropy fits.
             return self.fits_object[extension].header
 
     def get_ext_dtype(self, extension):
@@ -95,9 +117,15 @@ class HealSparseFits(object):
         -------
         dtype : `np.dtype`
         """
-        if use_fitsio:
+        if use_rustfits:
             hdu = self.fits_object[extension]
-            if hdu.get_exttype() == 'IMAGE_HDU':
+            if self.ext_is_image(extension):
+                return hdu.dtype.str
+            else:
+                return hdu.dtype
+        elif use_fitsio:
+            hdu = self.fits_object[extension]
+            if self.ext_is_image(extension):
                 return _image_bitpix2npy[hdu.get_info()['img_equiv_type']]
             else:
                 return self.fits_object[extension].get_rec_dtype()[0]
@@ -126,7 +154,7 @@ class HealSparseFits(object):
         -------
         data : `np.ndarray`
         """
-        if use_fitsio:
+        if use_rustfits or use_fitsio:
             hdu = self.fits_object[extension]
             if row_range is None:
                 return hdu.read()
@@ -169,7 +197,9 @@ class HealSparseFits(object):
         is_image : `bool`
         """
         hdu = self.fits_object[extension]
-        if use_fitsio:
+        if use_rustfits:
+            return isinstance(hdu, (rustfits.CompressedImageHDU, rustfits.ImageHDU))
+        elif use_fitsio:
             if hdu.get_exttype() == 'IMAGE_HDU':
                 return True
             else:
@@ -192,7 +222,14 @@ class HealSparseFits(object):
             raise RuntimeError("Appending only allowed in rw mode")
 
         hdu = self.fits_object[extension]
-        if use_fitsio:
+        if use_rustfits:
+            if hasattr(hdu, 'extend'):
+                # We can append
+                hdu.extend(data)
+            else:
+                firstrow = (hdu.get_dims()[0], )
+                hdu.write(data, start=firstrow)
+        elif use_fitsio:
             if hasattr(hdu, 'append'):
                 # A recarray that we can append to
                 hdu.append(data)
@@ -260,7 +297,26 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map,
             _tile_shape = (compress_tilesize, )
             s_hdr['RESHAPED'] = False
 
-    if use_fitsio and integer_map:
+    if use_rustfits:
+        with rustfits.FITS(str(filename), mode="w+") as f:
+            f.write_image(cov_index_map, extname=c_hdr["EXTNAME"], header=c_hdr)
+
+            if compress:
+                if compression == "GZIP_2":
+                    comp = rustfits.Gzip2(tile_shape=_tile_shape)
+                elif compression == "RICE_1":
+                    comp = rustfits.Rice1(tile_shape=_tile_shape)
+
+                f.write_image(
+                    _sparse_map,
+                    extname=s_hdr["EXTNAME"],
+                    header=s_hdr,
+                    compress=comp,
+                )
+            else:
+                f.write(sparse_map, extname=s_hdr["EXTNAME"], header=s_hdr)
+
+    elif use_fitsio and integer_map:
         # Preferred because it is faster for integer writes.
         # Floating point writing with compression has only just
         # been fixed and I don't want to put a lower limit on
@@ -355,6 +411,14 @@ def _make_header(metadata, force_astropy=False):
     -------
     header : `fitsio.FITSHDR` or `astropy.io.fits.Header`
     """
+    if use_rustfits and not force_astropy:
+        if metadata is None:
+            return {}
+        else:
+            hdr = copy.copy(metadata)
+            for reserved in FITS_RESERVED:
+                hdr.pop(reserved, None)
+            return hdr
     if use_fitsio and not force_astropy:
         hdr = fitsio.FITSHDR(metadata)
     else:

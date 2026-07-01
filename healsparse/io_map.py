@@ -56,9 +56,10 @@ def _read_map(healsparse_class, filename, nside_coverage=None, pixels=None, head
         fits = HealSparseFits(filename)
         is_fits_file = True
         fits.close()
-    except (OSError, UnicodeDecodeError):
+    except (OSError, UnicodeDecodeError, ValueError):
         pass
     # UnicodeDecodeError occurs when trying to read an hdf5 file as if it's FITS
+    # ValueError occurs from rustfits when trying to read an hdf5 file as if it's FITS
 
     if not is_fits_file:
         is_parquet_file = check_parquet_dataset(filename)
