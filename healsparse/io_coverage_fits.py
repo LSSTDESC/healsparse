@@ -25,7 +25,7 @@ def _read_coverage_fits(coverage_class, filename_or_fits):
 
     try:
         cov_index_map = fits.read_ext_data('COV')
-    except (OSError, KeyError):
+    except (OSError, KeyError, ValueError):
         raise RuntimeError("File is not a HealSparseMap")
 
     s_hdr = fits.read_ext_header('SPARSE')
