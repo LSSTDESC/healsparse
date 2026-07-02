@@ -69,7 +69,7 @@ class HealSparseFits(object):
             elif mode == "rw":
                 rustfits_mode = "r+"
 
-            self.fits_object = rustfits.FITS(str(filename), mode=rustfits_mode)
+            self.fits_object = rustfits.FITS(filename, mode=rustfits_mode)
 
             try:
                 _ = self.fits_object[0]
@@ -298,7 +298,7 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map,
             s_hdr['RESHAPED'] = False
 
     if use_rustfits:
-        with rustfits.FITS(str(filename), mode="w+") as f:
+        with rustfits.FITS(filename, mode="w+") as f:
             f.write_image(cov_index_map, extname=c_hdr["EXTNAME"], header=c_hdr)
 
             if compress:
