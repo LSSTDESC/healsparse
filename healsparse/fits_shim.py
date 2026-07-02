@@ -4,7 +4,7 @@ from .utils import is_integer_value
 
 use_rustfits = False
 use_fitsio = False
-use_astropy = False
+has_astropy = False
 
 try:
     import rustfits
@@ -19,12 +19,14 @@ if not use_rustfits:
     except ImportError:
         pass
 
-if not use_rustfits and not use_fitsio:
-    try:
-        import astropy.io.fits as astropy_fits
-        use_astropy = True
-    except ImportError:
-        raise ImportError("HealSparse requires rustfits or fitsio or astropy to be installed.")
+try:
+    import astropy.io.fits as astropy_fits
+    has_astropy = True
+except ImportError:
+    pass
+
+if not use_rustfits and not use_fitsio and not has_astropy:
+    raise ImportError("HealSparse requires rustfits or fitsio or astropy to be installed.")
 
 
 _image_bitpix2npy = {
@@ -83,7 +85,7 @@ class HealSparseFits(object):
                 raise IOError("File %s does not appear to be a fits file." % (filename))
         elif use_fitsio:
             self.fits_object = fitsio.FITS(filename, mode=mode)
-        elif use_astropy:
+        elif has_astropy:
             if mode == 'r':
                 fits_mode = 'readonly'
             else:
@@ -135,7 +137,7 @@ class HealSparseFits(object):
                 return _image_bitpix2npy[hdu.get_info()['img_equiv_type']]
             else:
                 return self.fits_object[extension].get_rec_dtype()[0]
-        elif use_astropy:
+        elif has_astropy:
             hdu = self.fits_object[extension]
             if hdu.is_image:
                 return _image_bitpix2npy[hdu._bitpix]
@@ -169,7 +171,7 @@ class HealSparseFits(object):
             else:
                 return hdu[slice(col_range[0], col_range[1]),
                            slice(row_range[0], row_range[1])]
-        elif use_astropy:
+        elif has_astropy:
             # Note that for astropy this does not actually seem to work
             # read a subregion from a tile-compressed image; it reads
             # the full thing.
@@ -210,7 +212,7 @@ class HealSparseFits(object):
                 return True
             else:
                 return False
-        elif use_astropy:
+        elif has_astropy:
             return hdu.is_image
 
     def append_extension(self, extension, data):
@@ -243,7 +245,7 @@ class HealSparseFits(object):
                 # An image that we cannot append to
                 firstrow = (hdu.get_dims()[0], )
                 hdu.write(data, start=firstrow)
-        elif use_astropy:
+        elif has_astropy:
             raise RuntimeError("Appending is not supported by astropy.io.fits")
 
     def close(self):
@@ -426,7 +428,7 @@ def _write_healpix_filename(filename, hdr, output_struct):
         rustfits.write(filename, output_struct, header=hdr, mode="w+")
     elif use_fitsio:
         fitsio.write(filename, output_struct, header=hdr, clobber=True)
-    elif use_astropy:
+    elif has_astropy:
         hdu_list = astropy_fits.HDUList()
 
         hdu = astropy_fits.BinTableHDU(data=output_struct, header=astropy_fits.Header())
