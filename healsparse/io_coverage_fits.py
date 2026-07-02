@@ -23,6 +23,10 @@ def _read_coverage_fits(coverage_class, filename_or_fits):
     else:
         fits = filename_or_fits
 
+    # HealSparse map files are required to have a COV extension.
+    # The exceptions listed here are those that are raised by
+    # the different fits backends when the extension cannot
+    # be found.
     try:
         cov_index_map = fits.read_ext_data('COV')
     except (OSError, KeyError, ValueError):
