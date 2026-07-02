@@ -1,6 +1,5 @@
 import copy
 import numpy as np
-import mmap
 from .utils import is_integer_value
 
 use_rustfits = False
@@ -346,23 +345,26 @@ def _write_filename(filename, c_hdr, s_hdr, cov_index_map, sparse_map,
                 f.write(sparse_map, extname=s_hdr["EXTNAME"], header=s_hdr)
 
     else:
-        hdu_list = fits.HDUList()
+        hdu_list = astropy_fits.HDUList()
 
-        hdu = fits.PrimaryHDU(data=cov_index_map, header=fits.Header())
+        hdu = astropy_fits.PrimaryHDU(data=cov_index_map, header=astropy_fits.Header())
         _make_hierarch_header(c_hdr, hdu.header)
         hdu_list.append(hdu)
 
         if compress:
             # Try new tile_shape API (astropy>=5.3).
-            hdu = fits.CompImageHDU(data=_sparse_map, header=fits.Header(),
-                                    compression_type=compression,
-                                    tile_shape=_tile_shape,
-                                    quantize_level=0.0)
+            hdu = astropy_fits.CompImageHDU(
+                data=_sparse_map,
+                header=astropy_fits.Header(),
+                compression_type=compression,
+                tile_shape=_tile_shape,
+                quantize_level=0.0,
+            )
         else:
             if sparse_map.dtype.fields is not None:
-                hdu = fits.BinTableHDU(data=sparse_map, header=fits.Header())
+                hdu = astropy_fits.BinTableHDU(data=sparse_map, header=astropy_fits.Header())
             else:
-                hdu = fits.ImageHDU(data=sparse_map, header=fits.Header())
+                hdu = astropy_fits.ImageHDU(data=sparse_map, header=astropy_fits.Header())
 
         _make_hierarch_header(s_hdr, hdu.header)
         hdu_list.append(hdu)
