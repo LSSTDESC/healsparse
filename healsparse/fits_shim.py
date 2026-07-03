@@ -206,7 +206,7 @@ class HealSparseFits(object):
         """
         hdu = self.fits_object[extension]
         if use_rustfits:
-            return isinstance(hdu, (rustfits.CompressedImageHDU, rustfits.ImageHDU))
+            return isinstance(hdu, rustfits.ImageHDU)
         elif use_fitsio:
             if hdu.get_exttype() == 'IMAGE_HDU':
                 return True
