@@ -19,8 +19,8 @@ In addition, there is general support for any [numpy](https://github.com/numpy/n
 - [hpgeom](https://github.com/LSSTDESC/hpgeom)
 - [astropy](https://astropy.org)
 
-The following package is optional but recommended for all features including reading full maps in HEALPix format:
-- [fitsio](https://github.com/esheldon/fitsio)
+The following packages are optional but recommended for all features including reading full maps in HEALPix format:
+- [rustfits](https://github.com/esheldon/rustfits)
 - [healpy](https://github.com/healpy/healpy/)
 
 ## Install:

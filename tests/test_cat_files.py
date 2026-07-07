@@ -96,7 +96,7 @@ class CatFilesTestCase(unittest.TestCase):
                 outfile = os.path.join(self.test_dir, 'test_%s_combined_%d.hs' %
                                        (t, int(in_mem)))
 
-                if not healsparse.fits_shim.use_fitsio and not in_mem:
+                if not (healsparse.fits_shim.use_rustfits or healsparse.fits_shim.use_fitsio) and not in_mem:
                     # We cannot use out-of-memory option with astropy.io.fits
                     self.assertRaises(RuntimeError, cat_healsparse_files,
                                       file_list, outfile, in_memory=in_mem,
@@ -209,7 +209,7 @@ class CatFilesTestCase(unittest.TestCase):
                 outfile = os.path.join(self.test_dir, 'test_%s_combined_%d.hs' %
                                        (t, int(in_mem)))
 
-                if not healsparse.fits_shim.use_fitsio and not in_mem:
+                if not (healsparse.fits_shim.use_rustfits or healsparse.fits_shim.use_fitsio) and not in_mem:
                     # We cannot use out-of-memory option with astropy.io.fits
                     self.assertRaises(RuntimeError, cat_healsparse_files,
                                       file_list, outfile, in_memory=in_mem,

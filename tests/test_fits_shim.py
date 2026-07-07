@@ -142,7 +142,7 @@ class FitsShimTestCase(unittest.TestCase):
         self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
         header = None
 
-        if healsparse.fits_shim.use_fitsio:
+        if healsparse.fits_shim.use_rustfits or healsparse.fits_shim.use_fitsio:
             # Test appending to image and recarray
             for t in ['array', 'recarray', 'widemask']:
                 filename = os.path.join(self.test_dir, 'test_%s.fits' % (t))
@@ -184,24 +184,16 @@ class FitsShimTestCase(unittest.TestCase):
 
             self.assertRaises(RuntimeError, HealSparseFits, filename, mode='rw')
 
-    def write_testfile_unused(self, filename, data0, data1, header):
-        """
-        Write a testfile, using astropy.io.fits only.  This is in place
-        until we get full compression support working in both.
-        """
-        _header = healsparse.fits_shim._make_header(header)
-        _header['EXTNAME'] = 'COV'
-        healsparse.fits_shim.fits.writeto(filename, data0,
-                                          header=_header)
-        _header['EXTNAME'] = 'SPARSE'
-        healsparse.fits_shim.fits.append(filename, data1,
-                                         header=_header, overwrite=False)
-
     def write_testfile(self, filename, data0, data1, header):
         """
         Write a testfile.
         """
-        if healsparse.fits_shim.use_fitsio:
+        if healsparse.fits_shim.use_rustfits:
+            healsparse.fits_shim.rustfits.write(filename, data0,
+                                                header=header, extname='COV')
+            healsparse.fits_shim.rustfits.write(filename, data1, mode='r+',
+                                                header=header, extname='SPARSE')
+        elif healsparse.fits_shim.use_fitsio:
             healsparse.fits_shim.fitsio.write(filename, data0,
                                               header=header, extname='COV')
             healsparse.fits_shim.fitsio.write(filename, data1,
@@ -209,11 +201,18 @@ class FitsShimTestCase(unittest.TestCase):
         else:
             _header = healsparse.fits_shim._make_header(header)
             _header['EXTNAME'] = 'COV'
-            healsparse.fits_shim.fits.writeto(filename, data0,
-                                              header=_header)
+            healsparse.fits_shim.astropy_fits.writeto(
+                filename,
+                data0,
+                header=_header,
+            )
             _header['EXTNAME'] = 'SPARSE'
-            healsparse.fits_shim.fits.append(filename, data1,
-                                             header=_header, overwrite=False)
+            healsparse.fits_shim.astropy_fits.append(
+                filename,
+                data1,
+                header=_header,
+                overwrite=False,
+            )
 
     def setUp(self):
         self.test_dir = None
