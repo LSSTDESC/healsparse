@@ -6,9 +6,9 @@ from .healSparseCoverage import HealSparseCoverage
 from .utils import reduce_array, check_sentinel, _bitvals_to_packed_array
 from .utils import WIDE_NBIT, WIDE_MASK, PIXEL_RANGE_THRESHOLD
 from .utils import is_integer_value, _compute_bitshift
-from .utils import has_duplicates, fast_unique
 from .io_map import _read_map, _write_map, _write_moc
 from .packedBoolArray import _PackedBoolArray
+from .utils import fast_unique, has_duplicates
 from .geom import GeomBase
 import warnings
 
@@ -317,6 +317,43 @@ class HealSparseMap(object):
         return cls.make_empty(nside_coverage, nside_sparse, dtype, primary=primary,
                               sentinel=sentinel, wide_mask_maxbits=wide_mask_maxbits,
                               metadata=metadata, cov_pixels=cov_pixels, bit_packed=bit_packed)
+
+    @classmethod
+    def from_data(
+        cls, pixels, data, nside_coverage, nside_sparse, nest=True, sentinel=hpg.UNSEEN
+    ):
+        """
+        Create a healsparse map from a partial healpix map.
+
+        Parameters:
+        -----------
+        pixels : `np.ndarray` or `list`
+            The pixels covered by the data. Must be the same length as `data`.
+        data : `np.ndarray` or `list`
+            The data for the given pixels. Must be the same length as `pixels`.
+        nside_coverage : `int`
+           Coverage nside
+        nside_sparse : `int`, optional
+           Sparse map nside
+        nest : `bool`, optional
+           Is the input map in nest format?  Default is True. If False, data will
+           be converted to nested format.
+        sentinel : `float`, optional
+           Sentinel value for null values in the sparse_map.
+        """
+        if len(pixels) != len(data):
+            raise ValueError("pixel array and data array must be the same length!")
+
+        if not nest:
+            full_map = np.full(hpg.nside2npix(nside_sparse), sentinel, dtype=data.dtype)
+            full_map[pixels] = data
+            full_map = hpg.reorder(full_map, ring_to_nest=True)
+            pixels = np.where(full_map != sentinel)[0]
+            data = full_map[pixels]
+
+        hsp_out = HealSparseMap.make_empty(nside_coverage, nside_sparse, dtype=data.dtype, sentinel=sentinel)
+        hsp_out.update_values_pix(pixels, data, check_unique=False)
+        return hsp_out
 
     @staticmethod
     def convert_healpix_map(healpix_map, nside_coverage, nest=True, sentinel=hpg.UNSEEN):
