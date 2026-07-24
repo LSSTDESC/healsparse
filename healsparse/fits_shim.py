@@ -149,7 +149,7 @@ class HealSparseFits(object):
             if hdu.is_image:
                 return _image_bitpix2npy[hdu._bitpix]
             else:
-                return hdu.data[0: 1].dtype
+                return hdu.section[0: 1].dtype
 
     def read_ext_data(self, extension, row_range=None, col_range=None):
         """
@@ -186,17 +186,10 @@ class HealSparseFits(object):
             if row_range is None:
                 return hdu.data.view(np.ndarray)
             elif col_range is None:
-                try:
-                    return hdu.section[slice(row_range[0], row_range[1])].view(np.ndarray)
-                except AttributeError:
-                    return hdu.data[slice(row_range[0], row_range[1])].view(np.ndarray)
+                return hdu.section[slice(row_range[0], row_range[1])].view(np.ndarray)
             else:
-                try:
-                    return hdu.section[slice(col_range[0], col_range[1]),
-                                       slice(row_range[0], row_range[1])].view(np.ndarray)
-                except AttributeError:
-                    return hdu.data[slice(col_range[0], col_range[1]),
-                                    slice(row_range[0], row_range[1])].view(np.ndarray)
+                return hdu.section[slice(col_range[0], col_range[1]),
+                                   slice(row_range[0], row_range[1])].view(np.ndarray)
 
     def ext_is_image(self, extension):
         """
