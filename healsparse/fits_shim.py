@@ -169,7 +169,7 @@ class HealSparseFits:
             if hdu.is_image:
                 return _image_bitpix2npy[hdu._bitpix]
             else:
-                return hdu.section[0: 1].dtype
+                return hdu.data[0: 1].dtype
 
     def read_ext_data(self, extension, row_range=None, col_range=None):
         """
