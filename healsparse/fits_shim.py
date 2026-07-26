@@ -1,4 +1,5 @@
 import copy
+import fsspec
 import numpy as np
 from .utils import is_integer_value
 
@@ -49,7 +50,7 @@ FITS_RESERVED = ['TFIELDS', 'TTYPE1', 'TFORM1', 'ZIMAGE',
                  'PCOUNT', 'GCOUNT', 'XTENSION']
 
 
-class HealSparseFits(object):
+class HealSparseFits:
     """
     Wrapper class to handle rustfits, fitsio, or astropy.io.fits
     """
@@ -75,29 +76,48 @@ class HealSparseFits(object):
         self._use_astropy = False
         self._use_fitsio = False
 
-        if use_rustfits:
+        protocol = fsspec.utils.get_protocol(filename)
+
+        # If this is read-only, we have fsspec and astropy, and a remote file
+        # then we will use astropy remote reading.
+        if mode == "r" and has_astropy and protocol != "file":
+            self._use_astropy = True
+            self.fits_object = astropy_fits.open(
+                filename,
+                use_fsspec=True,
+                mode="readonly",
+            )
+
+            # Need a test to see if actually a fits file.
+        elif use_rustfits:
+            _, path = fsspec.core.url_to_fs(filename)
+
             self._use_rustfits = True
             if mode == "r":
                 rustfits_mode = "r"
             elif mode == "rw":
                 rustfits_mode = "r+"
 
-            self.fits_object = rustfits.FITS(filename, mode=rustfits_mode)
+            self.fits_object = rustfits.FITS(path, mode=rustfits_mode)
 
             try:
                 _ = self.fits_object[0]
             except ValueError:
                 raise IOError("File %s does not appear to be a fits file." % (filename))
         elif use_fitsio:
+            _, path = fsspec.core.url_to_fs(filename)
+
             self._use_fitsio = True
-            self.fits_object = fitsio.FITS(filename, mode=mode)
+            self.fits_object = fitsio.FITS(path, mode=mode)
         elif has_astropy:
+            _, path = fsspec.core.url_to_fs(filename)
+
             self._use_astropy = True
             if mode == 'r':
                 fits_mode = 'readonly'
             else:
                 raise RuntimeError('Readonly is only useful mode supported for astropy.io.fits')
-            self.fits_object = astropy_fits.open(filename, memmap=True, lazy_load_hdus=True,
+            self.fits_object = astropy_fits.open(path, memmap=True, lazy_load_hdus=True,
                                                  mode=fits_mode)
 
     def read_ext_header(self, extension):
