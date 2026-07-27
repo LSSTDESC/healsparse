@@ -31,7 +31,7 @@ class HealSparseCoverage(object):
         self._compute_block_to_cov_index()
 
     @classmethod
-    def read(cls, filename_or_fits, use_threads=False):
+    def read(cls, filename_or_fits, use_threads=False, hdf5_group="map"):
         """
         Read in a HealSparseCoverage map from a file.
 
@@ -44,13 +44,15 @@ class HealSparseCoverage(object):
         use_threads : `bool`, optional
             Use multithreaded reading for parquet files.  Should not
             be necessary for coverage maps.
+        hdf5_group : `str`, optional
+            Name of hdf5 group that contains the coverage map.
 
         Returns
         -------
         cov_map : `HealSparseCoverage`
             HealSparseCoverage map from file.
         """
-        return _read_coverage(cls, filename_or_fits, use_threads=use_threads)
+        return _read_coverage(cls, filename_or_fits, use_threads=use_threads, hdf5_group=hdf5_group)
 
     @classmethod
     def make_empty(cls, nside_coverage, nside_sparse):
