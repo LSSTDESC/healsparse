@@ -4,12 +4,20 @@ import numpy as np
 from .utils import is_integer_value
 
 use_rustfits = False
+rustfits_protocols = ["file"]
+use_rustfits_remote = False
 use_fitsio = False
 has_astropy = False
 
 try:
     import rustfits
+    from packaging.version import parse
+
     use_rustfits = True
+
+    if parse(rustfits.__version__) >= parse("0.1.8"):
+        rustfits_protocols.extend(["https", "http"])
+
 except ImportError:
     pass
 
@@ -78,19 +86,13 @@ class HealSparseFits:
 
         protocol = fsspec.utils.get_protocol(filename)
 
-        # If this is read-only, we have fsspec and astropy, and a remote file
-        # then we will use astropy remote reading.
-        if mode == "r" and has_astropy and protocol != "file":
-            self._use_astropy = True
-            self.fits_object = astropy_fits.open(
-                filename,
-                use_fsspec=True,
-                mode="readonly",
-            )
+        if use_rustfits and protocol in rustfits_protocols:
+            self._use_rustfits = True
 
-            # Need a test to see if actually a fits file.
-        elif use_rustfits:
-            _, path = fsspec.core.url_to_fs(filename)
+            if protocol == "file":
+                _, path = fsspec.core.url_to_fs(filename)
+            else:
+                path = filename
 
             self._use_rustfits = True
             if mode == "r":
@@ -98,12 +100,27 @@ class HealSparseFits:
             elif mode == "rw":
                 rustfits_mode = "r+"
 
-            self.fits_object = rustfits.FITS(path, mode=rustfits_mode)
+            if mode == "r" and protocol != "file":
+                self.fits_object = rustfits.FITS(path, mode=rustfits_mode, ranged=True)
+            else:
+                self.fits_object = rustfits.FITS(path, mode=rustfits_mode)
 
             try:
                 _ = self.fits_object[0]
             except ValueError:
                 raise IOError("File %s does not appear to be a fits file." % (filename))
+
+        elif mode == "r" and has_astropy and protocol != "file":
+            # If this is read-only, we have fsspec and astropy, and a remote file
+            # then we will use astropy remote reading.
+
+            self._use_astropy = True
+            self.fits_object = astropy_fits.open(
+                filename,
+                use_fsspec=True,
+                mode="readonly",
+            )
+
         elif use_fitsio:
             _, path = fsspec.core.url_to_fs(filename)
 
