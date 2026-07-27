@@ -9,6 +9,10 @@ from RangeHTTPServer import RangeRequestHandler
 import healsparse
 
 
+if not healsparse.fits_shim.has_astropy:
+    pytest.skip("Skipping astropy remote fits tests", allow_module_level=True)
+
+
 def _get_simple_hsp_map():
     nside_coverage = 32
     nside_map = 1024
