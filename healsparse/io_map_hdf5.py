@@ -3,7 +3,6 @@ import os
 import numpy as np
 from .utils import WIDE_MASK
 from .packedBoolArray import _PackedBoolArray
-import warnings
 from .healSparseCoverage import HealSparseCoverage
 import astropy.io.fits as fits
 import hpgeom as hpg
