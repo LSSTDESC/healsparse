@@ -89,21 +89,15 @@ class HealSparseFits:
         if use_rustfits and protocol in rustfits_protocols:
             self._use_rustfits = True
 
-            if protocol == "file":
-                _, path = fsspec.core.url_to_fs(filename)
-            else:
-                path = filename
-
-            self._use_rustfits = True
             if mode == "r":
                 rustfits_mode = "r"
             elif mode == "rw":
                 rustfits_mode = "r+"
 
             if mode == "r" and protocol != "file":
-                self.fits_object = rustfits.FITS(path, mode=rustfits_mode, ranged=True)
+                self.fits_object = rustfits.FITS(filename, mode=rustfits_mode, remote="ranged")
             else:
-                self.fits_object = rustfits.FITS(path, mode=rustfits_mode)
+                self.fits_object = rustfits.FITS(filename, mode=rustfits_mode)
 
             try:
                 _ = self.fits_object[0]
