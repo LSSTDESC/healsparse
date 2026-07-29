@@ -1,7 +1,8 @@
+import os
 import subprocess
 import sys
 import time
-import urllib.request
+import urllib
 
 import numpy as np
 import pytest
@@ -10,6 +11,9 @@ import healsparse
 
 if not healsparse.io_map_hdf5.use_hdf5:
     pytest.skip("Skipping hdf5 tests", allow_module_level=True)
+
+
+_SERVER = os.path.join(os.path.dirname(__file__), "_range_server.py")
 
 
 def _get_simple_hsp_map():
@@ -36,33 +40,18 @@ def served_healsparse_hdf5(tmp_path_factory):
     fname = "test_healsparse_map.hdf5"
     _get_simple_hsp_map().write(root / fname, format="hdf5")
 
-    code = (
-        "from http.server import ThreadingHTTPServer;"
-        "from functools import partial;"
-        "from RangeHTTPServer import RangeRequestHandler;"
-        "RangeRequestHandler.protocol_version = 'HTTP/1.1';"
-        f"h = partial(RangeRequestHandler, directory={str(root)!r});"
-        "srv = ThreadingHTTPServer(('127.0.0.1', 0), h);"
-        "print(srv.server_address[1], flush=True);"
-        "srv.serve_forever()"
+    proc = subprocess.Popen(
+        [sys.executable, _SERVER, str(root)],
+        stdout=subprocess.PIPE, text=True,
     )
-    # stdout piped only for the port line; stderr inherited so request
-    # logs go to pytest's capture (never pipe stderr here — the child
-    # logs every request to it, and an undrained pipe would fill and
-    # wedge the server).
-    proc = subprocess.Popen([sys.executable, "-c", code],
-                            stdout=subprocess.PIPE, text=True)
 
-    port_line = proc.stdout.readline()  # blocks until the child binds
+    port_line = proc.stdout.readline()
     if not port_line.strip():
         proc.wait(timeout=5)
         raise RuntimeError("HTTP server subprocess failed to start")
     port = int(port_line.strip())
     base = f"http://127.0.0.1:{port}/"
 
-    # The port line means the constructor returned, i.e. the socket is
-    # already bound and listening; this poll just waits for the accept
-    # loop, and normally passes on the first try.
     deadline = time.monotonic() + 10
     while time.monotonic() < deadline:
         try:
