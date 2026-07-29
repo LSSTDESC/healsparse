@@ -44,7 +44,7 @@ def _read_coverage(coverage_class, filename_or_fits, use_threads=False, hdf5_gro
             fits = HealSparseFits(filename_or_fits)
             is_fits = True
             fits.close()
-        except OSError:
+        except (OSError, UnicodeDecodeError, ValueError):
             is_fits = False
 
         if not is_fits:
