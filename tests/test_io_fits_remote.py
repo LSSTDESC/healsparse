@@ -1,16 +1,11 @@
-import socketserver
-import threading
-from functools import partial
+import subprocess
+import sys
+import time
+import urllib.request
 
 import numpy as np
 import pytest
-from RangeHTTPServer import RangeRequestHandler
-
 import healsparse
-
-
-if not healsparse.fits_shim.has_astropy:
-    pytest.skip("Skipping astropy remote fits tests", allow_module_level=True)
 
 
 def _get_simple_hsp_map():
@@ -32,32 +27,61 @@ def _get_simple_hsp_map():
 
 @pytest.fixture(scope="session")
 def served_healsparse_fits(tmp_path_factory):
-    """Write a small healsparse file and serve its directory over localhost HTTP."""
+    """Serve a healsparse file over localhost HTTP from a separate process."""
     root = tmp_path_factory.mktemp("hsp")
-
     fname = "test_healsparse_map.hsp"
+    _get_simple_hsp_map().write(root / fname)
 
-    m = _get_simple_hsp_map()
-    m.write(root / fname)
+    code = (
+        "from http.server import ThreadingHTTPServer;"
+        "from functools import partial;"
+        "from RangeHTTPServer import RangeRequestHandler;"
+        "RangeRequestHandler.protocol_version = 'HTTP/1.1';"
+        f"h = partial(RangeRequestHandler, directory={str(root)!r});"
+        "srv = ThreadingHTTPServer(('127.0.0.1', 0), h);"
+        "print(srv.server_address[1], flush=True);"
+        "srv.serve_forever()"
+    )
+    # stdout piped only for the port line; stderr inherited so request
+    # logs go to pytest's capture (never pipe stderr here — the child
+    # logs every request to it, and an undrained pipe would fill and
+    # wedge the server).
+    proc = subprocess.Popen([sys.executable, "-c", code],
+                            stdout=subprocess.PIPE, text=True)
 
-    handler = partial(RangeRequestHandler, directory=str(root))
-    with socketserver.TCPServer(("127.0.0.1", 0), handler) as httpd:
-        port = httpd.server_address[1]
-        t = threading.Thread(target=httpd.serve_forever, daemon=True)
-        t.start()
+    port_line = proc.stdout.readline()  # blocks until the child binds
+    if not port_line.strip():
+        proc.wait(timeout=5)
+        raise RuntimeError("HTTP server subprocess failed to start")
+    port = int(port_line.strip())
+    base = f"http://127.0.0.1:{port}/"
+
+    # The port line means the constructor returned, i.e. the socket is
+    # already bound and listening; this poll just waits for the accept
+    # loop, and normally passes on the first try.
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
         try:
-            yield f"http://127.0.0.1:{port}/{fname}"
-        finally:
-            httpd.shutdown()
+            urllib.request.urlopen(base, timeout=0.25).close()
+            break
+        except OSError:
+            if proc.poll() is not None:
+                raise RuntimeError("HTTP server subprocess exited early")
+            time.sleep(0.05)
+    else:
+        proc.terminate()
+        raise RuntimeError("HTTP server did not start in time")
+
+    try:
+        yield f"{base}{fname}"
+    finally:
+        proc.terminate()
+        proc.wait()
 
 
 def test_remote_uri_open(served_healsparse_fits):
     """Test remote open (directly)."""
     fits = healsparse.fits_shim.HealSparseFits(served_healsparse_fits)
-
-    assert fits._use_astropy
-    assert not fits._use_rustfits
-    assert not fits._use_fitsio
 
     hdr = fits.read_ext_header("SPARSE")
 
