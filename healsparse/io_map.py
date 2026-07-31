@@ -5,7 +5,8 @@ from .io_map_fits import _read_map_fits, _write_map_fits, _write_moc_fits
 from .parquet_shim import check_parquet_dataset
 from .io_map_parquet import _read_map_parquet, _write_map_parquet
 from .io_map_healpix import _write_map_healpix
-from .io_map_hdf5 import _read_map_hdf5, _write_map_hdf5, check_hdf5_file
+from .io_map_hdf5 import _read_map_hdf5, _write_map_hdf5
+from .hdf5_shim import check_hdf5_file
 
 
 def _read_map(healsparse_class, filename, nside_coverage=None, pixels=None, header=False,

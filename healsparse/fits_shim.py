@@ -1,14 +1,23 @@
 import copy
+import fsspec
 import numpy as np
 from .utils import is_integer_value
 
 use_rustfits = False
+rustfits_protocols = ["file"]
+use_rustfits_remote = False
 use_fitsio = False
 has_astropy = False
 
 try:
     import rustfits
+    from packaging.version import parse
+
     use_rustfits = True
+
+    if parse(rustfits.__version__) >= parse("0.1.8"):
+        rustfits_protocols.extend(["https", "http"])
+
 except ImportError:
     pass
 
@@ -49,7 +58,7 @@ FITS_RESERVED = ['TFIELDS', 'TTYPE1', 'TFORM1', 'ZIMAGE',
                  'PCOUNT', 'GCOUNT', 'XTENSION']
 
 
-class HealSparseFits(object):
+class HealSparseFits:
     """
     Wrapper class to handle rustfits, fitsio, or astropy.io.fits
     """
@@ -71,26 +80,55 @@ class HealSparseFits(object):
         self._filename = filename
         self._mode = mode
 
-        if use_rustfits:
+        self._use_rustfits = False
+        self._use_astropy = False
+        self._use_fitsio = False
+
+        protocol = fsspec.utils.get_protocol(filename)
+
+        if use_rustfits and protocol in rustfits_protocols:
+            self._use_rustfits = True
+
             if mode == "r":
                 rustfits_mode = "r"
             elif mode == "rw":
                 rustfits_mode = "r+"
 
-            self.fits_object = rustfits.FITS(filename, mode=rustfits_mode)
+            if mode == "r" and protocol != "file":
+                self.fits_object = rustfits.FITS(filename, mode=rustfits_mode, remote="ranged")
+            else:
+                self.fits_object = rustfits.FITS(filename, mode=rustfits_mode)
 
             try:
                 _ = self.fits_object[0]
             except ValueError:
                 raise IOError("File %s does not appear to be a fits file." % (filename))
+
+        elif mode == "r" and has_astropy and protocol != "file":
+            # If this is read-only, we have fsspec and astropy, and a remote file
+            # then we will use astropy remote reading.
+
+            self._use_astropy = True
+            self.fits_object = astropy_fits.open(
+                filename,
+                use_fsspec=True,
+                mode="readonly",
+            )
+
         elif use_fitsio:
-            self.fits_object = fitsio.FITS(filename, mode=mode)
+            _, path = fsspec.core.url_to_fs(filename)
+
+            self._use_fitsio = True
+            self.fits_object = fitsio.FITS(path, mode=mode)
         elif has_astropy:
+            _, path = fsspec.core.url_to_fs(filename)
+
+            self._use_astropy = True
             if mode == 'r':
                 fits_mode = 'readonly'
             else:
                 raise RuntimeError('Readonly is only useful mode supported for astropy.io.fits')
-            self.fits_object = astropy_fits.open(filename, memmap=True, lazy_load_hdus=True,
+            self.fits_object = astropy_fits.open(path, memmap=True, lazy_load_hdus=True,
                                                  mode=fits_mode)
 
     def read_ext_header(self, extension):
@@ -106,7 +144,7 @@ class HealSparseFits(object):
         -------
         header : `fitsio.FITSHDR` or `FIXME`
         """
-        if use_fitsio:
+        if self._use_fitsio:
             return self.fits_object[extension].read_header()
         else:
             # This works for rustfits and astropy fits.
@@ -125,19 +163,19 @@ class HealSparseFits(object):
         -------
         dtype : `np.dtype`
         """
-        if use_rustfits:
+        if self._use_rustfits:
             hdu = self.fits_object[extension]
             if self.ext_is_image(extension):
                 return hdu.dtype.str
             else:
                 return hdu.dtype
-        elif use_fitsio:
+        elif self._use_fitsio:
             hdu = self.fits_object[extension]
             if self.ext_is_image(extension):
                 return _image_bitpix2npy[hdu.get_info()['img_equiv_type']]
             else:
                 return self.fits_object[extension].get_rec_dtype()[0]
-        elif has_astropy:
+        elif self._use_astropy:
             hdu = self.fits_object[extension]
             if hdu.is_image:
                 return _image_bitpix2npy[hdu._bitpix]
@@ -162,7 +200,7 @@ class HealSparseFits(object):
         -------
         data : `np.ndarray`
         """
-        if use_rustfits or use_fitsio:
+        if self._use_rustfits or self._use_fitsio:
             hdu = self.fits_object[extension]
             if row_range is None:
                 return hdu.read()
@@ -171,7 +209,7 @@ class HealSparseFits(object):
             else:
                 return hdu[slice(col_range[0], col_range[1]),
                            slice(row_range[0], row_range[1])]
-        elif has_astropy:
+        elif self._use_astropy:
             # Note that for astropy this does not actually seem to work
             # read a subregion from a tile-compressed image; it reads
             # the full thing.
@@ -179,15 +217,15 @@ class HealSparseFits(object):
             if row_range is None:
                 return hdu.data.view(np.ndarray)
             elif col_range is None:
-                try:
+                if hdu.is_image:
                     return hdu.section[slice(row_range[0], row_range[1])].view(np.ndarray)
-                except AttributeError:
+                else:
                     return hdu.data[slice(row_range[0], row_range[1])].view(np.ndarray)
             else:
-                try:
+                if hdu.is_image:
                     return hdu.section[slice(col_range[0], col_range[1]),
                                        slice(row_range[0], row_range[1])].view(np.ndarray)
-                except AttributeError:
+                else:
                     return hdu.data[slice(col_range[0], col_range[1]),
                                     slice(row_range[0], row_range[1])].view(np.ndarray)
 
@@ -205,14 +243,14 @@ class HealSparseFits(object):
         is_image : `bool`
         """
         hdu = self.fits_object[extension]
-        if use_rustfits:
+        if self._use_rustfits:
             return isinstance(hdu, rustfits.ImageHDU)
-        elif use_fitsio:
+        elif self._use_fitsio:
             if hdu.get_exttype() == 'IMAGE_HDU':
                 return True
             else:
                 return False
-        elif has_astropy:
+        elif self._use_astropy:
             return hdu.is_image
 
     def append_extension(self, extension, data):
@@ -230,14 +268,14 @@ class HealSparseFits(object):
             raise RuntimeError("Appending only allowed in rw mode")
 
         hdu = self.fits_object[extension]
-        if use_rustfits:
+        if self._use_rustfits:
             if hasattr(hdu, 'extend'):
                 # We can append
                 hdu.extend(data)
             else:
                 firstrow = (hdu.get_dims()[0], )
                 hdu.write(data, start=firstrow)
-        elif use_fitsio:
+        elif self._use_fitsio:
             if hasattr(hdu, 'append'):
                 # A recarray that we can append to
                 hdu.append(data)
@@ -245,7 +283,7 @@ class HealSparseFits(object):
                 # An image that we cannot append to
                 firstrow = (hdu.get_dims()[0], )
                 hdu.write(data, start=firstrow)
-        elif has_astropy:
+        elif self._use_astropy:
             raise RuntimeError("Appending is not supported by astropy.io.fits")
 
     def close(self):
