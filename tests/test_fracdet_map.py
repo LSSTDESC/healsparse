@@ -155,6 +155,42 @@ class FracdetTestCase(unittest.TestCase):
             dtype=np.bool_,
         )
         sparse_map[0: 12345] = True
+        sparse_map[100000: 105023] = True
+        # Create some pixels and blank them.
+        sparse_map[50000: 60000] = True
+        sparse_map[50000: 60000] = False
+
+        fracdet_map1 = sparse_map.fracdet_map(nside_coverage)
+
+        np.testing.assert_array_almost_equal(fracdet_map1[:], sparse_map.coverage_map)
+
+        # Test that the fracdet map is good for target nside
+        fracdet_map2 = sparse_map.fracdet_map(nside_fracdet)
+
+        full_map = sparse_map[:].astype(np.int32)
+        nfine_per_frac = 2**healsparse.utils._compute_bitshift(nside_fracdet, nside_map)
+        full_map = full_map.reshape((full_map.size // nfine_per_frac, nfine_per_frac))
+        fracdet_recompute = full_map.sum(axis=1) / nfine_per_frac
+
+        np.testing.assert_array_almost_equal(fracdet_map2[:], fracdet_recompute)
+
+    def test_fracdet_map_bitpacked_bool(self):
+        """Test fracdet_map with a boolean map."""
+        nside_coverage = 16
+        nside_fracdet = 32
+        nside_map = 512
+
+        sparse_map = healsparse.HealSparseMap.make_empty(
+            nside_coverage,
+            nside_map,
+            dtype=np.bool_,
+            bit_packed=True,
+        )
+        sparse_map[0: 12345] = True
+        sparse_map[100000: 105023] = True
+        # Create some pixels and blank them.
+        sparse_map[50000: 60000] = True
+        sparse_map[50000: 60000] = False
 
         fracdet_map1 = sparse_map.fracdet_map(nside_coverage)
 
