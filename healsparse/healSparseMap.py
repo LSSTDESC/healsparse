@@ -1011,32 +1011,9 @@ class HealSparseMap(object):
            Float array of fractional coverage of each pixel
         """
 
-        cov_map = np.zeros_like(self.coverage_mask, dtype=np.float64)
-        cov_mask = self.coverage_mask
-        npop_pix = np.count_nonzero(cov_mask)
-        if self._is_wide_mask:
-            shape_new = (npop_pix + 1,
-                         self._cov_map.nfine_per_cov,
-                         self._wide_mask_width)
-            sp_map_t = self._sparse_map.reshape(shape_new)
-            # This trickery first checks all the bits, and then sums into the
-            # coverage pixel
-            counts = np.sum(np.any(sp_map_t != self._sentinel, axis=2), axis=1)
-        elif self._is_bit_packed:
-            shape_new = (npop_pix + 1,
-                         self._cov_map.nfine_per_cov)
-            counts = self._sparse_map.sum(shape=shape_new, axis=1).astype(np.float64)
-        else:
-            shape_new = (npop_pix + 1,
-                         self._cov_map.nfine_per_cov)
-            if self._is_rec_array:
-                sp_map_t = self._sparse_map[self._primary].reshape(shape_new)
-            else:
-                sp_map_t = self._sparse_map.reshape(shape_new)
-            counts = np.sum((sp_map_t != self._sentinel), axis=1).astype(np.float64)
+        fracdet = self.fracdet_map(self.nside_coverage)
 
-        cov_map[cov_mask] = counts[1:]/self._cov_map.nfine_per_cov
-        return cov_map
+        return fracdet[:]
 
     @property
     def coverage_mask(self):
@@ -1080,8 +1057,9 @@ class HealSparseMap(object):
 
         # This code is essentially a unification of coverage_map() and degrade()
         # to get the fracdet_coverage in a single step
-        cov_mask = self.coverage_mask
-        npop_pix = np.count_nonzero(cov_mask)
+        # We need the ordered list of coverage blocks in memory.
+        coverage_pixels_ordered = self._cov_map._block_to_cov_index
+        npop_pix = len(coverage_pixels_ordered)
 
         bit_shift = _compute_bitshift(nside, self.nside_sparse)
         nfine_per_frac = 2**bit_shift
@@ -1107,9 +1085,11 @@ class HealSparseMap(object):
 
         fracdet /= nfine_per_frac
 
-        fracdet_cov_map = HealSparseCoverage.make_from_pixels(self.nside_coverage,
-                                                              nside,
-                                                              np.where(cov_mask)[0])
+        fracdet_cov_map = HealSparseCoverage.make_from_pixels(
+            self.nside_coverage,
+            nside,
+            coverage_pixels_ordered,
+        )
 
         # The sentinel for a fracdet_map is 0.0, no coverage.
         return HealSparseMap(cov_map=fracdet_cov_map, sparse_map=fracdet,
