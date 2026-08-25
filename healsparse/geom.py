@@ -655,3 +655,124 @@ def pixel_ranges_intersection(range_list):
 
 hpg.pixel_ranges_union = pixel_ranges_union
 hpg.pixel_ranges_intersection = pixel_ranges_intersection
+
+
+class GeomUnion(GeomBase):
+    """
+    A geometric shape that is the union of pixels from other shapes.
+
+    The shapes must all have the same ``value`` parameter, but may
+    be an arbitrary mix of shapes. Combining shapes in a GeomUnion
+    container is faster than applying each shape individually.
+
+    Parameters
+    ----------
+    geom_list : `list` [`GeomBase`], optional
+        Initial list of geometric objects.
+    """
+    def __init__(self, *, geom_list=[]):
+        self._geom_list = []
+        self._value = None
+        self._nside_render = None
+
+        for geom in self._geom_list:
+            self.add(geom)
+
+    def _render(self, *, nside_render, return_pixel_ranges):
+        pixel_ranges_list = [geom.get_pixel_ranges(nside=nside_render) for geom in self._geom_list]
+        pixel_ranges = hpg.pixel_ranges_union(pixel_ranges_list)
+
+        if return_pixel_ranges:
+            return pixel_ranges
+        else:
+            return hpg.pixel_ranges_to_pixels(pixel_ranges)
+
+    def add(self, geom):
+        """Add a shape to the union.
+
+        Parameters
+        ----------
+        geom : `GeomBase`
+            Geometric shape to add. Must have same value as other shapes.
+        """
+        if not isinstance(geom, GeomBase):
+            raise ValueError(f"{repr(geom)} is not of GeomBase type.")
+
+        if self._value is None:
+            self._value = geom.value
+        elif geom.value != self._value:
+            raise ValueError(f"Shape {repr(geom)} has a mismatched value (must be {self._value}).")
+
+        self._geom_list.append(geom)
+
+    def __len__(self):
+        return len(self._geom_list)
+
+    def __ior__(self, geom):
+        self.add(geom)
+
+        return self
+
+    def __repr__(self):
+        s = "GeomUnion(len=%d, value=%s)"
+        return s % (len(self), repr(self._value))
+
+
+class GeomIntersection(GeomBase):
+    """
+    A geometric shape that is the intersection of pixels from other shapes.
+
+    The shapes must all have the same ``value`` parameter, but may
+    be an arbitrary mix of shapes. Combining shapes in a GeomIntersection
+    container is faster than applying each shape individually.
+
+    Parameters
+    ----------
+    geom_list : `list` [`GeomBase`], optional
+        Initial list of geometric objects.
+    """
+    def __init__(self, *, geom_list=[]):
+        self._geom_list = []
+        self._value = None
+        self._nside_render = None
+
+        for geom in self._geom_list:
+            self.add(geom)
+
+    def _render(self, *, nside_render, return_pixel_ranges):
+        pixel_ranges_list = [geom.get_pixel_ranges(nside=nside_render) for geom in self._geom_list]
+        pixel_ranges = hpg.pixel_ranges_intersection(pixel_ranges_list)
+
+        if return_pixel_ranges:
+            return pixel_ranges
+        else:
+            return hpg.pixel_ranges_to_pixels(pixel_ranges)
+
+    def add(self, geom):
+        """Add a shape to the intersection.
+
+        Parameters
+        ----------
+        geom : `GeomBase`
+            Geometric shape to add. Must have same value as other shapes.
+        """
+        if not isinstance(geom, GeomBase):
+            raise ValueError(f"{repr(geom)} is not of GeomBase type.")
+
+        if self._value is None:
+            self._value = geom.value
+        else:
+            if geom.value != self._value:
+                raise ValueError(f"Shape {repr(geom)} has a mismatched value (must be {self._value}).")
+
+        self._geom_list.append(geom)
+
+    def __len__(self):
+        return len(self._geom_list)
+
+    def __iand__(self, geom):
+        self.add(geom)
+
+    def __repr__(self):
+        s = "GeomIntersection(len=%d, value=%s)"
+        return s % (len(self), repr(self._value))
