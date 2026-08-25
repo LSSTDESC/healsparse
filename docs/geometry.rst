@@ -24,6 +24,7 @@ HealSparse Geometry Shapes
 --------------------------
 
 The four shapes supported are :code:`Circle`, :code:`Ellipse`, :code:`Polygon`, and :code:`Box`.
+In addition, there are two combination shapes, :code:`GeomUnion` and :code:`GeomIntersection`, which can be much faster when operating on (e.g.) a large set of mask shapes at once.
 They share a base class, and while the instantiation is different, the operations are the same.
 
 **Circle**
@@ -69,11 +70,35 @@ They share a base class, and while the instantiation is different, the operation
     box = healsparse.Box(ra1=20.0, ra2=30.0, dec1=10.0, dec2=5.0, value=True)
 
 
+**GeomUnion**
+
+.. code-block :: python
+
+    # This provides the union of pixels from multiple shapes. They must
+    # all have the same associated value.
+    union = healsparse.GeomUnion()
+    union |= healsparse.Circle(ra=200.0, dec=0.0, radius=1.0, value=True)
+    union |= healsparse.Box(ra1=201.0, ra2=202.0, dec1=0.0, dec2=2.0, value=True)
+
+
+**GeomIntersection**
+
+.. code-block :: python
+
+    # This provides the intersection of pixels from multiple shapes. They must
+    # all have the same associated value.
+    intersection = healsparse.GeomIntersection()
+    intersection &= healsparse.Circle(ra=200.0, dec=0.0, radius=1.0, value=True)
+    intersection &= healsparse.Box(ra1=200.5, ra2=202.0, dec1=0.0, dec2=2.0, value=True)
+
+
+
 Combining Geometric Objects with Maps
 -------------------------------------
 
 Given a map, it is very simple to combine geometric objects to build up complex shapes/masks/etc.
 Behind the scenes, large geometric objects are rendered with :code:`hpgeom` pixel ranges which leads to greater memory efficiency.
+If you are adding a large number of geometric objects at once, even greater efficiency can be achieved by using the :code:`GeomUnion` or :code:`GeomIntersection` combination classes.
 Note that these operations can be applied to integer or boolean maps.
 
 .. code-block :: python
