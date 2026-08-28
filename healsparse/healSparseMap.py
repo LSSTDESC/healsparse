@@ -5,7 +5,7 @@ import numbers
 from .healSparseCoverage import HealSparseCoverage
 from .utils import reduce_array, check_sentinel, _bitvals_to_packed_array
 from .utils import WIDE_NBIT, WIDE_MASK, PIXEL_RANGE_THRESHOLD
-from .utils import is_integer_value, _compute_bitshift
+from .utils import is_integer_value, _compute_bitshift, _n_valid_per_pix
 from .utils import has_duplicates, fast_unique
 from .io_map import _read_map, _write_map, _write_moc
 from .packedBoolArray import _PackedBoolArray
@@ -1057,33 +1057,9 @@ class HealSparseMap(object):
 
         # This code is essentially a unification of coverage_map() and degrade()
         # to get the fracdet_coverage in a single step
-        # We need the ordered list of coverage blocks in memory.
-        coverage_pixels_ordered = self._cov_map._block_to_cov_index
-        npop_pix = len(coverage_pixels_ordered)
+        coverage_pixels_ordered, nfine_per_nside, n_valid_arr = _n_valid_per_pix(self, nside, True)
 
-        bit_shift = _compute_bitshift(nside, self.nside_sparse)
-        nfine_per_frac = 2**bit_shift
-        nfrac_per_cov = self._cov_map.nfine_per_cov//nfine_per_frac
-
-        if self._is_wide_mask:
-            shape_new = ((npop_pix + 1)*nfrac_per_cov,
-                         nfine_per_frac,
-                         self._wide_mask_width)
-            sp_map_t = self._sparse_map.reshape(shape_new)
-            fracdet = np.sum(np.any(sp_map_t != self._sentinel, axis=2), axis=1).astype(np.float64)
-        elif self._is_bit_packed:
-            shape_new = ((npop_pix + 1)*nfrac_per_cov, nfine_per_frac)
-            fracdet = self._sparse_map.sum(shape=shape_new, axis=1).astype(np.float64)
-        else:
-            shape_new = ((npop_pix + 1)*nfrac_per_cov,
-                         nfine_per_frac)
-            if self._is_rec_array:
-                sp_map_t = self._sparse_map[self._primary].reshape(shape_new)
-            else:
-                sp_map_t = self._sparse_map.reshape(shape_new)
-            fracdet = np.sum(sp_map_t != self._sentinel, axis=1).astype(np.float64)
-
-        fracdet /= nfine_per_frac
+        fracdet = n_valid_arr.astype(np.float64) / nfine_per_nside
 
         fracdet_cov_map = HealSparseCoverage.make_from_pixels(
             self.nside_coverage,
