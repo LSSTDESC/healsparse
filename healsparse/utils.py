@@ -245,3 +245,60 @@ def fast_unique(pixels):
     seen = np.zeros(span, dtype=np.bool_)
     seen[pixels - mn] = True
     return np.flatnonzero(seen) + mn
+
+
+def _n_valid_per_pix(hspmap, nside, return_overflow):
+    """
+    Compute the number of valid pixels per pixel at (coarser) nside.
+
+    Parameters
+    ----------
+    hspmap : `HealSparseMap`
+        HealSparseMap to compute.
+    nside : `int`
+        nside for output.
+    return_overflow : `bool`
+        Return the (initial) overflow pixel in n_valid_arr?
+
+    Returns
+    -------
+    coverage_pixels_ordered : `np.ndarray`
+        Ordered list of coverage pixels in memory.
+    nfine_per_nside : `int`
+        Number of fine (sparse) valid pixels per nside pixel.
+    n_valid_arr : `np.ndarray`
+        Array of valid pixels (linked to coverage_pixels_ordered).
+    """
+    # We need the ordered list of coverage blocks in memory.
+    coverage_pixels_ordered = hspmap._cov_map._block_to_cov_index
+    npop_pix = len(coverage_pixels_ordered)
+
+    bit_shift = _compute_bitshift(nside, hspmap.nside_sparse)
+    nfine_per_nside = 2**bit_shift
+    nfrac_per_cov = hspmap._cov_map.nfine_per_cov//nfine_per_nside
+
+    if hspmap._is_wide_mask:
+        shape_new = ((npop_pix + 1)*nfrac_per_cov,
+                     nfine_per_nside,
+                     hspmap._wide_mask_width)
+        sp_map_t = hspmap._sparse_map.reshape(shape_new)
+        n_valid_arr = np.sum(np.any(sp_map_t != hspmap._sentinel, axis=2), axis=1)
+    elif hspmap._is_bit_packed:
+        shape_new = ((npop_pix + 1)*nfrac_per_cov, nfine_per_nside)
+        n_valid_arr = hspmap._sparse_map.sum(shape=shape_new, axis=1)
+    else:
+        shape_new = ((npop_pix + 1)*nfrac_per_cov,
+                     nfine_per_nside)
+        if hspmap._is_rec_array:
+            sp_map_t = hspmap._sparse_map[hspmap._primary].reshape(shape_new)
+        else:
+            sp_map_t = hspmap._sparse_map.reshape(shape_new)
+        n_valid_arr = np.sum(sp_map_t != hspmap._sentinel, axis=1)
+
+    # Note that the n_valid_arr needs to remove the first entry which
+    # is the overflow coverage pixel.
+
+    if not return_overflow:
+        n_valid_arr = n_valid_arr[1:]
+
+    return coverage_pixels_ordered, nfine_per_nside, n_valid_arr
