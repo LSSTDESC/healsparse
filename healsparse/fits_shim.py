@@ -42,9 +42,9 @@ _image_bitpix2npy = {
 
 
 FITS_RESERVED = ['TFIELDS', 'TTYPE1', 'TFORM1', 'ZIMAGE',
-                 'ZTENSION', 'ZBITPIX', 'ZNAXIS', 'ZNAXIS1',
-                 'ZPCOUNT', 'ZGCOUNT', 'ZTILE1', 'ZCMPTYPE',
-                 'ZNAME1', 'ZVAL1', 'ZQUANTIZ',
+                 'ZTENSION', 'ZBITPIX', 'ZNAXIS', 'ZNAXIS1', 'ZNAXIS2',
+                 'ZPCOUNT', 'ZGCOUNT', 'ZTILE1', 'ZTILE2', 'ZCMPTYPE',
+                 'ZNAME1', 'ZNAME2', 'ZVAL1', 'ZVAL2', 'ZQUANTIZ',
                  'SIMPLE', 'BITPIX', 'NAXIS', 'NAXIS1', 'NAXIS2',
                  'PCOUNT', 'GCOUNT', 'XTENSION']
 
