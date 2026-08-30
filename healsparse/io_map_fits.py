@@ -2,7 +2,7 @@ import os
 import numpy as np
 import hpgeom as hpg
 
-from .fits_shim import HealSparseFits, _make_header, _write_filename
+from .fits_shim import HealSparseFits, _make_header, _write_filename, _strip_header_fits_keywords
 from .utils import is_integer_value, _compute_bitshift, reduce_array, WIDE_MASK
 from .healSparseCoverage import HealSparseCoverage
 from .packedBoolArray import _PackedBoolArray
@@ -138,7 +138,7 @@ def _read_map_fits(healsparse_class, filename, nside_coverage=None, pixels=None,
 
         healsparse_map = healsparse_class(cov_map=cov_map, sparse_map=sparse_map,
                                           nside_sparse=nside_sparse, primary=primary, sentinel=sentinel,
-                                          metadata=hdr)
+                                          metadata=_strip_header_fits_keywords(hdr))
 
         if header:
             return (healsparse_map, hdr)
@@ -305,8 +305,6 @@ def _read_healsparse_fits_file(filename, pixels=None):
                 row_range = [0, cov_map.nfine_per_cov*wmult//wdiv]
                 col_range = [0, 1]
 
-            # if reshaped:
-            #     print("About to read ... ")
             sparse_map[0: cov_map.nfine_per_cov*wmult//wdiv] = \
                 fits.read_ext_data('SPARSE',
                                    row_range=row_range, col_range=col_range).ravel()
