@@ -2076,6 +2076,96 @@ class HealSparseMap(object):
             metadata=self.metadata,
         )
 
+    @property
+    def is_fragmented(self):
+        """
+        Return True if the map has any empty coverage pixels or
+        the coverage pixels are not in healpix order. If the map
+        is fragmented then the defragmented_map may use less
+        memory.
+
+        Returns
+        -------
+        is_fragmented : `bool`
+        """
+        _, _, n_valid_arr = _n_valid_per_pix(self, self.nside_coverage, False)
+
+        if np.any(n_valid_arr == 0):
+            return True
+
+        if np.all(n_valid_arr[:-1] <= n_valid_arr[1:]):
+            return False
+        else:
+            return True
+
+    def defragment(self, in_place=True):
+        """
+        ``Defragment`` the map and return a new map.
+
+        HealSparse maps can be constructed in any order, and regions can be
+        masked out. This routine will reorder the coverage pixels in healpix
+        order, as well as removing any unused coverage pixels. This is not
+        a necessary operation, nor should it be common. If the map is
+        fragmented, the defragmented map may use less memory.
+
+        Parameters
+        ----------
+        in_place : `bool`, optional
+            Defragment in place?  If False, returns a new map.
+
+        Returns
+        -------
+        defragmented_map : `HealSparseMap`
+        """
+        coverage_pixels_ordered, nfine_per_cov, n_valid_arr = _n_valid_per_pix(
+            self,
+            self.nside_coverage,
+            False,
+        )
+        coverage_pixels_use, = np.where(n_valid_arr > 0)
+        defrag_n_cov = len(coverage_pixels_use)
+
+        st = np.argsort(coverage_pixels_ordered[coverage_pixels_use])
+
+        defrag_cov_map = HealSparseCoverage.make_from_pixels(
+            self.nside_coverage,
+            self.nside_sparse,
+            coverage_pixels_ordered[coverage_pixels_use][st],
+        )
+
+        sparse_map_size = (defrag_n_cov + 1) * nfine_per_cov
+
+        if self.is_bit_packed_map:
+            defrag_sparse_map = _PackedBoolArray(size=sparse_map_size)
+        else:
+            defrag_sparse_map = np.zeros_like(self._sparse_map, size=sparse_map_size)
+
+        # Fill the overflow coverage pixel.
+        defrag_sparse_map[0: nfine_per_cov] = self._sparse_map[0: nfine_per_cov]
+
+        # Fill the rest of the pixels.
+        for i, cov_pix in enumerate(coverage_pixels_ordered[coverage_pixels_use][st]):
+            start_source = self._cov_map[cov_pix] + nfine_per_cov*cov_pix
+            s_source = slice(start_source, start_source + nfine_per_cov)
+            start_dest = defrag_cov_map[cov_pix] + nfine_per_cov*cov_pix
+            s_dest = slice(start_dest, start_dest + nfine_per_cov)
+            defrag_sparse_map[s_dest] = self._sparse_map[s_source]
+
+        if in_place:
+            self._cov_map = defrag_cov_map
+            self._sparse_map = defrag_sparse_map
+
+            return self
+        else:
+            return HealSparseMap(
+                cov_map=defrag_cov_map,
+                sparse_map=defrag_sparse_map,
+                nside_sparse=self.nside_sparse,
+                primary=self.primary,
+                sentinel=self.sentinel,
+                metadata=self.metadata,
+            )
+
     def __add__(self, other):
         """
         Add a constant.
