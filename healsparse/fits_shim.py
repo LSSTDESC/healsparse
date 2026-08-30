@@ -48,6 +48,23 @@ FITS_RESERVED = ['TFIELDS', 'TTYPE1', 'TFORM1', 'ZIMAGE',
                  'SIMPLE', 'BITPIX', 'NAXIS', 'NAXIS1', 'NAXIS2',
                  'PCOUNT', 'GCOUNT', 'XTENSION']
 
+HEALSPARSE_RESERVED = [
+    'EXTNAME',
+    'PIXTYPE',
+    'NSIDE',
+    'SENTINEL',
+    'BITPACK',
+    'RESHAPED',
+    'INDXSCHM',
+    'ORDERING',
+    'BAD_DATA',
+    'MOCVERS',
+    'WIDEMASK',
+    'WIDTH',
+    'WWIDTH',
+    'PRIMARY',
+]
+
 
 class HealSparseFits(object):
     """
@@ -406,6 +423,26 @@ def _make_header(metadata, force_astropy=False):
         _make_hierarch_header(metadata, hdr)
 
     return hdr
+
+
+def _strip_header_fits_keywords(hdr):
+    """
+    Strip a header of fits reserved keywords.
+
+    Parameters
+    ----------
+    hdr : `dict` or dict-like
+
+    Returns
+    -------
+    metadata : `dict`
+    """
+    metadata = dict(hdr)
+
+    for reserved in FITS_RESERVED + HEALSPARSE_RESERVED:
+        metadata.pop(reserved, None)
+
+    return metadata
 
 
 def _write_healpix_filename(filename, hdr, output_struct):
