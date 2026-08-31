@@ -150,7 +150,15 @@ class _PackedBoolArray:
 
         self._stop_index = newsize + self._start_index
 
-        self._data.resize(newsize_data, refcheck=refcheck)
+        try:
+            self._data.resize(newsize_data, refcheck=refcheck)
+        except ValueError:
+            # In some cases after serialization this may not allow a
+            # resize-in-place, in which case we need to copy the data.
+            oldsize_data = len(self._data)
+            self._data = np.resize(self._data, newsize_data)
+            # We need to make sure the additional data are zeroed.
+            self._data[oldsize_data] = 0
 
     def sum(self, shape=None, axis=None):
         if shape is None:

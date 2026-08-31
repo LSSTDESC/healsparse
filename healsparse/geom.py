@@ -539,3 +539,240 @@ class Box(GeomBase):
     def __repr__(self):
         s = "Box(ra1=%.16g, ra2=%.16g, dec1=%.16g, dec2=%.16g, value=%s, nside_render=%s"
         return s % (self._ra1, self._ra2, self._dec1, self._dec2, repr(self._value), repr(self._nside_render))
+
+
+# TEMPORARY HACK UNTIL HPGEOM RELEASE
+
+def pixel_ranges_union(range_list):
+    """Combine a list of pixel range sets into a normalized union.
+
+    This routine can efficiently combine the output from multiple
+    queries with return_pixel_ranges=True into a unique, normalized
+    pixel range that is the union of all the inputs.
+
+    Parameters
+    ----------
+    range_list : `list` [`np.ndarray`]
+        List of pixel ranges, each of which is dimensionality (N,2).
+        Each element does not need to have the same N.
+
+    Returns
+    -------
+    pixel_ranges_union : `np.ndarray` (M,2)
+        Normalized union of input pixel ranges.
+    """
+    # Remove empty lists.
+    arrays = [a for a in range_list if a.size]
+    if not arrays:
+        return np.empty((0, 2), dtype=np.int64)
+
+    all_ranges = np.concatenate(arrays, axis=0)
+    order = np.argsort(all_ranges[:, 0], kind="stable")
+    sorted_ranges = all_ranges[order]
+    starts = sorted_ranges[:, 0]
+    ends = sorted_ranges[:, 1]
+
+    running_max_end = np.maximum.accumulate(ends)
+
+    # A new merged interval starts wherever the next range doesn't
+    # overlap/touch everything merged so far, using the
+    # half-open convention.
+    new_group = np.empty(starts.shape[0], dtype=bool)
+    new_group[0] = True
+    new_group[1:] = starts[1:] > running_max_end[:-1]
+
+    group_end = np.empty_like(new_group)
+    group_end[:-1] = new_group[1:]
+    group_end[-1] = True
+
+    merged_starts = starts[new_group]
+    merged_ends = running_max_end[group_end]
+
+    return np.stack([merged_starts, merged_ends], axis=1)
+
+
+def pixel_ranges_intersection(range_list):
+    """Combine a list of pixel range sets into a normalized intersection.
+
+    This routine can efficiently combine the output from multiple queries
+    with return_pixel_ranges=True into a unique, normalized pixel range
+    that is the intersection of all the inputs.
+
+    Parameters
+    ----------
+    range_list : `list` [`np.ndarray`]
+        List of pixel ranges, each of which is dimensionality (N,2).
+        Each element does not need to have the same N.
+
+    Returns
+    -------
+    pixel_ranges_intersection : `np.ndarray` (M,2)
+        Normalized intersection of input pixel ranges.
+    """
+    k = len(range_list)
+    if k == 0:
+        return np.empty((0, 2), dtype=np.int64)
+
+    arrays = [a for a in range_list if a.size]
+    if len(arrays) < k:
+        # at least one set is empty -> intersection with it is empty
+        return np.empty((0, 2), dtype=np.int64)
+
+    starts = np.concatenate([a[:, 0] for a in arrays])
+    ends = np.concatenate([a[:, 1] for a in arrays])
+    positions = np.concatenate([starts, ends])
+    deltas = np.concatenate([
+        np.ones(starts.shape[0], dtype=np.int64),
+        -np.ones(ends.shape[0], dtype=np.int64),
+    ])
+
+    order = np.argsort(positions, kind="stable")
+    sorted_pos = positions[order]
+    sorted_delta = deltas[order]
+
+    unique_pos, first_idx = np.unique(sorted_pos, return_index=True)
+    group_delta = np.add.reduceat(sorted_delta, first_idx)
+    coverage = np.cumsum(group_delta)
+
+    # segment i = [unique_pos[i], unique_pos[i+1]) has coverage[i]
+    in_all = coverage[:-1] == k
+    if not np.any(in_all):
+        return np.empty((0, 2), dtype=np.int64)
+
+    starts_mask = np.empty(in_all.shape[0], dtype=bool)
+    starts_mask[0] = in_all[0]
+    starts_mask[1:] = in_all[1:] & ~in_all[:-1]
+
+    ends_mask = np.empty(in_all.shape[0], dtype=bool)
+    ends_mask[-1] = in_all[-1]
+    ends_mask[:-1] = in_all[:-1] & ~in_all[1:]
+
+    out_starts = unique_pos[:-1][starts_mask]
+    out_ends = unique_pos[1:][ends_mask]
+
+    return np.stack([out_starts, out_ends], axis=1)
+
+
+hpg.pixel_ranges_union = pixel_ranges_union
+hpg.pixel_ranges_intersection = pixel_ranges_intersection
+
+
+class GeomUnion(GeomBase):
+    """
+    A geometric shape that is the union of pixels from other shapes.
+
+    The shapes must all have the same ``value`` parameter, but may
+    be an arbitrary mix of shapes. Combining shapes in a GeomUnion
+    container is faster than applying each shape individually.
+
+    Parameters
+    ----------
+    geom_list : `list` [`GeomBase`], optional
+        Initial list of geometric objects.
+    """
+    def __init__(self, *, geom_list=[]):
+        self._geom_list = []
+        self._value = None
+        self._nside_render = None
+
+        for geom in self._geom_list:
+            self.add(geom)
+
+    def _render(self, *, nside_render, return_pixel_ranges):
+        pixel_ranges_list = [geom.get_pixel_ranges(nside=nside_render) for geom in self._geom_list]
+        pixel_ranges = hpg.pixel_ranges_union(pixel_ranges_list)
+
+        if return_pixel_ranges:
+            return pixel_ranges
+        else:
+            return hpg.pixel_ranges_to_pixels(pixel_ranges)
+
+    def add(self, geom):
+        """Add a shape to the union.
+
+        Parameters
+        ----------
+        geom : `GeomBase`
+            Geometric shape to add. Must have same value as other shapes.
+        """
+        if not isinstance(geom, GeomBase):
+            raise ValueError(f"{repr(geom)} is not of GeomBase type.")
+
+        if self._value is None:
+            self._value = geom.value
+        elif geom.value != self._value:
+            raise ValueError(f"Shape {repr(geom)} has a mismatched value (must be {self._value}).")
+
+        self._geom_list.append(geom)
+
+    def __len__(self):
+        return len(self._geom_list)
+
+    def __ior__(self, geom):
+        self.add(geom)
+
+        return self
+
+    def __repr__(self):
+        s = "GeomUnion(len=%d, value=%s)"
+        return s % (len(self), repr(self._value))
+
+
+class GeomIntersection(GeomBase):
+    """
+    A geometric shape that is the intersection of pixels from other shapes.
+
+    The shapes must all have the same ``value`` parameter, but may
+    be an arbitrary mix of shapes. Combining shapes in a GeomIntersection
+    container is faster than applying each shape individually.
+
+    Parameters
+    ----------
+    geom_list : `list` [`GeomBase`], optional
+        Initial list of geometric objects.
+    """
+    def __init__(self, *, geom_list=[]):
+        self._geom_list = []
+        self._value = None
+        self._nside_render = None
+
+        for geom in self._geom_list:
+            self.add(geom)
+
+    def _render(self, *, nside_render, return_pixel_ranges):
+        pixel_ranges_list = [geom.get_pixel_ranges(nside=nside_render) for geom in self._geom_list]
+        pixel_ranges = hpg.pixel_ranges_intersection(pixel_ranges_list)
+
+        if return_pixel_ranges:
+            return pixel_ranges
+        else:
+            return hpg.pixel_ranges_to_pixels(pixel_ranges)
+
+    def add(self, geom):
+        """Add a shape to the intersection.
+
+        Parameters
+        ----------
+        geom : `GeomBase`
+            Geometric shape to add. Must have same value as other shapes.
+        """
+        if not isinstance(geom, GeomBase):
+            raise ValueError(f"{repr(geom)} is not of GeomBase type.")
+
+        if self._value is None:
+            self._value = geom.value
+        else:
+            if geom.value != self._value:
+                raise ValueError(f"Shape {repr(geom)} has a mismatched value (must be {self._value}).")
+
+        self._geom_list.append(geom)
+
+    def __len__(self):
+        return len(self._geom_list)
+
+    def __iand__(self, geom):
+        self.add(geom)
+
+    def __repr__(self):
+        s = "GeomIntersection(len=%d, value=%s)"
+        return s % (len(self), repr(self._value))

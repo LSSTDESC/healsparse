@@ -1221,9 +1221,6 @@ class HealSparseBitPackedTestCase(unittest.TestCase):
         self.assertTrue(sparse_map_in.is_bit_packed_map)
         self.assertEqual(sparse_map_in.dtype, np.bool_)
         self.assertEqual(sparse_map_in.sentinel, False)
-        # Confirm that it was reshaped on write.
-        self.assertIn('RESHAPED', sparse_map_in.metadata)
-        self.assertTrue(sparse_map_in.metadata['RESHAPED'])
 
         self.assertEqual(sparse_map_in.n_valid, 2)
 

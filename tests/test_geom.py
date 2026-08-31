@@ -5,7 +5,7 @@ import numpy as np
 import hpgeom as hpg
 
 import healsparse
-from healsparse import Circle, Polygon, Ellipse, Box
+from healsparse import Circle, Polygon, Ellipse, Box, GeomUnion, GeomIntersection
 
 
 def atbound(longitude, minval, maxval):
@@ -891,6 +891,112 @@ class GeomTestCase(unittest.TestCase):
 
             np.testing.assert_array_equal(m[pixels1and2], 2*value)
             np.testing.assert_array_equal(m3[pixels1and2], 2*value)
+
+    def test_geom_union(self):
+        n_circle = 500
+        nside_sparse = 2**17
+        nside_coverage = 32
+
+        np.random.seed(123456)
+
+        ras = np.random.uniform(low=5.0, high=6.0, size=n_circle)
+        decs = np.random.uniform(low=5.0, high=6.0, size=n_circle)
+        radii = np.random.uniform(low=0.001, high=0.1, size=n_circle)
+
+        # Do the slower way.
+        m = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse, bool, bit_packed=True)
+
+        for i in range(n_circle):
+            circle = Circle(ra=ras[i], dec=decs[i], radius=radii[i], value=True)
+            m |= circle
+
+        # Do the faster way.
+        m2 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse, bool, bit_packed=True)
+
+        geom_union = GeomUnion()
+        for i in range(n_circle):
+            circle = Circle(ra=ras[i], dec=decs[i], radius=radii[i], value=True)
+            geom_union.add(circle)
+
+        m2 |= geom_union
+
+        # Note that the valid pixels from the slower way may not come out in
+        # sort order.
+        testing.assert_array_equal(
+            m2.valid_pixels,
+            np.sort(m.valid_pixels, kind="stable"),
+        )
+
+        # Do the faster way (other API).
+        m2 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse, bool, bit_packed=True)
+
+        geom_union = GeomUnion()
+        for i in range(n_circle):
+            circle = Circle(ra=ras[i], dec=decs[i], radius=radii[i], value=True)
+            geom_union |= circle
+
+        m2 |= geom_union
+
+        # Note that the valid pixels from the slower way may not come out in
+        # sort order.
+        testing.assert_array_equal(
+            m2.valid_pixels,
+            np.sort(m.valid_pixels, kind="stable"),
+        )
+
+        _ = repr(geom_union)
+
+    def test_geom_union_mismatch(self):
+        geom_union = GeomUnion()
+
+        geom_union.add(Circle(ra=0.0, dec=0.0, radius=1.0, value=True))
+
+        with self.assertRaises(ValueError):
+            geom_union.add(Circle(ra=0.0, dec=0.0, radius=1.0, value=False))
+
+    def test_geom_intersection(self):
+        nside_sparse = 2**17
+        nside_coverage = 32
+
+        n_circle = 2
+        ras = [100.0, 100.2]
+        decs = [0.0, 0.0]
+        radii = [0.2, 0.2]
+
+        # There is no way to do this directly with boolean maps (yet).
+        # We do this to test the intersection functionality.
+        m_a = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse, np.int32, sentinel=0)
+        m_a |= Circle(ra=ras[0], dec=decs[0], radius=radii[0], value=1)
+        m_b = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse, np.int32, sentinel=0)
+        m_b |= Circle(ra=ras[1], dec=decs[1], radius=radii[1], value=1)
+
+        m = healsparse.operations.and_intersection([m_a, m_b])
+
+        m2 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse, bool, bit_packed=True)
+
+        geom_intersection = GeomIntersection()
+        for i in range(n_circle):
+            circle = Circle(ra=ras[i], dec=decs[i], radius=radii[i], value=True)
+            geom_intersection.add(circle)
+
+        m2 |= geom_intersection
+
+        # Note that the valid pixels from the slower way may not come out in
+        # sort order.
+        testing.assert_array_equal(
+            m2.valid_pixels,
+            np.sort(m.valid_pixels, kind="stable"),
+        )
+
+        _ = repr(geom_intersection)
+
+    def test_geom_intersection_mismatch(self):
+        geom_intersection = GeomIntersection()
+
+        geom_intersection.add(Circle(ra=0.0, dec=0.0, radius=1.0, value=True))
+
+        with self.assertRaises(ValueError):
+            geom_intersection.add(Circle(ra=0.0, dec=0.0, radius=1.0, value=False))
 
     def test_repr(self):
         """
