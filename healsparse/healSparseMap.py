@@ -430,12 +430,24 @@ class HealSparseMap(object):
         newsize = oldsize + new_cov_pix.size*self._cov_map.nfine_per_cov
 
         if self._is_wide_mask:
-            self._sparse_map.resize((newsize, self._wide_mask_width), refcheck=False)
-        else:
-            self._sparse_map.resize(newsize, refcheck=False)
+            try:
+                self._sparse_map.resize((newsize, self._wide_mask_width), refcheck=False)
+            except ValueError:
+                # In some cases after serialization this may not allow a
+                # resize-in-place, in which case we need to copy the data.
+                self._sparse_map = np.resize(self._sparse_map, (newsize, self._wide_mask_width))
 
-        # Fill with blank values
-        self._sparse_map[oldsize:] = self._sparse_map[0]
+            # Fill with blank value
+            self._sparse_map[oldsize:, :] = 0
+        else:
+            try:
+                self._sparse_map.resize(newsize, refcheck=False)
+            except ValueError:
+                self._sparse_map = np.resize(self._sparse_map, newsize)
+                self._sparse_map[oldsize:] = 0
+
+            # Fill with blank value
+            self._sparse_map[oldsize:] = self._sparse_map[0]
 
     def update_values_pos(self, ra_or_theta, dec_or_phi, values,
                           lonlat=True, operation='replace', check_unique=True):
