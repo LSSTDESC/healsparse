@@ -288,6 +288,31 @@ In order to translate a :code:`fracdet_map` to lower resolution, the :code:`degr
 If one tries to compute the :code:`fracdet_map` of an existing :code:`fracdet_map` then you will not get the expected output, because this is the fractional coverage of the :code:`fracdet_map` itself, not of the original sparse map.
 
 
+Map Defragmentation
+-------------------
+
+When building a :code:`HealSparseMap` out of geometric primitives, you may not be building the map in healpix order.
+In addition, sometimes pixels in the "coverage map" may be set and then unset, which takes up extra memory and (slightly) more space on disk.
+In these cases, it is possible to run the "defragmentation" routine which may slightly compress the map and lead to slightly better performance.
+This should not be a common operation, but it is nice to do after building a large map.
+
+.. code-block :: python
+
+    import numpy as np
+    import healsparse
+
+    m = healsparse.HealSparseMap.make_empty(32, 128, np.int32)
+    m[10000: 10010] = 100
+    m[100000: 100010] = 200
+    m[100000: 100010] = m.sentinel
+
+    print(m.is_fragmented)
+    # Prints True
+    m.defragment()
+    print(m.is_fragmented)
+    # Prints False
+
+
 Basic Visualization
 -------------------
 
