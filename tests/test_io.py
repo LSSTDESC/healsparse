@@ -369,6 +369,68 @@ class HealsparseFitsIoTestCase(unittest.TestCase):
 
         self.assertEqual(m3, m2)
 
+    def test_fits_write_read_write_read_widemask(self):
+        nside_coverage = 32
+        nside_map = 128
+
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        m = healsparse.HealSparseMap.make_empty(
+            nside_coverage,
+            nside_map,
+            healsparse.WIDE_MASK,
+            wide_mask_maxbits=16,
+        )
+        m.set_bits_pix(np.arange(1000, 2000), [1, 10])
+
+        fname1 = os.path.join(self.test_dir, "healsparse_map1.hsp")
+        m.write(fname1)
+
+        m2 = healsparse.HealSparseMap.read(fname1)
+
+        self.assertEqual(m2, m)
+
+        # Add more to the map.
+        m2.set_bits_pix(np.arange(50000, 50010), [2, 11])
+
+        fname2 = os.path.join(self.test_dir, "healsparse_map2.hsp")
+        m2.write(fname2)
+
+        m3 = healsparse.HealSparseMap.read(fname2)
+
+        self.assertEqual(m3, m2)
+
+    def test_fits_write_read_write_read_bit_packed(self):
+        nside_coverage = 32
+        nside_map = 128
+
+        self.test_dir = tempfile.mkdtemp(dir='./', prefix='TestHealSparse-')
+
+        m = healsparse.HealSparseMap.make_empty(
+            nside_coverage,
+            nside_map,
+            np.bool_,
+            bit_packed=True,
+        )
+        m[1000: 2000] = True
+
+        fname1 = os.path.join(self.test_dir, "healsparse_map1.hsp")
+        m.write(fname1)
+
+        m2 = healsparse.HealSparseMap.read(fname1)
+
+        self.assertEqual(m2, m)
+
+        # Add more to the map.
+        m2[50000: 50010] = True
+
+        fname2 = os.path.join(self.test_dir, "healsparse_map2.hsp")
+        m2.write(fname2)
+
+        m3 = healsparse.HealSparseMap.read(fname2)
+
+        self.assertEqual(m3, m2)
+
     def test_fits_read_empty_metadata(self):
         nside_coverage = 32
         nside_map = 128
