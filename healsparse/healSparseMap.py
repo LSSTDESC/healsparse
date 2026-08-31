@@ -2100,12 +2100,12 @@ class HealSparseMap(object):
         -------
         is_fragmented : `bool`
         """
-        _, _, n_valid_arr = _n_valid_per_pix(self, self.nside_coverage, False)
+        coverage_pixels_ordered, _, n_valid_arr = _n_valid_per_pix(self, self.nside_coverage, False)
 
         if np.any(n_valid_arr == 0):
             return True
 
-        if np.all(n_valid_arr[:-1] <= n_valid_arr[1:]):
+        if np.all(coverage_pixels_ordered[:-1] <= coverage_pixels_ordered[1:]):
             return False
         else:
             return True
@@ -2150,7 +2150,13 @@ class HealSparseMap(object):
         if self.is_bit_packed_map:
             defrag_sparse_map = _PackedBoolArray(size=sparse_map_size)
         else:
-            defrag_sparse_map = np.zeros_like(self._sparse_map, size=sparse_map_size)
+            if self._is_wide_mask:
+                defrag_sparse_map = np.zeros_like(
+                    self._sparse_map,
+                    shape=(sparse_map_size, self._sparse_map.shape[1]),
+                )
+            else:
+                defrag_sparse_map = np.zeros_like(self._sparse_map, shape=sparse_map_size)
 
         # Fill the overflow coverage pixel.
         defrag_sparse_map[0: nfine_per_cov] = self._sparse_map[0: nfine_per_cov]
