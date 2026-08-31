@@ -442,6 +442,11 @@ def _strip_header_fits_keywords(hdr):
     for reserved in FITS_RESERVED + HEALSPARSE_RESERVED:
         metadata.pop(reserved, None)
 
+    # Remove recarray dtypes.
+    for key in list(metadata.keys()):
+        if key.startswith("TTYPE") or key.startswith("TFORM"):
+            metadata.pop(key, None)
+
     return metadata
 
 
