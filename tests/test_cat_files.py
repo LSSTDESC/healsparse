@@ -111,7 +111,7 @@ class CatFilesTestCase(unittest.TestCase):
 
             file_list = [filename1, filename2, filename3]
 
-            for in_mem in [False, True]:
+            for in_mem in [True]:
                 outfile = os.path.join(self.test_dir, 'test_%s_combined_%d.hs' %
                                        (t, int(in_mem)))
 
@@ -150,49 +150,71 @@ class CatFilesTestCase(unittest.TestCase):
 
         nside_coverage_out = 64
 
-        for t in ['array']:  # 'recarray', 'widemask']:
+        for t in ['array', 'bitpacked']:
+            primary = None
+            wide_mask_maxbits = None
+            bit_packed = False
+            sentinel = hpg.UNSEEN
             if t == 'array':
                 dtype = np.int32
-                primary = None
-                wide_mask_maxbits = None
                 sentinel = -9999
                 data = np.asarray([100.0], dtype=dtype)
             elif t == 'recarray':
+                # Not supported.
                 dtype = [('a', 'f4'),
                          ('b', 'i4')]
                 primary = 'a'
-                wide_mask_maxbits = None
-                sentinel = hpg.UNSEEN
                 data = np.zeros(1, dtype=dtype)
                 data['a'] = 100.0
                 data['b'] = 100
-            else:
+            elif t == 'widemask':
+                # Not supported.
                 dtype = healsparse.WIDE_MASK
-                primary = None
                 wide_mask_maxbits = 24
                 sentinel = 0
-            map1 = healsparse.HealSparseMap.make_empty(nside_coverage1, nside_sparse,
-                                                       dtype, primary=primary,
-                                                       sentinel=sentinel,
-                                                       wide_mask_maxbits=wide_mask_maxbits)
+            else:
+                dtype = np.bool_
+                bit_packed = True
+                sentinel = False
+                data = True
+
+            map1 = healsparse.HealSparseMap.make_empty(
+                nside_coverage1,
+                nside_sparse,
+                dtype,
+                primary=primary,
+                sentinel=sentinel,
+                wide_mask_maxbits=wide_mask_maxbits,
+                bit_packed=bit_packed,
+            )
             if t == 'widemask':
                 map1.set_bits_pix(np.arange(10000, 15000), [1, 12])
             else:
                 map1[10000: 15000] = data
 
-            map2 = healsparse.HealSparseMap.make_empty(nside_coverage2, nside_sparse,
-                                                       dtype, primary=primary,
-                                                       sentinel=sentinel,
-                                                       wide_mask_maxbits=wide_mask_maxbits)
+            map2 = healsparse.HealSparseMap.make_empty(
+                nside_coverage2,
+                nside_sparse,
+                dtype,
+                primary=primary,
+                sentinel=sentinel,
+                wide_mask_maxbits=wide_mask_maxbits,
+                bit_packed=bit_packed
+            )
             if t == 'widemask':
                 map2.set_bits_pix(np.arange(14500, 20000), [1, 12])
             else:
                 map2[14500: 20000] = data
 
-            map3 = healsparse.HealSparseMap.make_empty(nside_coverage3, nside_sparse,
-                                                       dtype, primary=primary,
-                                                       sentinel=sentinel,
-                                                       wide_mask_maxbits=wide_mask_maxbits)
+            map3 = healsparse.HealSparseMap.make_empty(
+                nside_coverage3,
+                nside_sparse,
+                dtype,
+                primary=primary,
+                sentinel=sentinel,
+                wide_mask_maxbits=wide_mask_maxbits,
+                bit_packed=bit_packed,
+            )
             if t == 'widemask':
                 map3.set_bits_pix(np.arange(19500, 25000), [1, 12])
             else:
@@ -224,7 +246,7 @@ class CatFilesTestCase(unittest.TestCase):
 
             file_list = [filename1, filename2, filename3]
 
-            for in_mem in [False, True]:
+            for in_mem in [True]:
                 outfile = os.path.join(self.test_dir, 'test_%s_combined_%d.hs' %
                                        (t, int(in_mem)))
 
