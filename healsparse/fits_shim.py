@@ -42,11 +42,28 @@ _image_bitpix2npy = {
 
 
 FITS_RESERVED = ['TFIELDS', 'TTYPE1', 'TFORM1', 'ZIMAGE',
-                 'ZTENSION', 'ZBITPIX', 'ZNAXIS', 'ZNAXIS1',
-                 'ZPCOUNT', 'ZGCOUNT', 'ZTILE1', 'ZCMPTYPE',
-                 'ZNAME1', 'ZVAL1', 'ZQUANTIZ',
+                 'ZTENSION', 'ZBITPIX', 'ZNAXIS', 'ZNAXIS1', 'ZNAXIS2',
+                 'ZPCOUNT', 'ZGCOUNT', 'ZTILE1', 'ZTILE2', 'ZCMPTYPE',
+                 'ZNAME1', 'ZNAME2', 'ZVAL1', 'ZVAL2', 'ZQUANTIZ',
                  'SIMPLE', 'BITPIX', 'NAXIS', 'NAXIS1', 'NAXIS2',
                  'PCOUNT', 'GCOUNT', 'XTENSION']
+
+HEALSPARSE_RESERVED = [
+    'EXTNAME',
+    'PIXTYPE',
+    'NSIDE',
+    'SENTINEL',
+    'BITPACK',
+    'RESHAPED',
+    'INDXSCHM',
+    'ORDERING',
+    'BAD_DATA',
+    'MOCVERS',
+    'WIDEMASK',
+    'WIDTH',
+    'WWIDTH',
+    'PRIMARY',
+]
 
 
 class HealSparseFits(object):
@@ -406,6 +423,31 @@ def _make_header(metadata, force_astropy=False):
         _make_hierarch_header(metadata, hdr)
 
     return hdr
+
+
+def _strip_header_fits_keywords(hdr):
+    """
+    Strip a header of fits reserved keywords.
+
+    Parameters
+    ----------
+    hdr : `dict` or dict-like
+
+    Returns
+    -------
+    metadata : `dict`
+    """
+    metadata = dict(hdr)
+
+    for reserved in FITS_RESERVED + HEALSPARSE_RESERVED:
+        metadata.pop(reserved, None)
+
+    # Remove recarray dtypes.
+    for key in list(metadata.keys()):
+        if key.startswith("TTYPE") or key.startswith("TFORM"):
+            metadata.pop(key, None)
+
+    return metadata
 
 
 def _write_healpix_filename(filename, hdr, output_struct):
