@@ -264,7 +264,7 @@ class HealSparseMap(object):
     @classmethod
     def make_empty_like(cls, sparsemap, nside_coverage=None, nside_sparse=None, dtype=None,
                         primary=None, sentinel=None, wide_mask_maxbits=None, metadata=None,
-                        cov_pixels=None, bit_packed=False):
+                        cov_pixels=None, bit_packed=None):
         """
         Make an empty map with the same parameters as an existing map.
 
