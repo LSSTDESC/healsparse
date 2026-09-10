@@ -5,7 +5,7 @@ import warnings
 
 from .healSparseMap import HealSparseMap
 from .healSparseCoverage import HealSparseCoverage
-from .fits_shim import use_rustfits
+from .fits_shim import HealSparseFits, use_rustfits
 from .utils import _compute_bitshift
 
 
@@ -53,8 +53,9 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
     # Read in a pixel from the first map.
     map_temp = HealSparseMap.read(file_list[0], pixels=np.where(cov_index_maps[0] > 0)[0][0: 1])
 
-    if map_temp.is_rec_array and not in_memory:
-        raise RuntimeError("Spooling to disk (in_memory=False) is not supported with a recarray map.")
+    # Maybe this will work!
+    # if map_temp.is_rec_array and not in_memory:
+    #     raise RuntimeError("Spooling to disk (in_memory=False) is not supported with a recarray map.")
 
     if in_memory:
         # Create the empty map to fill.
@@ -64,12 +65,34 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
             cov_pixels=cov_pixels,
         )
     else:
-        raise NotImplementedError("Need To Write Code")
+        # Make an empty map.
+        outfile_temp = outfile + ".incomplete"
+
+        sparse_map_stub = HealSparseMap.make_empty_like(
+            map_temp,
+            nside_coverage=cov_map.nside_coverage,
+        )
+
+        # Hack the coverage map (do not try this at home).
+        sparse_map_stub._cov_map = cov_map
+
+        # Write out the stub (which includes the overflow data).
+        sparse_map_stub.write(outfile_temp, clobber=True)
+
+        # Open up a streaming fits object to append to.
+        fits_stream = HealSparseFits(outfile_temp, mode="rw")
 
     # Work one coverage pixel at a time.
     for cov_pix in cov_pixels:
         # Which input files overlap this coverage pixel?
         u_cov_pix, = np.nonzero(cov_mask_summary[:, cov_pix])
+
+        if not in_memory:
+            # We need a holder for the data to stream.
+            sparse_map = HealSparseMap.make_empty_like(
+                sparse_map_stub,
+                cov_pixels=[cov_pix],
+            )
 
         for index in u_cov_pix:
             if nside_coverages[index] == nside_coverage_out:
@@ -122,8 +145,32 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
             else:
                 sparse_map[valid_pixels] = in_map[valid_pixels]
 
+        if not in_memory:
+            # Stream coverage pixel data to disk.
+            if sparse_map.is_wide_mask_map:
+                fits_stream.append_extension(
+                    "SPARSE",
+                    sparse_map._sparse_map[cov_map.nfine_per_cov:, :].ravel(),
+                )
+            elif sparse_map.is_bit_packed_map:
+                fits_stream.append_extension(
+                    "SPARSE",
+                    sparse_map._sparse_map.data_array[cov_map.nfine_per_cov // 8:],
+                )
+            else:
+                fits_stream.append_extension("SPARSE", sparse_map._sparse_map[cov_map.nfine_per_cov:])
+
     if in_memory:
         sparse_map.write(outfile, clobber=clobber)
+    else:
+        # Close the output fits file.
+        fits_stream.close()
+
+        # Rename the file
+        if clobber and os.path.isfile(outfile):
+            os.unlink(outfile)
+
+        os.rename(outfile_temp, outfile)
 
 
 def _combine_coverage_maps(file_list, nside_coverage_out):
