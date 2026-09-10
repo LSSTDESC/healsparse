@@ -111,12 +111,12 @@ class CatFilesTestCase(unittest.TestCase):
 
             file_list = [filename1, filename2, filename3]
 
-            for in_mem in [True]:
+            for in_mem in [True, False]:
                 outfile = os.path.join(self.test_dir, 'test_%s_combined_%d.hs' %
                                        (t, int(in_mem)))
 
-                if not (healsparse.fits_shim.use_rustfits or healsparse.fits_shim.use_fitsio) and not in_mem:
-                    # We cannot use out-of-memory option with astropy.io.fits
+                if (not healsparse.fits_shim.use_rustfits and not in_mem):
+                    # Require rustfits for streaming.
                     self.assertRaises(RuntimeError, cat_healsparse_files,
                                       file_list, outfile, in_memory=in_mem,
                                       nside_coverage_out=nside_coverage_out)
@@ -246,12 +246,12 @@ class CatFilesTestCase(unittest.TestCase):
 
             file_list = [filename1, filename2, filename3]
 
-            for in_mem in [True]:
+            for in_mem in [True, False]:
                 outfile = os.path.join(self.test_dir, 'test_%s_combined_%d.hs' %
                                        (t, int(in_mem)))
 
-                if not (healsparse.fits_shim.use_rustfits or healsparse.fits_shim.use_fitsio) and not in_mem:
-                    # We cannot use out-of-memory option with astropy.io.fits
+                if (not healsparse.fits_shim.use_rustfits and not in_mem):
+                    # Require rustfits for streaming.
                     self.assertRaises(RuntimeError, cat_healsparse_files,
                                       file_list, outfile, in_memory=in_mem,
                                       nside_coverage_out=nside_coverage_out,
