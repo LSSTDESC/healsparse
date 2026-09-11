@@ -1,11 +1,12 @@
 import numpy as np
 import hpgeom as hpg
 import os
+import warnings
 
 from .healSparseMap import HealSparseMap
 from .healSparseCoverage import HealSparseCoverage
-from .fits_shim import HealSparseFits
-from .utils import _compute_bitshift, WIDE_NBIT, WIDE_MASK
+from .fits_shim import HealSparseFits, use_rustfits
+from .utils import _compute_bitshift
 
 
 def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
@@ -16,40 +17,197 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
     Parameters
     ----------
     file_list : `list` of `str`
-       List of filenames to concatenate
+        List of filenames to concatenate
     outfile : `str`
-       Output filename
+        Output filename
     check_overlap : `bool`, optional
-       Check that each file has a unique sparse map.  This may be slower.
+        Check that each file has a unique sparse map.  This may be slower.
     clobber : `bool`, optional
-       Clobber existing outfile
+        Clobber existing outfile
     in_memory : `bool`, optional
-       Do operations in-memory (required unless fitsio is available).
+        Do operations in-memory (required unless rustfits is available).
     nside_coverage_out : `int`, optional
-       Output map with specific nside_coverage.  Default is nside_coverage
-       of first map in file_list.
+        Output map with specific nside_coverage.  Default is nside_coverage
+        of first map in file_list.
     or_overlap: `bool`, optional
-       If True compute the `or` overlap of two integer maps when concatenating.
+        If True compute the `or` overlap of two integer maps when concatenating.
+
     """
     if os.path.isfile(outfile) and not clobber:
         raise RuntimeError("File %s already exists and clobber is False" % (outfile))
 
     if or_overlap and not check_overlap:
         check_overlap = True
-        raise RuntimeWarning("""or_overlap is True and check_overlap is False,
-                             will check overlap""")
-    # Read in all the coverage maps
+        warnings.warn("or_overlap is True and check_overlap is False; will check overlap.")
+
+    if not in_memory and not use_rustfits:
+        raise RuntimeError("Spooling to disk (in_memory=False) requires rustfits.")
+
+    # Get the combined coverage map and mapping from file to coverage pixels.
+    cov_map, nside_coverages, cov_index_maps, cov_mask_summary, cov_bit_shifts = _combine_coverage_maps(
+        file_list,
+        nside_coverage_out,
+    )
+    cov_pixels, = np.nonzero(cov_map.coverage_mask)
+
+    # Read in a pixel from the first map.
+    map_temp = HealSparseMap.read(file_list[0], pixels=np.where(cov_index_maps[0] > 0)[0][0: 1])
+
+    # Maybe this will work!
+    # if map_temp.is_rec_array and not in_memory:
+    #     raise RuntimeError("Spooling to disk (in_memory=False) is not supported with a recarray map.")
+
+    if in_memory:
+        # Create the empty map to fill.
+        sparse_map = HealSparseMap.make_empty_like(
+            map_temp,
+            nside_coverage=cov_map.nside_coverage,
+            cov_pixels=cov_pixels,
+        )
+    else:
+        # Make an empty map.
+        outfile_temp = outfile + ".incomplete"
+
+        sparse_map_stub = HealSparseMap.make_empty_like(
+            map_temp,
+            nside_coverage=cov_map.nside_coverage,
+        )
+
+        # Hack the coverage map (do not try this at home).
+        sparse_map_stub._cov_map = cov_map
+
+        # Write out the stub (which includes the overflow data).
+        sparse_map_stub.write(outfile_temp, clobber=True)
+
+        # Open up a streaming fits object to append to.
+        fits_stream = HealSparseFits(outfile_temp, mode="rw")
+
+    # Work one coverage pixel at a time.
+    for cov_pix in cov_pixels:
+        # Which input files overlap this coverage pixel?
+        u_cov_pix, = np.nonzero(cov_mask_summary[:, cov_pix])
+
+        if not in_memory:
+            # We need a holder for the data to stream.
+            sparse_map = HealSparseMap.make_empty_like(
+                sparse_map_stub,
+                cov_pixels=[cov_pix],
+            )
+
+        for index in u_cov_pix:
+            if nside_coverages[index] == nside_coverage_out:
+                # Straightforward: matched coverage.
+                in_map = HealSparseMap.read(file_list[index], pixels=[cov_pix])
+
+                valid_pixels = in_map.valid_pixels
+            elif nside_coverages[index] < nside_coverage_out:
+                # Output coverage is finer, which means we just need to read
+                # the one coarse pixel.
+                in_map = HealSparseMap.read(
+                    file_list[index],
+                    pixels=np.right_shift([cov_pix], cov_bit_shifts[index]),
+                )
+                valid_pixels = in_map.valid_pixels
+                valid_pixels_cov = cov_map.cov_pixels(valid_pixels)
+                ok = (valid_pixels_cov == cov_pix)
+                if ok.sum() == 0:
+                    # No valid data here.
+                    continue
+                valid_pixels = valid_pixels[ok]
+            else:
+                # Output coverage is coarser, which means we need to know
+                # the full range of coverage pixels to read.
+                in_map = HealSparseMap.read(
+                    file_list[index],
+                    pixels=(
+                        np.left_shift(cov_pix, cov_bit_shifts[index]) +
+                        np.arange(2**cov_bit_shifts[index], dtype=np.int32)
+                    ),
+                )
+                valid_pixels = in_map.valid_pixels
+
+            if check_overlap:
+                if np.any(sparse_map[valid_pixels] != sparse_map.sentinel):
+                    if not sparse_map.is_integer_map or not or_overlap:
+                        raise RuntimeError(f"Map {file_list[index]} has pixels that were already set.")
+                    else:
+                        non_sentinel = sparse_map[valid_pixels] != sparse_map.sentinel
+                        # We need to separate between filled and not because if we choose
+                        # a non-zero sentinel, the or operation with the sentinel can give
+                        # strange results
+                        valid_filled = valid_pixels[non_sentinel]
+                        valid_empty = valid_pixels[~non_sentinel]
+                        sparse_map[valid_filled] = in_map[valid_filled] | sparse_map[valid_filled]
+                        if len(valid_empty) > 0:
+                            sparse_map[valid_empty] = in_map[valid_empty]
+                else:
+                    sparse_map[valid_pixels] = in_map[valid_pixels]
+            else:
+                sparse_map[valid_pixels] = in_map[valid_pixels]
+
+        if not in_memory:
+            # Stream coverage pixel data to disk.
+            if sparse_map.is_wide_mask_map:
+                fits_stream.append_extension(
+                    "SPARSE",
+                    sparse_map._sparse_map[cov_map.nfine_per_cov:, :].ravel(),
+                )
+            elif sparse_map.is_bit_packed_map:
+                fits_stream.append_extension(
+                    "SPARSE",
+                    sparse_map._sparse_map.data_array[cov_map.nfine_per_cov // 8:],
+                )
+            else:
+                fits_stream.append_extension("SPARSE", sparse_map._sparse_map[cov_map.nfine_per_cov:])
+
+    if in_memory:
+        sparse_map.write(outfile, clobber=clobber)
+    else:
+        # Close the output fits file.
+        fits_stream.close()
+
+        # Rename the file
+        if clobber and os.path.isfile(outfile):
+            os.unlink(outfile)
+
+        os.rename(outfile_temp, outfile)
+
+
+def _combine_coverage_maps(file_list, nside_coverage_out):
+    """Combine coverage maps.
+
+    Parameters
+    ----------
+    file_list : `list` [`str`]
+    nside_coverage_out : `int`
+
+    Returns
+    -------
+    cov_map : `healsparse.HealSparseCoverage`
+        The combined coverage map.
+    nside_coverage_maps : `list` [`int`]
+        List of input coverage map nsides.
+    cov_index_maps : `list` [`np.ndarray`]
+        List of input boolean coverage masks.
+    cov_mask_summary : `np.ndarray`
+        Summary of input coverage masks, converted to output nside_coverage.
+    bit_shift_covs : `list` [`int`]
+        List of bit-shift values to convert to output coverage nside.
+    """
     cov_mask_summary = None
     nside_sparse = None
     nside_coverage_maps = []
     bit_shift_covs = []
     cov_index_maps = []
     cov_map_nfine_per_covs = []
+
     for i, f in enumerate(file_list):
         cov_map = HealSparseCoverage.read(f)
 
-        cov_index_map = cov_map[:] + np.arange(hpg.nside_to_npixel(cov_map.nside_coverage),
-                                               dtype=np.int64)*cov_map.nfine_per_cov
+        cov_index_map = cov_map[:] + np.arange(
+            hpg.nside_to_npixel(cov_map.nside_coverage),
+            dtype=np.int64,
+        )*cov_map.nfine_per_cov
         cov_index_maps.append(cov_index_map)
         cov_map_nfine_per_covs.append(cov_map.nfine_per_cov)
 
@@ -57,8 +215,10 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
             if nside_coverage_out is None:
                 nside_coverage_out = cov_map.nside_coverage
 
-            cov_mask_summary = np.zeros((len(file_list), hpg.nside_to_npixel(nside_coverage_out)),
-                                        dtype=np.bool_)
+            cov_mask_summary = np.zeros(
+                (len(file_list), hpg.nside_to_npixel(nside_coverage_out)),
+                dtype=np.bool_,
+            )
             nside_sparse = cov_map.nside_sparse
         else:
             if cov_map.nside_sparse != nside_sparse:
@@ -106,249 +266,4 @@ def cat_healsparse_files(file_list, outfile, check_overlap=False, clobber=False,
     # The cov_map will only work after the full map has been written out
     cov_map = HealSparseCoverage.make_from_pixels(nside_coverage_out, nside_sparse, cov_pix)
 
-    # We need to create a stub of a sparse map (the overflow), with the correct dtype
-    with HealSparseFits(file_list[0]) as fits:
-        s_hdr = fits.read_ext_header('SPARSE')
-
-        if 'SENTINEL' in s_hdr:
-            sentinel = s_hdr['SENTINEL']
-        else:
-            sentinel = hpg.UNSEEN
-
-        if not fits.ext_is_image('SPARSE'):
-            # This is a table extension
-            primary = s_hdr['PRIMARY'].rstrip()
-        else:
-            primary = None
-
-        if 'WWIDTH' in s_hdr:
-            wide_mask_maxbits = WIDE_NBIT*s_hdr['WWIDTH']
-            wmult = s_hdr['WWIDTH']
-        else:
-            wide_mask_maxbits = None
-            wmult = 1
-
-        sparse_stub = fits.read_ext_data('SPARSE',
-                                         row_range=[0, cov_map.nfine_per_cov*wmult])
-        if wide_mask_maxbits is not None:
-            sparse_stub = np.reshape(sparse_stub, (cov_map.nfine_per_cov, wmult))
-            # This fixes a bug in astropy<4.0
-            sparse_stub = sparse_stub.astype(WIDE_MASK)
-
-    if not in_memory:
-        # When spooling to disk, we need a stub to write (with the final cov_map)
-        # to append to.  The stub map cannot have compression turned on,
-        # or else appending doesn't work.
-
-        stub_map = HealSparseMap(cov_map=cov_map,
-                                 sparse_map=sparse_stub, nside_sparse=nside_sparse,
-                                 primary=primary, sentinel=sentinel)
-
-        # And write this out to a temporary filename
-        outfile_temp = outfile + '.incomplete'
-        stub_map.write(outfile_temp, clobber=True, nocompress=True)
-
-        try:
-            outfits = HealSparseFits(outfile_temp, mode='rw')
-        except RuntimeError:
-            raise RuntimeError("Running cat_healsparse_files with in_memory=False requires fitsio.")
-    else:
-        # When building in memory, we just need a blank map
-        sparse_map = HealSparseMap.make_empty(nside_coverage_out, nside_sparse,
-                                              sparse_stub.dtype, primary=primary,
-                                              sentinel=sentinel, wide_mask_maxbits=wide_mask_maxbits)
-
-    # Load in pointers to all the input fits files
-    fitses = []
-    for f in file_list:
-        fitses.append(HealSparseFits(f))
-    sparse_map_temp_matchcov = None
-
-    # And prepare to append, coverage pixel by coverage pixel!
-    for pix in cov_pix:
-        # Figure out which input files overlap this coverage pixel
-        u_cov_pix, = np.where(cov_mask_summary[:, pix])
-
-        if not in_memory:
-            # We need a temporary sparse_map
-            sparse_map = HealSparseMap.make_empty(nside_coverage_out, nside_sparse,
-                                                  sparse_stub.dtype, primary=primary,
-                                                  sentinel=sentinel, wide_mask_maxbits=wide_mask_maxbits)
-
-        # Read in each of these files and set to the sparse_map.  This will either
-        # be the full map (in_memory) or the temp map (not in_memory)
-        for index in u_cov_pix:
-            if nside_coverage_maps[index] == nside_coverage_out:
-                # Straightforward -- matched coverage
-                in_map = _read_partial_sparsemap(fitses[index], cov_map_nfine_per_covs[index],
-                                                 wmult, cov_index_maps[index], np.array([pix]),
-                                                 sparse_stub.dtype, wide_mask_maxbits,
-                                                 nside_coverage_maps[index], nside_sparse,
-                                                 sparse_map_temp_input=sparse_map_temp_matchcov,
-                                                 primary=primary, sentinel=sentinel)
-                if sparse_map_temp_matchcov is None:
-                    # Save this for caching
-                    sparse_map_temp_matchcov = in_map._sparse_map.ravel()
-
-                valid_pixels = in_map.valid_pixels
-
-            elif nside_coverage_maps[index] < nside_coverage_out:
-                # nside_coverage_maps[index] < nside_coverage_out
-                # Output coverage is finer, which means we just need to know
-                # the one coarse pix to read in here.
-
-                in_map = _read_partial_sparsemap(fitses[index], cov_map_nfine_per_covs[index],
-                                                 wmult, cov_index_maps[index],
-                                                 np.right_shift(np.array([pix]), bit_shift_covs[index]),
-                                                 sparse_stub.dtype, wide_mask_maxbits,
-                                                 nside_coverage_maps[index], nside_sparse,
-                                                 primary=primary, sentinel=sentinel)
-
-                valid_pixels = in_map.valid_pixels
-                valid_pixels_cov = sparse_map._cov_map.cov_pixels(valid_pixels)
-                ok, = np.where(valid_pixels_cov == pix)
-                if ok.size == 0:
-                    # There is no valid data here
-                    continue
-                valid_pixels = valid_pixels[ok]
-            else:
-                # nside_coverage_maps[index] > nside_coverage_out
-                # Output coverage is coarser, which means we need to know
-                # the full range of coverage pixels to read.
-
-                _pixels = (np.left_shift(pix, bit_shift_covs[index]) +
-                           np.arange(2**bit_shift_covs[index], dtype=np.int32))
-
-                in_map = _read_partial_sparsemap(fitses[index], cov_map_nfine_per_covs[index],
-                                                 wmult, cov_index_maps[index],
-                                                 _pixels,
-                                                 sparse_stub.dtype, wide_mask_maxbits,
-                                                 nside_coverage_maps[index], nside_sparse,
-                                                 primary=primary, sentinel=sentinel)
-                valid_pixels = in_map.valid_pixels
-
-            if check_overlap:
-                if np.any(sparse_map[valid_pixels] != sparse_map._sentinel):
-                    if not sparse_map.is_integer_map or not or_overlap:
-                        outfits.close()
-                        raise RuntimeError("Map %s has pixels that were already set in coverage pixel %d" %
-                                           (file_list[index], pix))
-                    else:
-                        non_sentinel = sparse_map[valid_pixels] != sparse_map._sentinel
-                        # We need to separate between filled and not because if we choose
-                        # a non-zero sentinel, the or operation with the sentinel can give
-                        # strange results
-                        valid_filled = valid_pixels[non_sentinel]
-                        valid_empty = valid_pixels[~non_sentinel]
-                        sparse_map[valid_filled] = in_map[valid_filled] | sparse_map[valid_filled]
-                        if len(valid_empty) > 0:
-                            sparse_map[valid_empty] = in_map[valid_empty]
-                else:
-                    sparse_map[valid_pixels] = in_map[valid_pixels]
-            else:
-                sparse_map[valid_pixels] = in_map[valid_pixels]
-
-        # And if we are spooling to disk, do that now.
-        if not in_memory:
-            # Grab out just this coverage pixel from the temporary sparse_map
-            # data vector.
-            if sparse_map.is_wide_mask_map:
-                new_data = sparse_map._sparse_map[cov_map.nfine_per_cov:, :].ravel()
-            else:
-                new_data = sparse_map._sparse_map[cov_map.nfine_per_cov:]
-            outfits.append_extension('SPARSE', new_data)
-
-    # Close all the fits files
-    for fits in fitses:
-        fits.close()
-
-    if not in_memory:
-        # Close the output fits file
-        outfits.close()
-
-        # And rename the file
-        if clobber and os.path.isfile(outfile):
-            os.unlink(outfile)
-
-        os.rename(outfile_temp, outfile)
-    else:
-        # Output the in memory map to file
-        sparse_map.write(outfile, clobber=clobber)
-
-
-def _read_partial_sparsemap(fits, nfine_per_cov, wmult, cov_index_map_temp,
-                            pixels, dtype, wide_mask_maxbits, nside_coverage,
-                            nside_sparse,
-                            sparse_map_temp_input=None, primary=None,
-                            sentinel=None):
-    """
-    Read part of a sparse map from an open fits file.
-
-    Parameters
-    ----------
-    fits : `HealSparseFits`
-    nfine_per_cov : `int`
-    wmult : `int`
-    cov_index_map_temp : `np.ndarray`
-    pixels : `np.ndarray`
-    dtype : `np.dtype`
-    wide_mask_maxbits : `int` or `None`
-    nside_coverage : `int`
-    nside_sparse : `int`
-    sparse_map_temp_input : `np.ndarray`, optional
-    primary : `str`
-    sentinel : `int` or `float`
-
-    Returns
-    -------
-    sparse_map : `HealSparseMap`
-    """
-    if len(pixels) == 1:
-        # Only with 1 pixel can we use the cached input.
-        # We also only read maps that have coverage
-        if sparse_map_temp_input is None:
-            sparse_map_temp = np.zeros(2*nfine_per_cov*wmult,
-                                       dtype=dtype)
-            row_range = [0, nfine_per_cov*wmult]
-            sparse_map_temp[0: nfine_per_cov*wmult] = \
-                fits.read_ext_data('SPARSE', row_range=row_range)
-        else:
-            sparse_map_temp = sparse_map_temp_input
-
-        row_range = [cov_index_map_temp[pixels[0]]*wmult,
-                     (cov_index_map_temp[pixels[0]] + nfine_per_cov)*wmult]
-        sparse_map_temp[nfine_per_cov*wmult:
-                        2*nfine_per_cov*wmult] = fits.read_ext_data('SPARSE', row_range=row_range)
-    else:
-        # We need to read multiple pixels -- separate code path to
-        # check these pixels and loop over them
-        cov_pix_temp, = np.where(cov_index_map_temp >= nfine_per_cov)
-        sub = np.clip(np.searchsorted(cov_pix_temp, pixels), 0, cov_pix_temp.size - 1)
-        ok, = np.where(cov_pix_temp[sub] == pixels)
-        sub = np.sort(sub[ok])
-
-        sparse_map_temp = np.zeros((sub.size + 1)*nfine_per_cov*wmult,
-                                   dtype=dtype)
-        row_range = [0, nfine_per_cov*wmult]
-        sparse_map_temp[0: nfine_per_cov*wmult] = \
-            fits.read_ext_data('SPARSE', row_range=row_range)
-
-        for i, sub_pix in enumerate(cov_pix_temp[sub]):
-            row_range = [cov_index_map_temp[sub_pix]*wmult,
-                         (cov_index_map_temp[sub_pix] + nfine_per_cov)*wmult]
-            sparse_map_temp[(i + 1)*nfine_per_cov*wmult:
-                            (i + 2)*nfine_per_cov*wmult] = fits.read_ext_data('SPARSE', row_range=row_range)
-
-    if wide_mask_maxbits is not None:
-        sparse_map_temp = sparse_map_temp.reshape((sparse_map_temp.size // wmult,
-                                                   wmult)).astype(WIDE_MASK)
-
-    cov_map_temp = HealSparseCoverage.make_from_pixels(nside_coverage,
-                                                       nside_sparse,
-                                                       pixels)
-    partial_map = HealSparseMap(cov_map=cov_map_temp,
-                                sparse_map=sparse_map_temp,
-                                nside_sparse=nside_sparse,
-                                primary=primary,
-                                sentinel=sentinel)
-    return partial_map
+    return cov_map, nside_coverage_maps, cov_index_maps, cov_mask_summary, bit_shift_covs
