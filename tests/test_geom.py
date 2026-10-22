@@ -916,7 +916,7 @@ class GeomTestCase(unittest.TestCase):
         geom_union = GeomUnion()
         for i in range(n_circle):
             circle = Circle(ra=ras[i], dec=decs[i], radius=radii[i], value=True)
-            geom_union.add(circle)
+            geom_union.append(circle)
 
         m2 |= geom_union
 
@@ -949,10 +949,10 @@ class GeomTestCase(unittest.TestCase):
     def test_geom_union_mismatch(self):
         geom_union = GeomUnion()
 
-        geom_union.add(Circle(ra=0.0, dec=0.0, radius=1.0, value=True))
+        geom_union.append(Circle(ra=0.0, dec=0.0, radius=1.0, value=True))
 
         with self.assertRaises(ValueError):
-            geom_union.add(Circle(ra=0.0, dec=0.0, radius=1.0, value=False))
+            geom_union.append(Circle(ra=0.0, dec=0.0, radius=1.0, value=False))
 
     def test_geom_intersection(self):
         nside_sparse = 2**17
@@ -977,7 +977,7 @@ class GeomTestCase(unittest.TestCase):
         geom_intersection = GeomIntersection()
         for i in range(n_circle):
             circle = Circle(ra=ras[i], dec=decs[i], radius=radii[i], value=True)
-            geom_intersection.add(circle)
+            geom_intersection.append(circle)
 
         m2 |= geom_intersection
 
@@ -993,10 +993,10 @@ class GeomTestCase(unittest.TestCase):
     def test_geom_intersection_mismatch(self):
         geom_intersection = GeomIntersection()
 
-        geom_intersection.add(Circle(ra=0.0, dec=0.0, radius=1.0, value=True))
+        geom_intersection.append(Circle(ra=0.0, dec=0.0, radius=1.0, value=True))
 
         with self.assertRaises(ValueError):
-            geom_intersection.add(Circle(ra=0.0, dec=0.0, radius=1.0, value=False))
+            geom_intersection.append(Circle(ra=0.0, dec=0.0, radius=1.0, value=False))
 
     def test_repr(self):
         """

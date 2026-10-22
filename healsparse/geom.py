@@ -560,7 +560,7 @@ class GeomUnion(GeomBase):
         self._nside_render = None
 
         for geom in self._geom_list:
-            self.add(geom)
+            self.append(geom)
 
     def _render(self, *, nside_render, return_pixel_ranges):
         pixel_ranges_list = [geom.get_pixel_ranges(nside=nside_render) for geom in self._geom_list]
@@ -571,13 +571,13 @@ class GeomUnion(GeomBase):
         else:
             return hpg.pixel_ranges_to_pixels(pixel_ranges)
 
-    def add(self, geom):
-        """Add a shape to the union.
+    def append(self, geom):
+        """Append a shape to the union.
 
         Parameters
         ----------
         geom : `GeomBase`
-            Geometric shape to add. Must have same value as other shapes.
+            Geometric shape to append. Must have same value as other shapes.
         """
         if not isinstance(geom, GeomBase):
             raise ValueError(f"{repr(geom)} is not of GeomBase type.")
@@ -593,7 +593,7 @@ class GeomUnion(GeomBase):
         return len(self._geom_list)
 
     def __ior__(self, geom):
-        self.add(geom)
+        self.append(geom)
 
         return self
 
@@ -621,7 +621,7 @@ class GeomIntersection(GeomBase):
         self._nside_render = None
 
         for geom in self._geom_list:
-            self.add(geom)
+            self.append(geom)
 
     def _render(self, *, nside_render, return_pixel_ranges):
         pixel_ranges_list = [geom.get_pixel_ranges(nside=nside_render) for geom in self._geom_list]
@@ -632,13 +632,13 @@ class GeomIntersection(GeomBase):
         else:
             return hpg.pixel_ranges_to_pixels(pixel_ranges)
 
-    def add(self, geom):
-        """Add a shape to the intersection.
+    def append(self, geom):
+        """Append a shape to the intersection.
 
         Parameters
         ----------
         geom : `GeomBase`
-            Geometric shape to add. Must have same value as other shapes.
+            Geometric shape to append. Must have same value as other shapes.
         """
         if not isinstance(geom, GeomBase):
             raise ValueError(f"{repr(geom)} is not of GeomBase type.")
@@ -655,7 +655,7 @@ class GeomIntersection(GeomBase):
         return len(self._geom_list)
 
     def __iand__(self, geom):
-        self.add(geom)
+        self.append(geom)
 
     def __repr__(self):
         s = "GeomIntersection(len=%d, value=%s)"
