@@ -1890,6 +1890,25 @@ class HealSparseMap(object):
             raise IndexError("Illegal index type (%s) for __setitem__ in HealSparseMap." %
                              (key.__class__))
 
+    def __delitem__(self, key):
+        """
+        Clear part of a healsparse map.
+        """
+        self.__setitem__(key, None)
+
+    def clear_pixels(self, key):
+        """Clear part of a healsparse map.
+
+        This is equivalent to `del m[key]` or `m[key] = None` and will clear
+        all the relevant pixels without expanding the coverage map.
+
+        Parameters
+        ----------
+        key : `int`, `slice`, `ndarray`, `list`, or `healsparse.GeomBase`
+            Key for pixels to clear.
+        """
+        self.__delitem__(key)
+
     def get_single(self, key, sentinel=None, copy=False):
         """
         Get a single healsparse map out of a recarray map, with the ability to
