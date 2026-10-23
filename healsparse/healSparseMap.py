@@ -530,14 +530,22 @@ class HealSparseMap(object):
         -----
         During the 'add' operation, if the default sentinel map value is not
         equal to 0, then any default values will be set to 0 prior to addition.
+
+        For boolean maps with the 'and' operation, if the values are all False
+        then no additional coverage pixels will be added as a result of the
+        operation.
         """
         # We invalidate the n_valid cache here.
         self._n_valid = None
 
+        # Convert to an array, no-copy if possible.
+        _pixels = np.atleast_1d(np.asarray(pixels))
+
         # When None is specified, we use the sentinel value.
         no_append = False
-        if values is None:
-            if operation != 'replace':
+        if values is None or \
+           ((operation == "and") and (self.dtype == np.bool_) and (np.all(not values))):
+            if values is None and operation != 'replace':
                 raise ValueError("Can only use 'None' with 'replace' operation.")
 
             if self._is_wide_mask:
@@ -597,7 +605,7 @@ class HealSparseMap(object):
         if not is_single_value and not isinstance(_values, np.ndarray):
             raise ValueError("Values are not a numpy ndarray")
 
-        if hasattr(pixels, "__len__") and len(pixels) == 0:
+        if len(_pixels) == 0:
             if len(_values) > 1:
                 warnings.warn("Shape mismatch: using a non-zero-length array of values "
                               "to set a zero-length list of pixels.",
@@ -613,13 +621,15 @@ class HealSparseMap(object):
             elif self._sparse_map.dtype.type != _values.dtype.type:
                 raise ValueError("Data-type mismatch between sparse_map and values")
 
-        if operation == 'replace' and check_unique:
-            if hasattr(pixels, "__len__"):
-                if has_duplicates(pixels):
-                    raise ValueError("List of pixels must be unique if operation='replace'")
+        pixels_are_ranges = False
+        if _pixels.ndim == 2 and _pixels.shape[1] == 2:
+            pixels_are_ranges = True
 
-        if pixels.ndim == 2 and pixels.shape[1] == 2:
-            # These are pixel ranges.
+        if operation == "replace" and check_unique and not pixels_are_ranges:
+            if has_duplicates(_pixels):
+                raise ValueError("List of pixels must be unique if operation='replace'")
+
+        if pixels_are_ranges:
             if not is_single_value:
                 raise ValueError("Can only use a single value with pixel ranges (N, 2) input.")
             if not nest:
@@ -627,18 +637,18 @@ class HealSparseMap(object):
 
             # At the risk of premature optimization, we only call the special function
             # if the number of pixels is above some threshold.
-            pixels_to_set = np.sum(pixels[:, 1] - pixels[:, 0])
+            pixels_to_set = np.sum(_pixels[:, 1] - _pixels[:, 0])
             if pixels_to_set > PIXEL_RANGE_THRESHOLD:
-                return self._update_values_pixel_ranges(pixels, _values[0], operation, no_append)
+                return self._update_values_pixel_ranges(_pixels, _values[0], operation, no_append)
             else:
-                _pix = hpg.pixel_ranges_to_pixels(pixels)
+                _pix = hpg.pixel_ranges_to_pixels(_pixels)
         elif not nest:
-            _pix = hpg.ring_to_nest(self._nside_sparse, pixels)
+            _pix = hpg.ring_to_nest(self._nside_sparse, _pixels)
         else:
-            _pix = pixels
+            _pix = _pixels
 
         # Check array lengths
-        if not is_single_value and len(_values) != pixels.size:
+        if not is_single_value and len(_values) != _pix.size:
             raise ValueError("Length of values must be same length as pixels (or length 1)")
 
         if self._is_view:
@@ -1875,9 +1885,34 @@ class HealSparseMap(object):
             if len(arr) > 0 and not is_integer_value(arr[0]):
                 raise IndexError("List/Tuple array indices must be integers for __setitem__")
             return self.update_values_pix(arr, value)
+        elif isinstance(key, GeomBase):
+            return self.update_values_pix(
+                key.get_pixel_ranges(nside=self.nside_sparse),
+                value,
+                operation="replace",
+            )
         else:
             raise IndexError("Illegal index type (%s) for __setitem__ in HealSparseMap." %
                              (key.__class__))
+
+    def __delitem__(self, key):
+        """
+        Clear part of a healsparse map.
+        """
+        self.__setitem__(key, None)
+
+    def clear_pixels(self, key):
+        """Clear part of a healsparse map.
+
+        This is equivalent to `del m[key]` or `m[key] = None` and will clear
+        all the relevant pixels without expanding the coverage map.
+
+        Parameters
+        ----------
+        key : `int`, `slice`, `ndarray`, `list`, or `healsparse.GeomBase`
+            Key for pixels to clear.
+        """
+        self.__delitem__(key)
 
     def get_single(self, key, sentinel=None, copy=False):
         """
