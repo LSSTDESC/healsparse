@@ -1880,6 +1880,12 @@ class HealSparseMap(object):
             if len(arr) > 0 and not is_integer_value(arr[0]):
                 raise IndexError("List/Tuple array indices must be integers for __setitem__")
             return self.update_values_pix(arr, value)
+        elif isinstance(key, GeomBase):
+            return self.update_values_pix(
+                key.get_pixel_ranges(nside=self.nside_sparse),
+                value,
+                operation="replace",
+            )
         else:
             raise IndexError("Illegal index type (%s) for __setitem__ in HealSparseMap." %
                              (key.__class__))
