@@ -998,6 +998,37 @@ class GeomTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             geom_intersection.append(Circle(ra=0.0, dec=0.0, radius=1.0, value=False))
 
+    def test_geom_and_clear(self):
+        nside_coverage = 32
+        nside_map = 4096
+
+        m = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_)
+
+        circle1 = Circle(ra=100.0, dec=20.0, radius=0.5, value=True)
+        circle2 = Circle(ra=100.0, dec=20.0, radius=0.1, value=False)
+
+        m |= circle1
+
+        size = m._sparse_map.size
+
+        m &= circle2
+
+        pix1 = circle1.get_pixels(nside=m.nside_sparse)
+        pix2 = circle2.get_pixels(nside=m.nside_sparse)
+
+        a = np.searchsorted(pix1, pix2)
+        pixels = np.delete(pix1, a)
+
+        np.testing.assert_array_equal(m.valid_pixels, pixels)
+        self.assertEqual(size, m._sparse_map.size)
+
+        # This should not expand the coverage map.
+        circle3 = healsparse.Circle(ra=180.0, dec=-20.0, radius=0.1, value=False)
+        m &= circle3
+
+        np.testing.assert_array_equal(m.valid_pixels, pixels)
+        self.assertEqual(size, m._sparse_map.size)
+
     def test_repr(self):
         """
         Test representations

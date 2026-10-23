@@ -530,6 +530,10 @@ class HealSparseMap(object):
         -----
         During the 'add' operation, if the default sentinel map value is not
         equal to 0, then any default values will be set to 0 prior to addition.
+
+        For boolean maps with the 'and' operation, if the values are all False
+        then no additional coverage pixels will be added as a result of the
+        operation.
         """
         # We invalidate the n_valid cache here.
         self._n_valid = None
@@ -539,8 +543,9 @@ class HealSparseMap(object):
 
         # When None is specified, we use the sentinel value.
         no_append = False
-        if values is None:
-            if operation != 'replace':
+        if values is None or \
+           ((operation == "and") and (self.dtype == np.bool_) and (np.all(not values))):
+            if values is None and operation != 'replace':
                 raise ValueError("Can only use 'None' with 'replace' operation.")
 
             if self._is_wide_mask:
