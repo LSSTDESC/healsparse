@@ -415,6 +415,21 @@ class GetSetTestCase(unittest.TestCase):
         sparse_map[pxnums] = pxvalues
         testing.assert_array_almost_equal(sparse_map[pxnums], full_map[pxnums])
 
+    def test_setitem_geom(self):
+        """
+        Test __setitem__ using a geometric object.
+        """
+        nside_sparse = 2**17
+        nside_coverage = 32
+
+        m = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse, bool, bit_packed=True)
+
+        circle = healsparse.Circle(ra=100.0, dec=10.0, radius=0.2, value=True)
+        # Set the circle pixels using __setitem__.
+        m[circle] = True
+
+        np.testing.assert_array_equal(m.valid_pixels, circle.get_pixels(nside=m.nside_sparse))
+
 
 if __name__ == '__main__':
     unittest.main()
