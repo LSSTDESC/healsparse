@@ -92,6 +92,20 @@ They share a base class, and while the instantiation is different, the operation
     intersection &= healsparse.Box(ra1=200.5, ra2=202.0, dec1=0.0, dec2=2.0, value=True)
 
 
+HealSparse Geometry Object Frames
+---------------------------------
+
+All of the :code:`HealSparse` shapes support different reference frames.
+The default is equatorial/celestial coordinates, but can be set to Galactic or Ecliptic coordinates following :code:`hpgeom`:
+
+The :code:`geom_frame` options are:
+* Equatorial frame (default): Specified with :code:`"equatorial"` or :code:`"icrs"` or :code:`"c"`.
+* Galactic frame: Specified with :code:`"galactic"` or :code:`"g"`.
+* Ecliptic frame: Specified with :code:`"ecliptic"` or :code:`"barycentricmeanecliptic"` or :code:`"e"`.
+
+The basic coordinate system for :code:`HealSparseMap` objects are equatorial.
+If, for example, a shape uses :code:`geom_frame="galactic"` then the shape will be described in Galactic coordinates and the output pixels will be in equatorial coordinates.
+
 
 Combining Geometric Objects with Maps
 -------------------------------------
@@ -117,6 +131,48 @@ Note that these operations can be applied to integer or boolean maps.
 
     # And add in another circle.
     m += healsparse.Circle(ra=202.0, dec=21.0, radius=0.5, value=10)
+
+
+Using Geometric Shapes To Set And Erase Pixels
+----------------------------------------------
+
+Geometric shapes can also be used to set and erase pixels.
+The following example renders a large circular footprint and cuts out all the low Galactic latitude pixels for a boolean mask.
+Note that there are multiple equivalent ways to erase pixels.
+
+.. code-block :: python
+
+    import healsparse
+    import numpy as np
+
+    m = healsparse.HealSparseMap.make_empty(32, 32768, bool, bit_packed=True)
+
+    celestial_circle = healsparse.Circle(ra=270.0, dec=-20.0, radius=40.0, value=True)
+
+    m[celestial_circle] = True
+    # Equivalently, one can do `m |= celestial_circle`
+
+    print(m.n_valid)
+    # 1507247285
+
+    galactic_box = healsparse.Box(ra1=0.0, ra2=360.0, dec1=-20.0, dec2=20.0, value=False, geom_frame="g")
+
+    del m[galactic_box]
+    # Equivalently, one can do `m &= galactic_box` (because the value is False)
+    # or one can do `m.clear_pixels(galactic_box)` or `m[galactic_box] = None`
+
+    print(m.n_valid)
+    # 564284571
+
+    # Note that because this map was very large and cut down, it has extra coverage
+    # and is "fragmented":
+    print(m.is_fragmented)
+    # True
+
+    m.defragment()
+
+    print(m.is_fragmented)
+    # False
 
 
 Making a Map
