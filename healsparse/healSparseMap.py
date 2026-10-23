@@ -534,6 +534,9 @@ class HealSparseMap(object):
         # We invalidate the n_valid cache here.
         self._n_valid = None
 
+        # Convert to an array, no-copy if possible.
+        _pixels = np.atleast_1d(np.asarray(pixels))
+
         # When None is specified, we use the sentinel value.
         no_append = False
         if values is None:
@@ -597,7 +600,7 @@ class HealSparseMap(object):
         if not is_single_value and not isinstance(_values, np.ndarray):
             raise ValueError("Values are not a numpy ndarray")
 
-        if hasattr(pixels, "__len__") and len(pixels) == 0:
+        if len(_pixels) == 0:
             if len(_values) > 1:
                 warnings.warn("Shape mismatch: using a non-zero-length array of values "
                               "to set a zero-length list of pixels.",
@@ -613,13 +616,15 @@ class HealSparseMap(object):
             elif self._sparse_map.dtype.type != _values.dtype.type:
                 raise ValueError("Data-type mismatch between sparse_map and values")
 
-        if operation == 'replace' and check_unique:
-            if hasattr(pixels, "__len__"):
-                if has_duplicates(pixels):
-                    raise ValueError("List of pixels must be unique if operation='replace'")
+        pixels_are_ranges = False
+        if _pixels.ndim == 2 and _pixels.shape[1] == 2:
+            pixels_are_ranges = True
 
-        if pixels.ndim == 2 and pixels.shape[1] == 2:
-            # These are pixel ranges.
+        if operation == "replace" and check_unique and not pixels_are_ranges:
+            if has_duplicates(_pixels):
+                raise ValueError("List of pixels must be unique if operation='replace'")
+
+        if pixels_are_ranges:
             if not is_single_value:
                 raise ValueError("Can only use a single value with pixel ranges (N, 2) input.")
             if not nest:
@@ -627,18 +632,18 @@ class HealSparseMap(object):
 
             # At the risk of premature optimization, we only call the special function
             # if the number of pixels is above some threshold.
-            pixels_to_set = np.sum(pixels[:, 1] - pixels[:, 0])
+            pixels_to_set = np.sum(_pixels[:, 1] - _pixels[:, 0])
             if pixels_to_set > PIXEL_RANGE_THRESHOLD:
-                return self._update_values_pixel_ranges(pixels, _values[0], operation, no_append)
+                return self._update_values_pixel_ranges(_pixels, _values[0], operation, no_append)
             else:
-                _pix = hpg.pixel_ranges_to_pixels(pixels)
+                _pix = hpg.pixel_ranges_to_pixels(_pixels)
         elif not nest:
-            _pix = hpg.ring_to_nest(self._nside_sparse, pixels)
+            _pix = hpg.ring_to_nest(self._nside_sparse, _pixels)
         else:
-            _pix = pixels
+            _pix = _pixels
 
         # Check array lengths
-        if not is_single_value and len(_values) != pixels.size:
+        if not is_single_value and len(_values) != _pix.size:
             raise ValueError("Length of values must be same length as pixels (or length 1)")
 
         if self._is_view:
