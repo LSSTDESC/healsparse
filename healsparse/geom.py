@@ -197,14 +197,14 @@ class GeomBase(object):
             sentinel=sentinel,
             wide_mask_maxbits=wide_mask_maxbits
         )
-        pixels = self.get_pixels(nside=nside_sparse)
+        pixel_ranges = self.get_pixel_ranges(nside=nside_sparse)
 
         if wide_mask_maxbits is None:
             # This is a regular set
-            smap.update_values_pix(pixels, np.array([self._value], dtype=dtype))
+            smap.update_values_pix(pixel_ranges, np.array([self._value], dtype=dtype), check_unique=False)
         else:
             # This is a wide mask
-            smap.set_bits_pix(pixels, self._value)
+            smap.set_bits_pix(pixel_ranges, self._value)
 
         return smap
 
