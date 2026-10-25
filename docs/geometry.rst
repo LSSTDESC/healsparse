@@ -157,9 +157,9 @@ Note that there are multiple equivalent ways to erase pixels.
 
     galactic_box = healsparse.Box(ra1=0.0, ra2=360.0, dec1=-20.0, dec2=20.0, value=False, geom_frame="g")
 
-    del m[galactic_box]
+    m.clear_pixels(galactic_box)
     # Equivalently, one can do `m &= galactic_box` (because the value is False)
-    # or one can do `m.clear_pixels(galactic_box)` or `m[galactic_box] = None`
+    # or `m[galactic_box] = None`
 
     print(m.n_valid)
     # 564284571
