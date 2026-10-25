@@ -720,7 +720,7 @@ class HealSparseMap(object):
         Parameters
         ----------
         pixel_ranges : `np.ndarray` (M, 2)
-            2D array of pixel ranges.
+            2D array of [start, stop) pixel ranges.
         value : `int` or `float` or `bool`
             Single value to set.
         operation : `str`
@@ -728,96 +728,48 @@ class HealSparseMap(object):
         no_append : `bool`
             If True, no coverage pixels will be appended.
         """
-        # Compute the coverage pixels.
-        cov_pix_ranges = np.right_shift(pixel_ranges, self._cov_map.bit_shift)
-        # After the bit shift these pixel ranges are inclusive, not exclusive.
-        # But we also need to protect against an overrun at the high end.
-        if cov_pix_ranges[-1, 1] == len(self.coverage_mask):
-            cov_pix_ranges[-1, 1] = len(self.coverage_mask) - 1
+        shift = self._cov_map.bit_shift
 
-        cov_pix_to_set = hpg.pixel_ranges_to_pixels(cov_pix_ranges, inclusive=True)
-        cov_pix_to_set = fast_unique(cov_pix_to_set)
+        # Split every range at coverage-block boundaries so each segment
+        # lies within exactly one coverage pixel.
+        start, stop = pixel_ranges[:, 0], pixel_ranges[:, 1]
+        cov0 = np.right_shift(start, shift)
+        cov1 = np.right_shift(stop - 1, shift)  # inclusive; no overrun at the top
+        nseg = cov1 - cov0 + 1
+        rng = np.repeat(np.arange(len(start)), nseg)
+        cov = cov0[rng] + (np.arange(nseg.sum()) - np.repeat(np.cumsum(nseg) - nseg, nseg))
+        seg_start = np.maximum(start[rng], np.left_shift(cov, shift))
+        seg_stop = np.minimum(stop[rng], np.left_shift(cov + 1, shift))
 
+        # Coverage handling.
         cov_mask = self.coverage_mask
+        if no_append:
+            keep = cov_mask[cov]
+            cov, seg_start, seg_stop = cov[keep], seg_start[keep], seg_stop[keep]
+        else:
+            new_cov_pixels = fast_unique(cov[~cov_mask[cov]])
+            if len(new_cov_pixels) > 0:
+                self._reserve_cov_pix(new_cov_pixels)
 
-        new_cov_pixels = cov_pix_to_set[~cov_mask[cov_pix_to_set]]
+        # Translate to sparse-map indices.
+        offset = self._cov_map[cov]
+        sparse_start = seg_start + offset
+        sparse_stop = seg_stop + offset
 
-        if not no_append and len(new_cov_pixels) > 0:
-            # Reserve more storage for new coverage pixels.
-            self._reserve_cov_pix(new_cov_pixels)
-
-        # Check which of these ranges cover more than one pixel?
-        delta_pix = pixel_ranges[:, 1] - pixel_ranges[:, 0]
-        delta_covpix = cov_pix_ranges[:, 1] - cov_pix_ranges[:, 0]
-
-        covpix_start_values = (self._cov_map[cov_pix_ranges.ravel()] +
-                               self._cov_map.nfine_per_cov*cov_pix_ranges.ravel()
-                               ).reshape(cov_pix_ranges.shape)
-
-        covpix_offset_values = self._cov_map[self._cov_map.cov_pixels_from_index(
-            covpix_start_values.ravel()
-        )].reshape(cov_pix_ranges.shape)
-
-        def _do_operation_on_sparse_map_range(operation, sparse_map, start, stop, value):
-            # Note that start: stop will not have overlapping pixels, so we do
-            # not need to use ufunc.at() to perform operations.
+        sparse_map = self._sparse_map
+        for a, b in zip(sparse_start, sparse_stop):
+            # Segments never overlap, so plain slicing is safe.
             if operation == "replace":
-                sparse_map[start: stop] = value
+                sparse_map[a: b] = value
             elif operation == "add":
-                # Put in a check to reset uncovered pixels to 0
                 if self._sentinel != 0:
-                    sparse_map[start: stop][sparse_map[start: stop] == self._sentinel] = 0
-                sparse_map[start: stop] += value
+                    sl = sparse_map[a: b]
+                    sl[sl == self._sentinel] = 0
+                sparse_map[a: b] += value
             elif operation == "or":
-                sparse_map[start: stop] |= value
+                sparse_map[a: b] |= value
             elif operation == "and":
-                sparse_map[start: stop] &= value
-
-        # Loop over ranges.
-        for i in range(pixel_ranges.shape[0]):
-            if delta_covpix[i] > 0:
-                # This range overlaps multiple coverage pixels.
-                if no_append and not cov_mask[cov_pix_ranges[i, 0]]:
-                    # Nothing to set here.
-                    pass
-                else:
-                    # The first coverage pixel will be partly covered.
-                    start = pixel_ranges[i, 0] + covpix_offset_values[i, 0]
-                    stop = (
-                        self._cov_map[cov_pix_ranges[i, 0]] +
-                        self._cov_map.nfine_per_cov*(cov_pix_ranges[i, 0] + 1)
-                    )
-                    _do_operation_on_sparse_map_range(operation, self._sparse_map, start, stop, value)
-
-                # The middle coverage pixels will be fully covered.
-                for cov_pix_full in range(cov_pix_ranges[i, 0] + 1, cov_pix_ranges[i, 1]):
-                    if no_append and not cov_mask[cov_pix_full]:
-                        # Nothing to set here.
-                        continue
-                    start = (self._cov_map[cov_pix_full] + self._cov_map.nfine_per_cov*cov_pix_full)
-                    stop = start + self._cov_map.nfine_per_cov
-                    _do_operation_on_sparse_map_range(operation, self._sparse_map, start, stop, value)
-
-                if no_append and not cov_mask[cov_pix_ranges[i, 1]]:
-                    # Nothing to set here.
-                    pass
-                else:
-                    # The final coverage pixel will be partly covered.
-                    start = (self._cov_map[cov_pix_ranges[i, 1]] +
-                             self._cov_map.nfine_per_cov*(cov_pix_ranges[i, 1])
-                             )
-                    stop = pixel_ranges[i, 1] + covpix_offset_values[i, 1]
-                    _do_operation_on_sparse_map_range(operation, self._sparse_map, start, stop, value)
-            else:
-                if no_append and not cov_mask[cov_pix_ranges[i, 0]]:
-                    # Nothing to set here.
-                    continue
-
-                # This range is fully contained in a coverage pixel.
-                start = pixel_ranges[i, 0] + covpix_offset_values[i, 0]
-                stop = start + delta_pix[i]
-
-                _do_operation_on_sparse_map_range(operation, self._sparse_map, start, stop, value)
+                sparse_map[a: b] &= value
 
     def set_bits_pix(self, pixels, bits, nest=True):
         """

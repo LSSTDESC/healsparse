@@ -236,6 +236,9 @@ def fast_unique(pixels):
     -------
     unique_values : `np.ndarray`
     """
+    if len(pixels) == 0:
+        return pixels
+
     mn = pixels.min()
     mx = pixels.max()
     span = mx - mn + 1
