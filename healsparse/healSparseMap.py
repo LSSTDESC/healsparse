@@ -6,7 +6,7 @@ from .healSparseCoverage import HealSparseCoverage
 from .utils import reduce_array, check_sentinel, _bitvals_to_packed_array
 from .utils import WIDE_NBIT, WIDE_MASK, PIXEL_RANGE_THRESHOLD
 from .utils import is_integer_value, _compute_bitshift, _n_valid_per_pix
-from .utils import has_duplicates, fast_unique
+from .utils import has_duplicates, fast_unique, complement_pixel_ranges
 from .io_map import _read_map, _write_map, _write_moc
 from .packedBoolArray import _PackedBoolArray
 from .geom import GeomBase
@@ -1858,7 +1858,41 @@ class HealSparseMap(object):
         key : `int`, `slice`, `ndarray`, `list`, or `healsparse.GeomBase`
             Key for pixels to clear.
         """
-        self.__setitem__(key, None)
+        return self.__setitem__(key, None)
+
+    def crop(self, geom, in_place=False, defragment=True):
+        """Crop a map to a geometric object.
+
+        Parameters
+        ----------
+        geom : `healsparse.GeomBase`
+            Instance of a healsparse geometry object.
+        in_place : `bool`, optional
+            If False, a cropped copy will be made. Otherwise, the map will be
+            altered in place.
+        defragment : `bool`, optional
+            If True then the cropped map will be defragmented / compressed
+            to remove empty coverage pixels.
+
+        Returns
+        -------
+        cropped_map : `healsparse.HealSparseMap`
+        """
+        if not isinstance(geom, GeomBase):
+            raise ValueError("geom must be an instance of a subclass of GeomBase.")
+
+        if in_place:
+            cropped = self
+        else:
+            cropped = self.copy()
+
+        pixel_ranges = geom.get_pixel_ranges(nside=self.nside_sparse)
+        cropped.clear_pixels(complement_pixel_ranges(pixel_ranges, 0, hpg.nside_to_npixel(self.nside_sparse)))
+
+        if defragment:
+            cropped.defragment(in_place=True)
+
+        return cropped
 
     def get_single(self, key, sentinel=None, copy=False):
         """

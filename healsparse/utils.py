@@ -250,6 +250,29 @@ def fast_unique(pixels):
     return np.flatnonzero(seen) + mn
 
 
+def complement_pixel_ranges(pixel_ranges, lo, hi):
+    """Take pixel_ranges and return the complement (inverse).
+
+    Parameters
+    ----------
+    pixel_ranges : `np.ndarray` (N, 2)
+        Sorted pixel ranges.
+    lo : `int`
+        Lower limit for complement of pixel ranges.
+    hi : `int`
+        Higher limit for complement of pixel ranges.
+
+    Returns
+    -------
+    pixel_ranges_comp : `np.ndarray` (N, 2)
+    """
+    pixel_ranges = pixel_ranges[(pixel_ranges[:, 1] > lo) & (pixel_ranges[:, 0] < hi)]
+    starts = np.concatenate([[lo], np.clip(pixel_ranges[:, 1], lo, hi)])
+    ends = np.concatenate([np.clip(pixel_ranges[:, 0], lo, hi), [hi]])
+    keep = ends > starts
+    return np.stack([starts[keep], ends[keep]], axis=1)
+
+
 def _n_valid_per_pix(hspmap, nside, return_overflow):
     """
     Compute the number of valid pixels per pixel at (coarser) nside.
