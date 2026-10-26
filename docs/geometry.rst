@@ -175,6 +175,45 @@ Note that there are multiple equivalent ways to erase pixels.
     # False
 
 
+Using Geometric Shapes To Crop Pixels
+-------------------------------------
+
+Geometric shapes can be used to crop maps.
+By default the cropped map will be "defragmented" with the coverage map shrunk to cover the new cropped region.
+The cropping method can either modify a map in place (:code:`in_place=True`) or return a copy leaving the original unaltered (:code:`in_place=False`).
+Note that the value of a geometric shape is not used when used in the cropping tool.
+
+The following example demonstrates how to crop all high Galactic latitude pixels, equivalent to the sample above.
+This additionally demonstrates how to create a union of multiple shapes which can be combined as one.
+
+.. code-block :: python
+
+    import healsparse
+    import numpy as np
+
+    m = healsparse.HealSparseMap.make_empty(32, 32768, bool, bit_packed=True)
+
+    celestial_circle = healsparse.Circle(ra=270.0, dec=-20.0, radius=40.0, value=True)
+
+    m[celestial_circle] = True
+
+    print(m.n_valid)
+    # 1507247285
+
+    galactic_box1 = healsparse.Box(ra1=0.0, ra2=360.0, dec1=20.0, dec2=90.0, value=False, geom_frame="g")
+    galactic_box2 = healsparse.Box(ra1=0.0, ra2=360.0, dec1=-90.0, dec2=-20.0, value=False, geom_frame="g")
+    union = healsparse.GeomUnion(geom_list=[galactic_box1, galactic_box2])
+
+    m.crop(union, in_place=True)
+
+    print(m.n_valid)
+    # 564284571
+
+    # Note that by default this map will be defragmented when cropped:
+    print(m.is_fragmented)
+    # False
+
+
 Making a Map
 ------------
 
