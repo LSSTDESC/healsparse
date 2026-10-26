@@ -930,10 +930,11 @@ class GeomTestCase(unittest.TestCase):
         # Do the faster way (other API).
         m2 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse, bool, bit_packed=True)
 
-        geom_union = GeomUnion()
+        circles = []
         for i in range(n_circle):
             circle = Circle(ra=ras[i], dec=decs[i], radius=radii[i], value=True)
-            geom_union |= circle
+            circles.append(circle)
+        geom_union = GeomUnion(geom_list=circles)
 
         m2 |= geom_union
 
@@ -986,6 +987,22 @@ class GeomTestCase(unittest.TestCase):
         testing.assert_array_equal(
             m2.valid_pixels,
             np.sort(m.valid_pixels, kind="stable"),
+        )
+
+        # Alternative initialization
+        m3 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse, bool, bit_packed=True)
+
+        circles = []
+        for i in range(n_circle):
+            circle = Circle(ra=ras[i], dec=decs[i], radius=radii[i], value=True)
+            circles.append(circle)
+        geom_intersection = GeomIntersection(geom_list=circles)
+
+        m3 |= geom_intersection
+
+        testing.assert_array_equal(
+            m3.valid_pixels,
+            m2.valid_pixels,
         )
 
         _ = repr(geom_intersection)
