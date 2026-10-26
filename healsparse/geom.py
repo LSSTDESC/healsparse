@@ -621,7 +621,7 @@ class GeomUnion(GeomBase):
         self._value = None
         self._nside_render = None
 
-        for geom in self._geom_list:
+        for geom in geom_list:
             self.append(geom)
 
     def _render(self, *, nside_render, return_pixel_ranges):
@@ -682,7 +682,7 @@ class GeomIntersection(GeomBase):
         self._value = None
         self._nside_render = None
 
-        for geom in self._geom_list:
+        for geom in geom_list:
             self.append(geom)
 
     def _render(self, *, nside_render, return_pixel_ranges):
