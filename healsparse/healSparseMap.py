@@ -2497,7 +2497,13 @@ class HealSparseMap(object):
         # We invalidate the n_valid cache here.
         self._n_valid = None
 
-        self._sparse_map[self._cov_map.nfine_per_cov:] = ~self._sparse_map[self._cov_map.nfine_per_cov:]
+        temp = self._sparse_map[self._cov_map.nfine_per_cov:]
+
+        if self._is_bit_packed:
+            temp.invert()
+        else:
+            np.invert(temp, out=temp)
+
         return self
 
     def __invert__(self):
@@ -2510,7 +2516,13 @@ class HealSparseMap(object):
             raise NotImplementedError("Can only use invert(~) on boolean maps.")
 
         sparse_map_temp = self._sparse_map.copy()
-        sparse_map_temp[self._cov_map.nfine_per_cov:] = ~sparse_map_temp[self._cov_map.nfine_per_cov:]
+
+        temp = sparse_map_temp[self._cov_map.nfine_per_cov:]
+        if self._is_bit_packed:
+            temp.invert()
+        else:
+            np.invert(temp, out=temp)
+
         return HealSparseMap(
             cov_map=self._cov_map.copy(),
             sparse_map=sparse_map_temp,
