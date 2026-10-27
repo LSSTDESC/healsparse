@@ -100,8 +100,7 @@ def _read_map_fits(healsparse_class, filename, nside_coverage=None, pixels=None,
                     raise RuntimeError("Healpix file does not comply with standards.")
 
             # Ravel the data into one contiguous array.
-            data = data[field_name]
-            data.resize(data.size)
+            data = data[field_name].ravel()
 
             if hdr["ORDERING"] == "RING":
                 data = hpg.reorder(data, ring_to_nest=True)
