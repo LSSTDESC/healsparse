@@ -2697,7 +2697,6 @@ class HealSparseMap(object):
 
             new_cov_pix, = (coverage_mask & ~self.coverage_mask).nonzero()
             if in_place:
-                new_cov_pix, = (coverage_mask & ~self.coverage_mask).nonzero()
                 self._reserve_cov_pix(new_cov_pix)
                 cov_map_temp = self._cov_map
                 sparse_map_temp = self._sparse_map
