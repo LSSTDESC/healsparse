@@ -170,7 +170,7 @@ class _PackedBoolArray:
             if last_unpacked[0] is not None:
                 summand += np.sum(last_unpacked[0], dtype=np.int64)
             if mid_data is not None:
-                summand += np.sum(self._bit_count(mid_data), dtype=np.int64)
+                summand += np.sum(self._last_axis_bit_counts(mid_data, mid_data.size * 8))
 
             return summand
         else:
@@ -189,10 +189,12 @@ class _PackedBoolArray:
             if axis == 0:
                 raise NotImplementedError("axis=0 is not supported for summation.")
 
-            new_shape = list(shape)
-            new_shape[-1] //= 8
-            temp = self._bit_count(self._data)
-            return np.sum(temp.reshape(new_shape), axis=axis, dtype=np.int64)
+            temp = self._last_axis_bit_counts(self._data, shape[1])
+
+            if axis is None:
+                return np.sum(temp, dtype=np.int64)
+            else:
+                return temp
 
     @property
     def data_array(self):
@@ -681,16 +683,31 @@ class _PackedBoolArray:
 
         return self._data[_locs // 8] & (1 << (_locs % 8).astype(np.uint8)) != 0
 
-    def _bit_count(self, arr):
-        if self.LUT is None:
-            _s55 = np.uint8(0x55)
-            _s33 = np.uint8(0x33)
-            _s0F = np.uint8(0x0F)
-            _s01 = np.uint8(0x01)
-            self.LUT = np.arange(2**8, dtype=np.uint8)
-            self.LUT = self.LUT - ((self.LUT >> 1) & _s55)
-            self.LUT = (self.LUT & _s33) + ((self.LUT >> 2) & _s33)
-            self.LUT = (self.LUT + (self.LUT >> 4)) & _s0F
-            self.LUT *= _s01
+    def _last_axis_bit_counts(self, packed, ncols_unpacked, chunk_bytes=1 << 25):
+        """Compute bit counts per row, chunked to conserve memory.
 
-        return self.LUT[arr]
+        Parameters
+        ----------
+        packed : `np.ndarray`
+            Packed byte array.
+        ncols_unpacked : `int`
+            Number of columns when unpacked.
+        chunk_bytes : `int`, optional
+            Chunk size.
+
+        Returns
+        -------
+        bit_counts : `np.ndarray`
+            Number of bit counts, reduced along the last axis.
+        """
+        nbytes = ncols_unpacked // 8
+        rows = packed.reshape(-1, nbytes)
+        for dt in (np.uint64, np.uint32, np.uint16, np.uint8):
+            if nbytes % np.dtype(dt).itemsize == 0:
+                break
+        words = rows.view(dt)
+        out = np.empty(rows.shape[0], dtype=np.int64)
+        step = max(1, chunk_bytes // nbytes)
+        for i in range(0, rows.shape[0], step):
+            out[i:i + step] = np.bitwise_count(words[i:i + step]).sum(axis=1, dtype=np.int64)
+        return out

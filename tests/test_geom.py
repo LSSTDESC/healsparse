@@ -930,10 +930,11 @@ class GeomTestCase(unittest.TestCase):
         # Do the faster way (other API).
         m2 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse, bool, bit_packed=True)
 
-        geom_union = GeomUnion()
+        circles = []
         for i in range(n_circle):
             circle = Circle(ra=ras[i], dec=decs[i], radius=radii[i], value=True)
-            geom_union |= circle
+            circles.append(circle)
+        geom_union = GeomUnion(geom_list=circles)
 
         m2 |= geom_union
 
@@ -988,6 +989,22 @@ class GeomTestCase(unittest.TestCase):
             np.sort(m.valid_pixels, kind="stable"),
         )
 
+        # Alternative initialization
+        m3 = healsparse.HealSparseMap.make_empty(nside_coverage, nside_sparse, bool, bit_packed=True)
+
+        circles = []
+        for i in range(n_circle):
+            circle = Circle(ra=ras[i], dec=decs[i], radius=radii[i], value=True)
+            circles.append(circle)
+        geom_intersection = GeomIntersection(geom_list=circles)
+
+        m3 |= geom_intersection
+
+        testing.assert_array_equal(
+            m3.valid_pixels,
+            m2.valid_pixels,
+        )
+
         _ = repr(geom_intersection)
 
     def test_geom_intersection_mismatch(self):
@@ -997,6 +1014,183 @@ class GeomTestCase(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             geom_intersection.append(Circle(ra=0.0, dec=0.0, radius=1.0, value=False))
+
+    def test_geom_and_clear(self):
+        nside_coverage = 32
+        nside_map = 4096
+
+        m = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_)
+
+        circle1 = Circle(ra=100.0, dec=20.0, radius=0.5, value=True)
+        circle2 = Circle(ra=100.0, dec=20.0, radius=0.1, value=False)
+
+        m |= circle1
+
+        size = m._sparse_map.size
+
+        m &= circle2
+
+        pix1 = circle1.get_pixels(nside=m.nside_sparse)
+        pix2 = circle2.get_pixels(nside=m.nside_sparse)
+
+        a = np.searchsorted(pix1, pix2)
+        pixels = np.delete(pix1, a)
+
+        np.testing.assert_array_equal(m.valid_pixels, pixels)
+        self.assertEqual(size, m._sparse_map.size)
+
+        # This should not expand the coverage map.
+        circle3 = healsparse.Circle(ra=180.0, dec=-20.0, radius=0.1, value=False)
+        m &= circle3
+
+        np.testing.assert_array_equal(m.valid_pixels, pixels)
+        self.assertEqual(size, m._sparse_map.size)
+
+    def test_geom_box_galactic(self):
+        """Test full usage of a geom Box, Galactic frame."""
+        nside_coverage = 32
+        nside_map = 1024
+
+        m = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_)
+
+        celestial_circle = Circle(ra=270.0, dec=-20.0, radius=40.0, value=True)
+
+        m |= celestial_circle
+
+        size = m._sparse_map.size
+
+        galactic_box = Box(ra1=0.0, ra2=360.0, dec1=-20.0, dec2=20.0, value=False, frame="g")
+
+        m &= galactic_box
+
+        self.assertEqual(size, m._sparse_map.size)
+
+        try:
+            from astropy.coordinates import SkyCoord
+        except ImportError:
+            # Skip this test.
+            return
+
+        coords = SkyCoord(*m.valid_pixels_pos(), frame="icrs", unit="degree")
+
+        self.assertGreater(np.min(np.abs(coords.galactic.b.degree)), 20.0)
+
+    def test_geom_box_ecliptic(self):
+        """Test full usage of a geom Box, Ecliptic frame."""
+        nside_coverage = 32
+        nside_map = 1024
+
+        m = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_)
+
+        ecliptic_box = Box(ra1=0.0, ra2=50.0, dec1=-5.0, dec2=5.0, value=True, frame="e")
+
+        m |= ecliptic_box
+
+        try:
+            from astropy.coordinates import SkyCoord
+        except ImportError:
+            # Skip this test.
+            return
+
+        coords = SkyCoord(*m.valid_pixels_pos(), frame="icrs", unit="degree")
+        e_lon, e_lat = coords.barycentricmeanecliptic.lon.degree, coords.barycentricmeanecliptic.lat.degree
+
+        self.assertGreater(np.min(e_lon), 0.0)
+        self.assertLess(np.max(e_lon), 50.0)
+        self.assertGreater(np.min(e_lat), -5.0)
+        self.assertLess(np.max(e_lat), 5.0)
+
+    def test_geom_circle_frame(self):
+        """Test simple frame usage of Circle."""
+        nside = 2048
+        ra_center, dec_center = 0.0, 0.0
+        radius = 5.0
+
+        circle = Circle(ra=ra_center, dec=dec_center, radius=radius, value=True, frame="galactic")
+        ranges = circle.get_pixel_ranges(nside=nside)
+
+        ranges_compare = hpg.query_circle(
+            nside,
+            ra_center,
+            dec_center,
+            radius,
+            query_frame="galactic",
+            return_pixel_ranges=True,
+        )
+
+        np.testing.assert_array_equal(ranges, ranges_compare)
+
+    def test_geom_polygon_frame(self):
+        """Test simple frame usage of Polygon."""
+        nside = 2048
+        ras = [30.0, 30.0, 35.0, 40.0, 40.0]
+        decs = [50.0, 60.0, 65.0, 60.0, 50.0]
+
+        poly = Polygon(ra=ras, dec=decs, value=True, frame="ecliptic")
+        ranges = poly.get_pixel_ranges(nside=nside)
+
+        ranges_compare = hpg.query_polygon(
+            nside,
+            ras,
+            decs,
+            query_frame="ecliptic",
+            return_pixel_ranges=True,
+        )
+
+        np.testing.assert_array_equal(ranges, ranges_compare)
+
+    def test_geom_ellipse_frame(self):
+        """Test simple frame usage of Ellipse."""
+        nside = 2048
+        ra_center, dec_center = 0.0, -70.0
+        major = 5.0
+        minor = 2.0
+        alpha = 30.0
+
+        ellipse = Ellipse(
+            ra=ra_center,
+            dec=dec_center,
+            semi_major=major,
+            semi_minor=minor,
+            alpha=alpha,
+            value=True,
+            frame="galactic",
+        )
+        ranges = ellipse.get_pixel_ranges(nside=nside)
+
+        ranges_compare = hpg.query_ellipse(
+            nside,
+            ra_center,
+            dec_center,
+            major,
+            minor,
+            alpha,
+            query_frame="galactic",
+            return_pixel_ranges=True,
+        )
+
+        np.testing.assert_array_equal(ranges, ranges_compare)
+
+    def test_geom_box_frame(self):
+        """Test simple frame usage of Circle."""
+        nside = 2048
+        ra1, ra2 = 20.0, 50.0
+        dec1, dec2 = -35.0, -25.0
+
+        box = Box(ra1=ra1, ra2=ra2, dec1=dec1, dec2=dec2, value=True, frame="ecliptic")
+        ranges = box.get_pixel_ranges(nside=nside)
+
+        ranges_compare = hpg.query_box(
+            nside,
+            ra1,
+            ra2,
+            dec1,
+            dec2,
+            query_frame="ecliptic",
+            return_pixel_ranges=True,
+        )
+
+        np.testing.assert_array_equal(ranges, ranges_compare)
 
     def test_repr(self):
         """

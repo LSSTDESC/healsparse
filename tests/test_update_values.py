@@ -233,6 +233,31 @@ class UpdateValuesTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             sparse_map.update_values_pix(0, None, operation='add')
 
+    def test_update_values_single(self):
+        """
+        Test doing update_values with a single pixel.
+        """
+        nside_coverage = 32
+        nside_map = 64
+        dtype = np.float64
+
+        sparse_map = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, dtype)
+
+        sparse_map.update_values_pix(10, 10.0)
+
+        self.assertEqual(sparse_map.n_valid, 1)
+        self.assertEqual(sparse_map[10], 10.0)
+
+        sparse_map.update_values_pix([11], 11.0)
+
+        self.assertEqual(sparse_map.n_valid, 2)
+        self.assertEqual(sparse_map[11], 11.0)
+
+        sparse_map.update_values_pix(np.asarray([12]), 12.0)
+
+        self.assertEqual(sparse_map.n_valid, 3)
+        self.assertEqual(sparse_map[12], 12.0)
+
     def test_update_values_pos(self):
         """
         Test doing update_values with positions (unique and non-unique).

@@ -243,8 +243,8 @@ def _read_healsparse_fits_file(filename, pixels=None):
         else:
             sentinel = hpg.UNSEEN
         if 'RESHAPED' in s_hdr and s_hdr['RESHAPED']:
-            # Unravel and reshaped maps.
-            sparse_map = sparse_map.ravel()
+            # Resize reshaped images while keeping ownership.
+            sparse_map.resize(sparse_map.size)
     else:
         _pixels = np.atleast_1d(pixels)
         if len(np.unique(_pixels)) < len(_pixels):
@@ -516,14 +516,14 @@ def _read_healsparse_fits_file_and_degrade(filename, pixels, nside_out, reductio
                          (cov_index_map_temp[pix] + cov_map.nfine_per_cov)*wmult]
             pix_data = fits.read_ext_data('SPARSE', row_range=row_range, col_range=col_range)
             if reshaped:
-                pix_data = pix_data.ravel()
+                pix_data.resize(pix_data.size)
 
             if use_weightfile:
                 row_range_weight = [cov_index_map_temp_weight[pix],
                                     (cov_index_map_temp_weight[pix] + cov_map.nfine_per_cov)]
                 weight_values = wfits.read_ext_data('SPARSE', row_range=row_range_weight, col_range=col_range)
                 if reshaped:
-                    weight_values = weight_values.ravel()
+                    weight_values.resize(weight_values.size)
                 weight_values[weight_values == sentinel_weight] = 0.0
                 weight_values = weight_values.reshape((1,
                                                        (nside_out//nside_coverage)**2, -1))

@@ -197,14 +197,14 @@ class GeomBase(object):
             sentinel=sentinel,
             wide_mask_maxbits=wide_mask_maxbits
         )
-        pixels = self.get_pixels(nside=nside_sparse)
+        pixel_ranges = self.get_pixel_ranges(nside=nside_sparse)
 
         if wide_mask_maxbits is None:
             # This is a regular set
-            smap.update_values_pix(pixels, np.array([self._value], dtype=dtype))
+            smap.update_values_pix(pixel_ranges, np.array([self._value], dtype=dtype), check_unique=False)
         else:
             # This is a wide mask
-            smap.set_bits_pix(pixels, self._value)
+            smap.set_bits_pix(pixel_ranges, self._value)
 
         return smap
 
@@ -255,13 +255,19 @@ class Circle(GeomBase):
         If this is set, the shape will always be rendered at this
         nside and then these pixels will be 'upgraded' to the resolution
         of the map.
+    frame : `str`, optional
+        Coordinate frame for geometry object. May be
+        ``equatorial``/``icrs``/``c`` or ``galactic``/``g`` or
+        ``ecliptic``/``barycentricmeanecliptic``/``e``. Query will be done
+        in this frame, and output will be equatorial/celestial coordinates.
     """
-    def __init__(self, *, ra, dec, radius, value, nside_render=None):
+    def __init__(self, *, ra, dec, radius, value, nside_render=None, frame="equatorial"):
         self._ra = ra
         self._dec = dec
         self._radius = radius
         self._value = value
         self._nside_render = nside_render
+        self._frame = frame
         sc_ra = np.isscalar(self._ra)
         sc_dec = np.isscalar(self._dec)
         sc_radius = np.isscalar(self._radius)
@@ -298,11 +304,19 @@ class Circle(GeomBase):
             nest=True,
             inclusive=False,
             return_pixel_ranges=return_pixel_ranges,
+            query_frame=self._frame,
         )
 
     def __repr__(self):
-        s = 'Circle(ra=%.16g, dec=%.16g, radius=%.16g, value=%s, nside_render=%s)'
-        return s % (self._ra, self._dec, self._radius, repr(self._value), repr(self._nside_render))
+        s = 'Circle(ra=%.16g, dec=%.16g, radius=%.16g, value=%s, nside_render=%s, frame=%s)'
+        return s % (
+            self._ra,
+            self._dec,
+            self._radius,
+            repr(self._value),
+            repr(self._nside_render),
+            repr(self._frame),
+        )
 
 
 class Polygon(GeomBase):
@@ -319,8 +333,17 @@ class Polygon(GeomBase):
         Declination of vertices in degrees.
     value : number
         Value for pixels in the map
+    nside_render : `int`, optional
+        If this is set, the shape will always be rendered at this
+        nside and then these pixels will be 'upgraded' to the resolution
+        of the map.
+    frame : `str`, optional
+        Coordinate frame for geometry object. May be
+        ``equatorial``/``icrs``/``c`` or ``galactic``/``g`` or
+        ``ecliptic``/``barycentricmeanecliptic``/``e``. Query will be done
+        in this frame, and output will be equatorial/celestial coordinates.
     """
-    def __init__(self, *, ra, dec, value, nside_render=None):
+    def __init__(self, *, ra, dec, value, nside_render=None, frame="equatorial"):
         ra = np.array(ra, ndmin=1)
         dec = np.array(dec, ndmin=1)
 
@@ -333,6 +356,7 @@ class Polygon(GeomBase):
         self._vertices = hpg.angle_to_vector(ra, dec, lonlat=True)
         self._value = value
         self._nside_render = nside_render
+        self._frame = frame
 
         self._is_integer = is_integer_value(value)
 
@@ -365,14 +389,15 @@ class Polygon(GeomBase):
             nest=True,
             inclusive=False,
             return_pixel_ranges=return_pixel_ranges,
+            query_frame=self._frame,
         )
 
     def __repr__(self):
         ras = repr(self._ra)
         decs = repr(self._dec)
 
-        s = 'Polygon(ra=%s, dec=%s, value=%s, nside_render=%s)'
-        return s % (ras, decs, repr(self._value), repr(self._nside_render))
+        s = 'Polygon(ra=%s, dec=%s, value=%s, nside_render=%s, frame=%s)'
+        return s % (ras, decs, repr(self._value), repr(self._nside_render), repr(self._frame))
 
 
 class Ellipse(GeomBase):
@@ -393,8 +418,28 @@ class Ellipse(GeomBase):
         Inclination angle, counterclockwise with respect to North (degrees).
     value : number
         Value for pixels in the map (scalar or list of bits for `wide_mask`).
+    nside_render : `int`, optional
+        If this is set, the shape will always be rendered at this
+        nside and then these pixels will be 'upgraded' to the resolution
+        of the map.
+    frame : `str`, optional
+        Coordinate frame for geometry object. May be
+        ``equatorial``/``icrs``/``c`` or ``galactic``/``g`` or
+        ``ecliptic``/``barycentricmeanecliptic``/``e``. Query will be done
+        in this frame, and output will be equatorial/celestial coordinates.
     """
-    def __init__(self, *, ra, dec, semi_major, semi_minor, alpha, value, nside_render=None):
+    def __init__(
+        self,
+        *,
+        ra,
+        dec,
+        semi_major,
+        semi_minor,
+        alpha,
+        value,
+        nside_render=None,
+        frame="equatorial",
+    ):
         self._ra = ra
         self._dec = dec
         self._semi_major = semi_major
@@ -402,6 +447,7 @@ class Ellipse(GeomBase):
         self._alpha = alpha
         self._value = value
         self._nside_render = nside_render
+        self._frame = frame
         sc_ra = np.isscalar(self._ra)
         sc_dec = np.isscalar(self._dec)
         sc_semi_major = np.isscalar(self._semi_major)
@@ -458,13 +504,14 @@ class Ellipse(GeomBase):
             nest=True,
             inclusive=False,
             return_pixel_ranges=return_pixel_ranges,
+            query_frame=self._frame
         )
 
     def __repr__(self):
         s = ("Ellipse(ra=%.16g, dec=%16g, semi_major=%16g, semi_minor=%16g, alpha=%16g, value=%s, "
-             "nside_render=%s)")
+             "nside_render=%s, frame=%s)")
         return s % (self._ra, self._dec, self._semi_major, self._semi_minor, self._alpha, repr(self._value),
-                    repr(self._nside_render))
+                    repr(self._nside_render), repr(self._frame))
 
 
 class Box(GeomBase):
@@ -491,14 +538,20 @@ class Box(GeomBase):
         If this is set, the shape will always be rendered at this
         nside and then these pixels will be 'upgraded' to the resolution
         of the map.
+    frame : `str`, optional
+        Coordinate frame for geometry object. May be
+        ``equatorial``/``icrs``/``c`` or ``galactic``/``g`` or
+        ``ecliptic``/``barycentricmeanecliptic``/``e``. Query will be done
+        in this frame, and output will be equatorial/celestial coordinates.
     """
-    def __init__(self, *, ra1, ra2, dec1, dec2, value, nside_render=None):
+    def __init__(self, *, ra1, ra2, dec1, dec2, value, nside_render=None, frame="equatorial"):
         self._ra1 = ra1
         self._ra2 = ra2
         self._dec1 = dec1
         self._dec2 = dec2
         self._value = value
         self._nside_render = nside_render
+        self._frame = frame
 
         sc_ra1 = np.isscalar(self._ra1)
         sc_ra2 = np.isscalar(self._ra2)
@@ -534,11 +587,20 @@ class Box(GeomBase):
             nest=True,
             inclusive=False,
             return_pixel_ranges=return_pixel_ranges,
+            query_frame=self._frame,
         )
 
     def __repr__(self):
-        s = "Box(ra1=%.16g, ra2=%.16g, dec1=%.16g, dec2=%.16g, value=%s, nside_render=%s"
-        return s % (self._ra1, self._ra2, self._dec1, self._dec2, repr(self._value), repr(self._nside_render))
+        s = "Box(ra1=%.16g, ra2=%.16g, dec1=%.16g, dec2=%.16g, value=%s, nside_render=%s, frame=%s)"
+        return s % (
+            self._ra1,
+            self._ra2,
+            self._dec1,
+            self._dec2,
+            repr(self._value),
+            repr(self._nside_render),
+            repr(self._frame),
+        )
 
 
 class GeomUnion(GeomBase):
@@ -559,7 +621,7 @@ class GeomUnion(GeomBase):
         self._value = None
         self._nside_render = None
 
-        for geom in self._geom_list:
+        for geom in geom_list:
             self.append(geom)
 
     def _render(self, *, nside_render, return_pixel_ranges):
@@ -620,7 +682,7 @@ class GeomIntersection(GeomBase):
         self._value = None
         self._nside_render = None
 
-        for geom in self._geom_list:
+        for geom in geom_list:
             self.append(geom)
 
     def _render(self, *, nside_render, return_pixel_ranges):

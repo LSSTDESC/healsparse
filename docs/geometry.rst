@@ -92,6 +92,20 @@ They share a base class, and while the instantiation is different, the operation
     intersection &= healsparse.Box(ra1=200.5, ra2=202.0, dec1=0.0, dec2=2.0, value=True)
 
 
+HealSparse Geometry Object Frames
+---------------------------------
+
+All of the :code:`HealSparse` shapes support different reference frames.
+The default is equatorial/celestial coordinates, but can be set to Galactic or Ecliptic coordinates following :code:`hpgeom`:
+
+The :code:`frame` options are:
+* Equatorial frame (default): Specified with :code:`"equatorial"` or :code:`"icrs"` or :code:`"c"`.
+* Galactic frame: Specified with :code:`"galactic"` or :code:`"g"`.
+* Ecliptic frame: Specified with :code:`"ecliptic"` or :code:`"barycentricmeanecliptic"` or :code:`"e"`.
+
+The basic coordinate system for :code:`HealSparseMap` objects are equatorial.
+If, for example, a shape uses :code:`frame="galactic"` then the shape will be described in Galactic coordinates and the output pixels will be in equatorial coordinates.
+
 
 Combining Geometric Objects with Maps
 -------------------------------------
@@ -117,6 +131,92 @@ Note that these operations can be applied to integer or boolean maps.
 
     # And add in another circle.
     m += healsparse.Circle(ra=202.0, dec=21.0, radius=0.5, value=10)
+
+
+Using Geometric Shapes To Set And Clear Pixels
+----------------------------------------------
+
+Geometric shapes can also be used to set and clear pixels.
+Clearing pixels means that the pixels will set to the map's sentinel value.
+This is typically :code:`UNSEEN` for floating-point maps; :code:`False` for boolean maps; and :code:`-MAXINT` or :code:`0` for integer maps.
+This will remove the pixels from the map's :code:`valid_pixels`.
+Clearing pixels will not expand the coverage map.
+
+The following example renders a large circular footprint and cuts out all the low Galactic latitude pixels for a boolean mask.
+Note that there are multiple equivalent ways to clear pixels.
+
+.. code-block :: python
+
+    import healsparse
+    import numpy as np
+
+    m = healsparse.HealSparseMap.make_empty(32, 32768, bool, bit_packed=True)
+
+    celestial_circle = healsparse.Circle(ra=270.0, dec=-20.0, radius=40.0, value=True)
+
+    m[celestial_circle] = True
+    # Equivalently, one can do `m |= celestial_circle`
+
+    print(m.n_valid)
+    # 1507247285
+
+    galactic_box = healsparse.Box(ra1=0.0, ra2=360.0, dec1=-20.0, dec2=20.0, value=False, frame="g")
+
+    m.clear_pixels(galactic_box)
+    # Equivalently, one can do `m &= galactic_box` (because the value is False)
+    # or `m[galactic_box] = None`
+
+    print(m.n_valid)
+    # 564284571
+
+    # Note that because this map was very large and cut down, it has extra coverage
+    # and is "fragmented":
+    print(m.is_fragmented)
+    # True
+
+    m.defragment()
+
+    print(m.is_fragmented)
+    # False
+
+
+Using Geometric Shapes To Crop Pixels
+-------------------------------------
+
+Geometric shapes can be used to crop maps.
+By default the cropped map will be "defragmented" with the coverage map shrunk to cover the new cropped region.
+The cropping method can either modify a map in place (:code:`in_place=True`) or return a copy leaving the original unaltered (:code:`in_place=False`).
+Note that the value of a geometric shape is not used when used in the cropping tool.
+
+The following example demonstrates how to crop all high Galactic latitude pixels, equivalent to the sample above.
+This additionally demonstrates how to create a union of multiple shapes which can be combined as one.
+
+.. code-block :: python
+
+    import healsparse
+    import numpy as np
+
+    m = healsparse.HealSparseMap.make_empty(32, 32768, bool, bit_packed=True)
+
+    celestial_circle = healsparse.Circle(ra=270.0, dec=-20.0, radius=40.0, value=True)
+
+    m[celestial_circle] = True
+
+    print(m.n_valid)
+    # 1507247285
+
+    galactic_box1 = healsparse.Box(ra1=0.0, ra2=360.0, dec1=20.0, dec2=90.0, value=False, frame="g")
+    galactic_box2 = healsparse.Box(ra1=0.0, ra2=360.0, dec1=-90.0, dec2=-20.0, value=False, frame="g")
+    union = healsparse.GeomUnion(geom_list=[galactic_box1, galactic_box2])
+
+    m.crop(union, in_place=True)
+
+    print(m.n_valid)
+    # 564284571
+
+    # Note that by default this map will be defragmented when cropped:
+    print(m.is_fragmented)
+    # False
 
 
 Making a Map
