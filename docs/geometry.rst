@@ -133,12 +133,17 @@ Note that these operations can be applied to integer or boolean maps.
     m += healsparse.Circle(ra=202.0, dec=21.0, radius=0.5, value=10)
 
 
-Using Geometric Shapes To Set And Erase Pixels
+Using Geometric Shapes To Set And Clear Pixels
 ----------------------------------------------
 
-Geometric shapes can also be used to set and erase pixels.
+Geometric shapes can also be used to set and clear pixels.
+Clearing pixels means that the pixels will set to the map's sentinel value.
+This is typically :code:`UNSEEN` for floating-point maps; :code:`False` for boolean maps; and :code:`-MAXINT` or :code:`0` for integer maps.
+This will remove the pixels from the map's :code:`valid_pixels`.
+Clearing pixels will not expand the coverage map.
+
 The following example renders a large circular footprint and cuts out all the low Galactic latitude pixels for a boolean mask.
-Note that there are multiple equivalent ways to erase pixels.
+Note that there are multiple equivalent ways to clear pixels.
 
 .. code-block :: python
 

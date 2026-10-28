@@ -510,7 +510,8 @@ class HealSparseMap(object):
             row is [start, end).
         values : `np.ndarray` or `None`
             Value or Array of values.  Must be same type as sparse_map.
-            If None, then the pixels will be set to the sentinel map value.
+            If None, then the pixels will be set to the sentinel map value,
+            thus removing them from from the map's ``valid_pixels``.
             If None is selected then no additional coverage pixels will be
             added as a result of the operation.
         operation : `str`, optional
@@ -1848,8 +1849,12 @@ class HealSparseMap(object):
     def clear_pixels(self, key):
         """Clear part of a healsparse map.
 
-        This is equivalent to `m[key] = None` and will clear
-        all the relevant pixels without expanding the coverage map.
+        This routine will set all the pixels referenced to the sentinel value.
+        This will remove them all from the map's ``valid_pixels``. Running
+        ``clear_pixels`` will not expand the coverage map. This routine will
+        not free any memory; for that you must run ``defragment()`` on the map.
+
+        Calling ``clear_pixels`` is equivalent to running ``m[key] = None``.
 
         Parameters
         ----------
