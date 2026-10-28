@@ -98,13 +98,13 @@ HealSparse Geometry Object Frames
 All of the :code:`HealSparse` shapes support different reference frames.
 The default is equatorial/celestial coordinates, but can be set to Galactic or Ecliptic coordinates following :code:`hpgeom`:
 
-The :code:`geom_frame` options are:
+The :code:`frame` options are:
 * Equatorial frame (default): Specified with :code:`"equatorial"` or :code:`"icrs"` or :code:`"c"`.
 * Galactic frame: Specified with :code:`"galactic"` or :code:`"g"`.
 * Ecliptic frame: Specified with :code:`"ecliptic"` or :code:`"barycentricmeanecliptic"` or :code:`"e"`.
 
 The basic coordinate system for :code:`HealSparseMap` objects are equatorial.
-If, for example, a shape uses :code:`geom_frame="galactic"` then the shape will be described in Galactic coordinates and the output pixels will be in equatorial coordinates.
+If, for example, a shape uses :code:`frame="galactic"` then the shape will be described in Galactic coordinates and the output pixels will be in equatorial coordinates.
 
 
 Combining Geometric Objects with Maps
@@ -155,7 +155,7 @@ Note that there are multiple equivalent ways to erase pixels.
     print(m.n_valid)
     # 1507247285
 
-    galactic_box = healsparse.Box(ra1=0.0, ra2=360.0, dec1=-20.0, dec2=20.0, value=False, geom_frame="g")
+    galactic_box = healsparse.Box(ra1=0.0, ra2=360.0, dec1=-20.0, dec2=20.0, value=False, frame="g")
 
     m.clear_pixels(galactic_box)
     # Equivalently, one can do `m &= galactic_box` (because the value is False)
@@ -200,8 +200,8 @@ This additionally demonstrates how to create a union of multiple shapes which ca
     print(m.n_valid)
     # 1507247285
 
-    galactic_box1 = healsparse.Box(ra1=0.0, ra2=360.0, dec1=20.0, dec2=90.0, value=False, geom_frame="g")
-    galactic_box2 = healsparse.Box(ra1=0.0, ra2=360.0, dec1=-90.0, dec2=-20.0, value=False, geom_frame="g")
+    galactic_box1 = healsparse.Box(ra1=0.0, ra2=360.0, dec1=20.0, dec2=90.0, value=False, frame="g")
+    galactic_box2 = healsparse.Box(ra1=0.0, ra2=360.0, dec1=-90.0, dec2=-20.0, value=False, frame="g")
     union = healsparse.GeomUnion(geom_list=[galactic_box1, galactic_box2])
 
     m.crop(union, in_place=True)

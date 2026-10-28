@@ -1059,7 +1059,7 @@ class GeomTestCase(unittest.TestCase):
 
         size = m._sparse_map.size
 
-        galactic_box = Box(ra1=0.0, ra2=360.0, dec1=-20.0, dec2=20.0, value=False, geom_frame="g")
+        galactic_box = Box(ra1=0.0, ra2=360.0, dec1=-20.0, dec2=20.0, value=False, frame="g")
 
         m &= galactic_box
 
@@ -1082,7 +1082,7 @@ class GeomTestCase(unittest.TestCase):
 
         m = healsparse.HealSparseMap.make_empty(nside_coverage, nside_map, np.bool_)
 
-        ecliptic_box = Box(ra1=0.0, ra2=50.0, dec1=-5.0, dec2=5.0, value=True, geom_frame="e")
+        ecliptic_box = Box(ra1=0.0, ra2=50.0, dec1=-5.0, dec2=5.0, value=True, frame="e")
 
         m |= ecliptic_box
 
@@ -1106,7 +1106,7 @@ class GeomTestCase(unittest.TestCase):
         ra_center, dec_center = 0.0, 0.0
         radius = 5.0
 
-        circle = Circle(ra=ra_center, dec=dec_center, radius=radius, value=True, geom_frame="galactic")
+        circle = Circle(ra=ra_center, dec=dec_center, radius=radius, value=True, frame="galactic")
         ranges = circle.get_pixel_ranges(nside=nside)
 
         ranges_compare = hpg.query_circle(
@@ -1126,7 +1126,7 @@ class GeomTestCase(unittest.TestCase):
         ras = [30.0, 30.0, 35.0, 40.0, 40.0]
         decs = [50.0, 60.0, 65.0, 60.0, 50.0]
 
-        poly = Polygon(ra=ras, dec=decs, value=True, geom_frame="ecliptic")
+        poly = Polygon(ra=ras, dec=decs, value=True, frame="ecliptic")
         ranges = poly.get_pixel_ranges(nside=nside)
 
         ranges_compare = hpg.query_polygon(
@@ -1154,7 +1154,7 @@ class GeomTestCase(unittest.TestCase):
             semi_minor=minor,
             alpha=alpha,
             value=True,
-            geom_frame="galactic",
+            frame="galactic",
         )
         ranges = ellipse.get_pixel_ranges(nside=nside)
 
@@ -1177,7 +1177,7 @@ class GeomTestCase(unittest.TestCase):
         ra1, ra2 = 20.0, 50.0
         dec1, dec2 = -35.0, -25.0
 
-        box = Box(ra1=ra1, ra2=ra2, dec1=dec1, dec2=dec2, value=True, geom_frame="ecliptic")
+        box = Box(ra1=ra1, ra2=ra2, dec1=dec1, dec2=dec2, value=True, frame="ecliptic")
         ranges = box.get_pixel_ranges(nside=nside)
 
         ranges_compare = hpg.query_box(
