@@ -539,7 +539,7 @@ class HealSparseMap(object):
         self._n_valid = None
 
         # Convert to an array, no-copy if possible.
-        _pixels = np.atleast_1d(np.asarray(pixels))
+        _pixels = np.atleast_1d(pixels)
 
         # When None is specified, we use the sentinel value.
         no_append = False
@@ -736,18 +736,17 @@ class HealSparseMap(object):
         cov0 = np.right_shift(start, shift)
         cov1 = np.right_shift(stop - 1, shift)  # inclusive; no overrun at the top
         nseg = cov1 - cov0 + 1
-        rng = np.repeat(np.arange(len(start)), nseg)
-        cov = cov0[rng] + (np.arange(nseg.sum()) - np.repeat(np.cumsum(nseg) - nseg, nseg))
-        seg_start = np.maximum(start[rng], np.left_shift(cov, shift))
-        seg_stop = np.minimum(stop[rng], np.left_shift(cov + 1, shift))
+        range_ = np.repeat(np.arange(len(start)), nseg)
+        cov = cov0[range_] + (np.arange(nseg.sum()) - np.repeat(np.cumsum(nseg) - nseg, nseg))
+        seg_start = np.maximum(start[range_], np.left_shift(cov, shift))
+        seg_stop = np.minimum(stop[range_], np.left_shift(cov + 1, shift))
 
         # Coverage handling.
-        cov_mask = self.coverage_mask
         if no_append:
-            keep = cov_mask[cov]
+            keep = self.coverage_mask[cov]
             cov, seg_start, seg_stop = cov[keep], seg_start[keep], seg_stop[keep]
         else:
-            new_cov_pixels = fast_unique(cov[~cov_mask[cov]])
+            new_cov_pixels = fast_unique(cov[~self.coverage_mask[cov]])
             if len(new_cov_pixels) > 0:
                 self._reserve_cov_pix(new_cov_pixels)
 
@@ -756,20 +755,19 @@ class HealSparseMap(object):
         sparse_start = seg_start + offset
         sparse_stop = seg_stop + offset
 
-        sparse_map = self._sparse_map
         for a, b in zip(sparse_start, sparse_stop):
             # Segments never overlap, so plain slicing is safe.
             if operation == "replace":
-                sparse_map[a: b] = value
+                self._sparse_map[a: b] = value
             elif operation == "add":
                 if self._sentinel != 0:
-                    sl = sparse_map[a: b]
+                    sl = self._sparse_map[a: b]
                     sl[sl == self._sentinel] = 0
-                sparse_map[a: b] += value
+                self._sparse_map[a: b] += value
             elif operation == "or":
-                sparse_map[a: b] |= value
+                self._sparse_map[a: b] |= value
             elif operation == "and":
-                sparse_map[a: b] &= value
+                self._sparse_map[a: b] &= value
 
     def set_bits_pix(self, pixels, bits, nest=True):
         """
