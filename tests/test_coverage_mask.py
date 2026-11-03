@@ -36,6 +36,104 @@ class CoverageMaskTestCase(unittest.TestCase):
 
         testing.assert_equal(cov_mask_orig, cov_mask)
 
+    def test_valid_coverage_mask(self):
+        bit_shift = healsparse.utils._compute_bitshift(32, 512)
+
+        for mtype in ["wide", "bit_packed", "rec_array", "float"]:
+            if mtype == "wide":
+                m = healsparse.HealSparseMap.make_empty(32, 512, healsparse.WIDE_MASK, wide_mask_maxbits=7)
+                m.set_bits_pix(np.arange(1000), [4])
+                m.set_bits_pix(np.arange(10000, 11000), [3])
+                value = None
+            elif mtype == "bit_packed":
+                m = healsparse.HealSparseMap.make_empty(32, 512, bool, bit_packed=True)
+                value = True
+            elif mtype == "rec_array":
+                dtype = [("a", "f8"), ("b", "i4")]
+                m = healsparse.HealSparseMap.make_empty(32, 512, dtype, primary="a")
+                value = np.ones(1, dtype=dtype)
+            else:
+                m = healsparse.HealSparseMap.make_empty(32, 512, np.float32)
+                value = 5.0
+
+            if value is not None:
+                m[0: 1000] = value
+                m[10000: 11000] = value
+
+            valid_coverage_mask = m.valid_coverage_mask
+            valid_pixels = m.valid_pixels
+
+            testing.assert_array_equal(
+                np.nonzero(valid_coverage_mask)[0],
+                np.unique(np.right_shift(valid_pixels, bit_shift)),
+            )
+
+    def test_valid_coverage_mask_outoforder(self):
+        bit_shift = healsparse.utils._compute_bitshift(32, 512)
+
+        for mtype in ["wide", "bit_packed", "rec_array", "float"]:
+            if mtype == "wide":
+                m = healsparse.HealSparseMap.make_empty(32, 512, healsparse.WIDE_MASK, wide_mask_maxbits=7)
+                m.set_bits_pix(np.arange(10000, 11000), [3])
+                m.set_bits_pix(np.arange(1000), [4])
+                value = None
+            elif mtype == "bit_packed":
+                m = healsparse.HealSparseMap.make_empty(32, 512, bool, bit_packed=True)
+                value = True
+            elif mtype == "rec_array":
+                dtype = [("a", "f8"), ("b", "i4")]
+                m = healsparse.HealSparseMap.make_empty(32, 512, dtype, primary="a")
+                value = np.ones(1, dtype=dtype)
+            else:
+                m = healsparse.HealSparseMap.make_empty(32, 512, np.float32)
+                value = 5.0
+
+            if value is not None:
+                m[10000: 11000] = value
+                m[0: 1000] = value
+
+            valid_coverage_mask = m.valid_coverage_mask
+            valid_pixels = m.valid_pixels
+
+            testing.assert_array_equal(
+                np.nonzero(valid_coverage_mask)[0],
+                np.unique(np.right_shift(valid_pixels, bit_shift)),
+            )
+
+    def test_valid_coverage_mask_blanked(self):
+        bit_shift = healsparse.utils._compute_bitshift(32, 512)
+
+        for mtype in ["wide", "bit_packed", "rec_array", "float"]:
+            if mtype == "wide":
+                m = healsparse.HealSparseMap.make_empty(32, 512, healsparse.WIDE_MASK, wide_mask_maxbits=7)
+                m.set_bits_pix(np.arange(10000, 11000), [3])
+                m.set_bits_pix(np.arange(1000), [4])
+                m.set_bits_pix(np.arange(1000), [4])
+                value = None
+            elif mtype == "bit_packed":
+                m = healsparse.HealSparseMap.make_empty(32, 512, bool, bit_packed=True)
+                value = True
+            elif mtype == "rec_array":
+                dtype = [("a", "f8"), ("b", "i4")]
+                m = healsparse.HealSparseMap.make_empty(32, 512, dtype, primary="a")
+                value = np.ones(1, dtype=dtype)
+            else:
+                m = healsparse.HealSparseMap.make_empty(32, 512, np.float32)
+                value = 5.0
+
+            if value is not None:
+                m[10000: 11000] = value
+                m[0: 1000] = value
+                m[0: 1000] = None
+
+            valid_coverage_mask = m.valid_coverage_mask
+            valid_pixels = m.valid_pixels
+
+            testing.assert_array_equal(
+                np.nonzero(valid_coverage_mask)[0],
+                np.unique(np.right_shift(valid_pixels, bit_shift)),
+            )
+
 
 if __name__ == '__main__':
     unittest.main()

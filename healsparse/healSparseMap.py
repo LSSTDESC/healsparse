@@ -5,7 +5,7 @@ import numbers
 from .healSparseCoverage import HealSparseCoverage
 from .utils import reduce_array, check_sentinel, _bitvals_to_packed_array
 from .utils import WIDE_NBIT, WIDE_MASK, PIXEL_RANGE_THRESHOLD
-from .utils import is_integer_value, _compute_bitshift, _n_valid_per_pix
+from .utils import is_integer_value, _compute_bitshift, _n_valid_per_pix, _any_valid_per_pix
 from .utils import has_duplicates, fast_unique, complement_pixel_ranges
 from .io_map import _read_map, _write_map, _write_moc
 from .packedBoolArray import _PackedBoolArray
@@ -980,8 +980,8 @@ class HealSparseMap(object):
 
         Returns
         -------
-        cov_map : `np.ndarray`
-           Float array of fractional coverage of each pixel
+        coverage_map : `np.ndarray`
+            Float array of fractional coverage of each pixel
         """
 
         fracdet = self.fracdet_map(self.nside_coverage)
@@ -993,12 +993,35 @@ class HealSparseMap(object):
         """
         Get the boolean mask of the coverage map.
 
+        This shows all coverage pixels defined in the map, even if they do
+        not have any valid pixels.
+
         Returns
         -------
-        cov_mask : `np.ndarray`
-           Boolean array of coverage mask.
+        coverage_mask : `np.ndarray`
+            Boolean array of coverage mask.
         """
         return self._cov_map.coverage_mask
+
+    @property
+    def valid_coverage_mask(self):
+        """
+        Get the boolean mask of coverage map with valid pixels.
+
+        This shows all coverage pixels in the map that have any valid
+        pixels.
+
+        Returns
+        -------
+        valid_coverage_mask : `np.ndarray`
+            Boolean array of valid coverage mask.
+        """
+        coverage_pixels_ordered, _, any_valid_arr = _any_valid_per_pix(self, self.nside_coverage, False)
+
+        valid_coverage_mask = np.zeros(hpg.nside_to_npixel(self.nside_coverage), dtype=bool)
+        valid_coverage_mask[coverage_pixels_ordered] = any_valid_arr
+
+        return valid_coverage_mask
 
     def fracdet_map(self, nside):
         """
@@ -2118,9 +2141,9 @@ class HealSparseMap(object):
         -------
         is_fragmented : `bool`
         """
-        coverage_pixels_ordered, _, n_valid_arr = _n_valid_per_pix(self, self.nside_coverage, False)
+        coverage_pixels_ordered, _, any_valid_arr = _any_valid_per_pix(self, self.nside_coverage, False)
 
-        if np.any(n_valid_arr == 0):
+        if np.any(any_valid_arr == 0):
             return True
 
         if np.all(coverage_pixels_ordered[:-1] <= coverage_pixels_ordered[1:]):
@@ -2147,12 +2170,12 @@ class HealSparseMap(object):
         -------
         defragmented_map : `HealSparseMap`
         """
-        coverage_pixels_ordered, nfine_per_cov, n_valid_arr = _n_valid_per_pix(
+        coverage_pixels_ordered, nfine_per_cov, any_valid_arr = _any_valid_per_pix(
             self,
             self.nside_coverage,
             False,
         )
-        coverage_pixels_use, = np.where(n_valid_arr > 0)
+        coverage_pixels_use, = np.where(any_valid_arr)
         defrag_n_cov = len(coverage_pixels_use)
 
         st = np.argsort(coverage_pixels_ordered[coverage_pixels_use])
