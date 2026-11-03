@@ -196,6 +196,43 @@ class _PackedBoolArray:
             else:
                 return temp
 
+    def any(self, shape=None, axis=None):
+        if shape is None:
+            first_unpacked, mid_data, last_unpacked = self._extract_first_middle_last(mask_extra=True)
+            if first_unpacked[0] is not None:
+                if np.any(first_unpacked[0], dtype=np.int64):
+                    return True
+            if last_unpacked[0] is not None:
+                if np.any(last_unpacked[0], dtype=np.int64):
+                    return True
+            if mid_data is not None:
+                if np.any(self._last_axis_any(mid_data, mid_data.size * 8)):
+                    return True
+
+            return False
+        else:
+            if self._start_index != 0 or (self._stop_index % 8) != 0:
+                raise ValueError("Reshaped any can only be done on aligned _PackedBoolArrays.")
+            if not isinstance(shape, (list, tuple)):
+                raise ValueError("Shape must be a list or tuple.")
+            if axis is not None and axis >= len(shape):
+                raise ValueError(f"Axis {axis} is out of bounds for shape.")
+            # The shape needs to (a) the last axis must be a multiple
+            # of 8; the product needs to equal ths size.
+            if np.prod(shape) != self.size:
+                raise ValueError("Shape mismatch with array size.")
+            if shape[-1] % 8 != 0:
+                raise ValueError("Final shape index must be a multiple of 8.")
+            if axis == 0:
+                raise NotImplementedError("axis=0 is not supported for any.")
+
+            temp = self._last_axis_any(self._data, shape[1])
+
+            if axis is None:
+                return np.any(temp)
+            else:
+                return temp
+
     @property
     def data_array(self):
         if self._start_index != 0 or self._stop_index != self.size:
@@ -711,3 +748,25 @@ class _PackedBoolArray:
         for i in range(0, rows.shape[0], step):
             out[i:i + step] = np.bitwise_count(words[i:i + step]).sum(axis=1, dtype=np.int64)
         return out
+
+    def _last_axis_any(self, packed, ncols_unpacked):
+        """Count if any bits are set along the last axis.
+
+        Parameters
+        ----------
+        packed : `np.ndarray`
+            Packed byte array.
+        ncols_unpacked : `int`
+            Number of columns when unpacked.
+
+        Returns
+        -------
+        any : `np.ndarray`
+            Boolean telling if any bits are set.
+        """
+        nbytes = ncols_unpacked // 8
+        rows = packed.reshape(-1, nbytes)
+        for dt in (np.uint64, np.uint32, np.uint16, np.uint8):
+            if nbytes % np.dtype(dt).itemsize == 0:
+                break
+        return rows.view(dt).any(axis=1)
