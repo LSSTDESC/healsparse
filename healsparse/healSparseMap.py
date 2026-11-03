@@ -980,8 +980,8 @@ class HealSparseMap(object):
 
         Returns
         -------
-        cov_map : `np.ndarray`
-           Float array of fractional coverage of each pixel
+        coverage_map : `np.ndarray`
+            Float array of fractional coverage of each pixel
         """
 
         fracdet = self.fracdet_map(self.nside_coverage)
@@ -993,12 +993,35 @@ class HealSparseMap(object):
         """
         Get the boolean mask of the coverage map.
 
+        This shows all coverage pixels defined in the map, even if they do
+        not have any valid pixels.
+
         Returns
         -------
-        cov_mask : `np.ndarray`
-           Boolean array of coverage mask.
+        coverage_mask : `np.ndarray`
+            Boolean array of coverage mask.
         """
         return self._cov_map.coverage_mask
+
+    @property
+    def valid_coverage_mask(self):
+        """
+        Get the boolean mask of coverage map with valid pixels.
+
+        This shows all coverage pixels in the map that have any valid
+        pixels.
+
+        Returns
+        -------
+        valid_coverage_mask : `np.ndarray`
+            Boolean array of valid coverage mask.
+        """
+        coverage_pixels_ordered, _, any_valid_arr = _any_valid_per_pix(self, self.nside_coverage, False)
+
+        valid_coverage_mask = np.zeros(hpg.nside_to_npixel(self.nside_coverage), dtype=bool)
+        valid_coverage_mask[coverage_pixels_ordered] = any_valid_arr
+
+        return valid_coverage_mask
 
     def fracdet_map(self, nside):
         """
